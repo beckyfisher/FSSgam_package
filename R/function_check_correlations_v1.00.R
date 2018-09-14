@@ -64,7 +64,7 @@ check.correlations=function(dat,parallel=F,n.cores=4){
   require(nnet)
   if(parallel==T){
    require(doSNOW)
-   cl=makePSOCKcluster(n.cores)
+   cl=makeCluster(n.cores)
    registerDoSNOW(cl)
    out.cor.dat<-foreach(r = 1:nrow(lm.grid),.packages=c('nnet'),.errorhandling='pass')%dopar%{
     var.1=as.character(lm.grid[r,1])
