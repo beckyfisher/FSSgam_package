@@ -10,7 +10,7 @@
 #' and a complete list of the model formula that will be fitted by a call to
 #' full.subsets.gam (mod.formula)
 
-check.model.set=function(use.dat,
+generate.model.set=function(use.dat,
                           test.fit,
                           pred.vars.cont=NA,
                           pred.vars.fact=NA,
@@ -26,7 +26,7 @@ check.model.set=function(use.dat,
                           k=5,
                           bs.arg="'cr'",
                           null.terms="",
-                          max.models=500,
+                          max.models=NA,
                           parallel=F,
                           n.cores=4,
                           r2.type="r2.lm.est",
