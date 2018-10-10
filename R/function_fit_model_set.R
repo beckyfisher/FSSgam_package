@@ -199,8 +199,8 @@ fit.model.set=function(model.set.list,
                      .packages=c('mgcv','gamm4','MuMIn'),
                      .errorhandling='pass',
                      .options.snow = opts)%dopar%{
-          mod.l=fit.mod.l(mod.formula[[l]])
-          out=unlist(extract.mod.dat(mod.l))
+        unlist(extract.mod.dat(fit.mod.l(mod.formula[[l]])))
+
      }
      close(pb)
      stopCluster(cl)
