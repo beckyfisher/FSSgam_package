@@ -195,9 +195,9 @@ fit.model.set=function(model.set.list,
      cl=makeCluster(n.cores)
      registerDoSNOW(cl)
      opts <- list(progress = progress)
-     mod.dat<-foreach(l = 1:length(mod.formula),
+     mod.dat<<-foreach(l = 1:length(mod.formula),
                      .packages=c('mgcv','gamm4','MuMIn'),
-                     .errorhandling='pass',
+                     #.errorhandling='pass',
                      .options.snow = opts)%dopar%{
         unlist(extract.mod.dat(fit.mod.l(mod.formula[[l]])))
 
