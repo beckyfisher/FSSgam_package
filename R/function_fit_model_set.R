@@ -134,6 +134,7 @@ fit.model.set=function(model.set.list,
    return(mod.l)
    }
 
+  ## Now do the model fitting
   # if all model fits are to be saved
   if(save.model.fits==T){
     # now fit the models by updating the test fit (with or without parallel)
@@ -165,11 +166,8 @@ fit.model.set=function(model.set.list,
     names(out.dat)=names(mod.formula[1:n.mods])
 
     # find all the models that didn't fit and extract the error messages
-  #  model.success=lapply(lapply(out.dat,FUN=class),FUN=function(x){
-  #     x[1]!="try-error"})
     model.success=lapply(lapply(out.dat,FUN=class),FUN=function(x){
        length(grep("gam",x))>0})
-
     failed.models=mod.formula[which(model.success==F)]
     success.models=out.dat[which(model.success==T)]
     if(length(success.models)==0){
@@ -183,7 +181,6 @@ fit.model.set=function(model.set.list,
     mod.data.out=cbind(mod.data.out,do.call("rbind",lapply(success.models,FUN=function(x){unlist(extract.mod.dat(x))})))
 
   }else{ # if model fits are not to be saved
-
     #for all models make a table indicating which variables are included
     var.inclusions=build.inclusion.mat(included.vars=included.vars,formula.list=mod.formula)
      # now make a table of all the model summary data
@@ -225,8 +222,8 @@ fit.model.set=function(model.set.list,
     success.models=mod.formula[which(is.na(mod.data.out$AICc)==F)]
   }
 
-  mod.data.out$delta.AICc=round(mod.data.out$AICc-min(mod.data.out$AICc),3)
-  mod.data.out$delta.BIC=round(mod.data.out$BIC-min(mod.data.out$BIC),3)
+  mod.data.out$delta.AICc=round(mod.data.out$AICc-min(mod.data.out$AICc,na.rm=T),3)
+  mod.data.out$delta.BIC=round(mod.data.out$BIC-min(mod.data.out$BIC,na.rm=T),3)
   mod.data.out$wi.AICc=round(wi(mod.data.out$AICc),3)
   mod.data.out$wi.BIC=round(wi(mod.data.out$BIC),3)
 
