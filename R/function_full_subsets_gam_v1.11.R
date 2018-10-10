@@ -23,6 +23,8 @@
 #'
 #' @param cor.matrix  By default predictor correlations are evaluated via a call to check.correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square-route of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square-route of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
 #'
+#' @param non.linear.correlations Set this argument to TRUE of you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check.non.linear.correlations for more details.
+#'
 #' @param k An integer indicating the dimension of the basis used to represent the smooth term (see ?s). The default value is 5. Higher values are not recommended unless a complex trend between the response variable and the continuous predictor variables is expected, and the data are sufficient to support this. k can be reduced to as low as 3 where there is trouble obtaining convergence, or sample size is low. Note that this must be set to override the default value, regardless of what k is used in the test.fit
 #'
 #' @param bs.arg Specification of the smoother to use, see ?s for more information on smoother provided in gam (mgcv). Note that all continuous predictors specified in pred.vars.cont will be fitted using the same smooth, unless they are also specified as linear.terms or cyclic.vars. Note that any specification of bs in test.fit is discarded.
@@ -74,6 +76,7 @@ full.subsets.gam=function(use.dat,
                           smooth.smooth.interactions=F,
                           cov.cutoff=0.28,
                           cor.matrix=NA,
+                          non.linear.correlations=F,
                           max.predictors=3,
                           k=5,
                           bs.arg="'cr'",
@@ -276,7 +279,10 @@ full.subsets.gam=function(use.dat,
         if(length(pred.vars.cont)<2){
             stop("You have less than 2 continuous predictors you wish interactions for.
             Please reset 'smooth.smooth.interactions' to 'False'")}
-      continuous.correlations=check.correlations(use.dat[,pred.vars.cont])
+       if(non.linear.correlations==T){
+        continuous.correlations=check.non.linear.correlations(use.dat[,pred.vars.cont])}else{
+        continuous.correlations=check.correlations(use.dat[,pred.vars.cont])}
+
       cont.combns=list()
       cont.cmbns.max.predictors=max.predictors
       if(max.predictors>length(pred.vars.cont)){cont.cmbns.max.predictors=length(pred.vars.cont)}
@@ -305,7 +311,10 @@ full.subsets.gam=function(use.dat,
             stop("You specified less than 2 variables as smooth.smooth.interactions.")}
         if(max(is.na(match(smooth.smooth.interactions,colnames(use.dat))))==1){
             stop("Not all specified smooth.smooth.interactions are supplied in use.dat")}
-      continuous.correlations=check.correlations(use.dat[,smooth.smooth.interactions])
+      if(non.linear.correlations==T){
+       continuous.correlations=check.non.linear.correlations(use.dat[,smooth.smooth.interactions])}else{
+       continuous.correlations=check.correlations(use.dat[,smooth.smooth.interactions])}
+
       cont.combns=list()
       cont.cmbns.max.predictors=max.predictors
       if(max.predictors>length(smooth.smooth.interactions)){cont.cmbns.max.predictors=length(smooth.smooth.interactions)}
@@ -330,7 +339,9 @@ full.subsets.gam=function(use.dat,
 
   all.predictors=na.omit(unique(c(all.predictors,pred.vars.fact)))
   # calculate a correlation matrix between all predictors
-  cc=check.correlations(use.dat[,all.predictors],parallel=parallel,n.cores=n.cores)
+  if(non.linear.correlations==T){
+   cc=check.non.linear.correlations(use.dat[,all.predictors])}else{
+   cc=check.correlations(use.dat[,all.predictors],parallel=parallel,n.cores=n.cores)}
   if(length(cor.matrix)==1){
    cor.matrix=cc
    # replace NA's with zero.
