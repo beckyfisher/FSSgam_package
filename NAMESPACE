@@ -2,3 +2,5 @@
 
 export(check.correlations)
 export(check.model.set)
+export(check.non.linear.correlations)
+export(full.subsets.gam)
