@@ -14,13 +14,21 @@
 #' @details
 #' Full subsets information theoretic approaches are becoming an increasingly popular tool for exploring predictive power and variable importance where a wide range of candidate predictors are being considered.
 #'
-#' This package provides a simple function that can be used to construct, fit and compare a complete model set of possible ecological or environmental predictors, given a response variable of interest. The function is based on Generalized Additive Models (GAM) and builds on the MuMIn package.
+#' This package provides simple function(s) that can be used to construct, fit and compare a complete model set of possible ecological or environmental predictors, given a response variable of interest. The function(s) are based on Generalized Additive Models (GAM) and builds on the MuMIn package.
 #'
 #' Advantages include the capacity to fit more predictors than there are replicates, automatic removal of models with correlated predictors, and model sets that include interactions between factors and smooth predictors, as all as smooth interactions with other smooths (via te).
 #'
-#' The function takes a range of arguments that allow control over the model set being constructed, including specifying cyclic and linear continuous predictors, specification of the smoothing algorithm used and the maximum complexity allowed for smooth terms.
+#' The function(s) takes a range of arguments that allow control over the model set being constructed, including specifying cyclic and linear continuous predictors, specification of the smoothing algorithm used and the maximum complexity allowed for smooth terms.
 #'
-#' The use of the function is demonstrated via case studies that highlight how appropriate model sets can be easily constructed, and the broader utility of the approach for exploratory ecology.
+#' The full subsets can be carried out via one of two methods allowed in the package.
+#' The first is through a direct call to full.subsets.gam (this is the original function).
+#' This function both constructs and fits the complete model set, based on the user supplied input. This function requires that all model fits are saved, and is therefore
+#' not suitable for extremely large models sets, as these will cause issues with memory.
+#'
+#' The second method is via a call to generate.model.set followed by fit.model set. This pair of functions splits the process of generating the model set from actually fitting and extracting the relevant model data.
+#' This method is useful for large model sets, because it allows the model set to be interrrogated before fitting and also optionally allows model fit data to not be saved, thus alleviating memory issues.
+#'
+#' The use of the function(s) is demonstrated via case studies that highlight how appropriate model sets can be easily constructed, and the broader utility of the approach for exploratory ecology.
 #' Please see the case study files on github for usage examples at \url{https://github.com/beckyfisher/FSSgam}
 #'
 #' @name FSSgam-package
