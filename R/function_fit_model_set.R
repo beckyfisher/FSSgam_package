@@ -57,6 +57,7 @@ fit.model.set=function(model.set.list,
 
   # some functions for extracting model information
   require(MuMIn)
+  # wi values
   wi<<-function(AIC.vals){# This function calculate the Aikaike weights:
    # wi=(exp(-1/2*AICc.vals.adj))/Sum.wi=1 to r (exp(-1/2*AICc.vals.adj))
    AICc.vals.adj=AIC.vals-min(na.omit(AIC.vals))
@@ -66,7 +67,7 @@ fit.model.set=function(model.set.list,
    wi.den.sum=sum(na.omit(wi.den))
    wi=wi.den/wi.den.sum
    return(wi)}
-
+   # extract model data
    extract.mod.dat<<-function(mod.fit){
     x=mod.fit
     mod.dat=list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA)
@@ -105,7 +106,33 @@ fit.model.set=function(model.set.list,
              if(class(x)[1]=="gam"){edf.m=summary(x)$edf}else{edf.m=x$gam$edf}
       mod.dat$edf.less.1=length(which(edf.m<0.25))}
    return(mod.dat)}
+   # build the var.inclusion matrix
+   build.inclusion.mat <- function(included.vars,formula.list){
+    var.inclusions=matrix(0,ncol=length(included.vars),length(formula.list))
+    colnames(var.inclusions)=c(included.vars)
 
+    for(m in 1:length(formula.list)){
+          pred.vars.m=unique(
+            unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(names(formula.list)[m],
+            split="+",fixed=T)),
+            split=".by.",fixed=T)),
+            split=".I.",fixed=T)),
+            split="*",fixed=T)),
+            split=".t.",fixed=T)),
+            split=".te.",fixed=T)))
+          if(pred.vars.m[1]!="null"){var.inclusions[m,pred.vars.m]=1}}
+    return(var.inclusions)
+   }
+   # fit the updated model
+   fit.mod.l <- function(formula.l){
+    if(length(grep("dsm",class(test.fit)))>0){
+     mod.l=try(update(test.fit,formula=formula.l),
+               silent=T)}
+    if(length(grep("dsm",class(test.fit)))==0){
+     mod.l=try(update(test.fit,formula=formula.l,data=use.dat),
+               silent=T)}
+   return(mod.l)
+   }
 
   # if all model fits are to be saved
   if(save.model.fits==T){
@@ -121,25 +148,18 @@ fit.model.set=function(model.set.list,
                      .packages=c('mgcv','gamm4','MuMIn'),
                      .errorhandling='pass',
                      .options.snow = opts)%dopar%{
-           if(length(grep("dsm",class(test.fit)))>0){
-             out=update(test.fit,formula=mod.formula[[l]])}
-           if(length(grep("dsm",class(test.fit)))==0){
-          out=update(test.fit,formula=mod.formula[[l]],data=use.dat)}
-     }
+       fit.mod.l(mod.formula[[l]])
+    }
      close(pb)
      stopCluster(cl)
      registerDoSEQ()
              }else{
         out.dat=list()
         for(l in 1:length(mod.formula)){
-           if(length(grep("dsm",class(test.fit)))>0){
-             out=try(update(test.fit,formula=mod.formula[[l]]),silent=T)}
-           if(length(grep("dsm",class(test.fit)))==0){
-          out=try(update(test.fit,formula=mod.formula[[l]],data=use.dat),silent=T)}
-          out.dat=c(out.dat,list(out))
+           mod.l=fit.mod.l(mod.formula[[l]])
+           out.dat=c(out.dat,list(mod.l))
           setTxtProgressBar(pb,l)
-
-          }
+           }
     }
     close(pb)
     names(out.dat)=names(mod.formula[1:n.mods])
@@ -156,80 +176,17 @@ fit.model.set=function(model.set.list,
           stop("None of your models fitted successfully. Please check your input objects.")}
 
     # of the successful models, make a table indicating which variables are included
-    var.inclusions=matrix(0,ncol=length(included.vars),length(success.models))
-    colnames(var.inclusions)=c(included.vars)
-
-    for(m in 1:length(success.models)){
-          pred.vars.m=unique(
-            unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(names(success.models)[m],
-            split="+",fixed=T)),
-            split=".by.",fixed=T)),
-            split=".I.",fixed=T)),
-            split="*",fixed=T)),
-            split=".t.",fixed=T)),
-            split=".te.",fixed=T)))
-          if(pred.vars.m[1]!="null"){var.inclusions[m,pred.vars.m]=1}}
-
+    var.inclusions=build.inclusion.mat(included.vars=included.vars,formula.list=success.models)
     # now make a table of all the model summary data
     mod.data.out=data.frame("modname"=names(success.models))
     mod.data.out$formula=unlist(lapply(success.models,FUN=function(x){as.character(formula(x)[3])}))
-    mod.data.out$AICc=unlist(lapply(success.models,FUN=MuMIn::AICc))
-    mod.data.out$BIC=unlist(lapply(success.models,FUN=BIC))
-    mod.data.out$r2.vals=round(unlist(lapply(success.models,FUN=function(x){
-          out=NA
-          if(class(x)[1]=="gam" & r2.type=="dev"){out=summary(x)$dev.expl}
-          if(class(x)[1]=="gam" & r2.type=="r2"){out=summary(x)$r.sq}
-          if(class(x)[1]=="gam" & r2.type=="r2.lm.est"){
-             out=summary(lm(x$y~predict(x)))$r.sq}
-          if(class(x)[[1]]=="gamm4" & r2.type=="dev"){
-             out=summary(x$gam)$dev.expl
-             if(length(out)==0){out=NA}}
-          if(class(x)[[1]]=="gamm4" & r2.type=="r2"){out=summary(x$gam)$r.sq}
-          if(class(x)[[1]]=="gamm4" & r2.type=="r2.lm.est"){
-             out=summary(lm(attributes(x$mer)$frame$y~
-                          predict(x[[1]],re.form=NA,type="response")))$r.sq}
-             if(is.null(out)){out=NA}
-          return(out)})),3)
+    mod.data.out=cbind(mod.data.out,do.call("rbind",lapply(success.models,FUN=function(x){unlist(extract.mod.dat(x))})))
 
-    # substract the null model r2 value from each model r2 value
-    if(report.unique.r2==T){
-    null.r2=mod.data.out$r2.vals[which(mod.data.out$modname=="null")]
-    mod.data.out$r2.vals.unique=mod.data.out$r2.vals-null.r2}
-
-    # now calculate the summed edf
-    mod.data.out$edf=round(unlist(lapply(success.models,FUN=function(x){
-          if(class(x)[1]=="gam"){
-            edf.m=summary(x)$edf
-            p.coeff.m=summary(x)$p.coeff}else{
-             #edf.m=summary(x$gam)$edf
-             #p.coeff.m=summary(x$gam)$p.coeff
-             edf.m=x$gam$edf
-             p.coeff.m=x$gam$p.coeff
-             }
-          edf.m[which(edf.m<1)]=1 # any edf<0 are reset to 1 to ensure proper
-                                  # parameter count when there is shrinkage (bs='cc')
-          return(sum(c(edf.m,length(p.coeff.m))))})),2)
-    # count the edf values less than 0.25 to check for serious shrinkage
-    mod.data.out$edf.less.1=unlist(lapply(success.models,FUN=function(x){
-          #if(class(x)[1]=="gam"){edf.m=summary(x)$edf}else{edf.m=summary(x$gam)$edf}
-          if(class(x)[1]=="gam"){edf.m=summary(x)$edf}else{edf.m=x$gam$edf}
-          return(length(which(edf.m<0.25)))}))
   }else{ # if model fits are not to be saved
-    var.inclusions=matrix(0,ncol=length(included.vars),length(mod.formula))
-    colnames(var.inclusions)=c(included.vars)
 
-    for(m in 1:length(mod.formula)){
-          pred.vars.m=unique(
-            unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(names(mod.formula)[m],
-            split="+",fixed=T)),
-            split=".by.",fixed=T)),
-            split=".I.",fixed=T)),
-            split="*",fixed=T)),
-            split=".t.",fixed=T)),
-            split=".te.",fixed=T)))
-          if(pred.vars.m[1]!="null"){var.inclusions[m,pred.vars.m]=1}}
-
-    # now make a table of all the model summary data
+    #for all models make a table indicating which variables are included
+    var.inclusions=build.inclusion.mat(included.vars=included.vars,formula.list=mod.formula)
+     # now make a table of all the model summary data
     mod.data.out=data.frame("modname"=names(mod.formula))
     mod.data.out$formula=unlist(lapply(mod.formula,FUN=function(x){as.character(formula(x))[2]}))
 
@@ -245,28 +202,19 @@ fit.model.set=function(model.set.list,
                      .packages=c('mgcv','gamm4','MuMIn'),
                      .errorhandling='pass',
                      .options.snow = opts)%dopar%{
-           if(length(grep("dsm",class(test.fit)))>0){
-             mod.l=try(update(test.fit,formula=mod.formula[[l]]))}
-           if(length(grep("dsm",class(test.fit)))==0){
-             mod.l=try(update(test.fit,formula=mod.formula[[l]],data=use.dat))}
+          mod.l=fit.mod.l(mod.formula[[l]])
           out=unlist(extract.mod.dat(mod.l))
      }
      close(pb)
      stopCluster(cl)
      registerDoSEQ()
              }else{
-
-
         mod.dat=list()
         for(l in 1:length(mod.formula)){
-           if(length(grep("dsm",class(test.fit)))>0){
-             out=try(update(test.fit,formula=mod.formula[[l]]),silent=T)}
-           if(length(grep("dsm",class(test.fit)))==0){
-         mod.l=try(update(test.fit,formula=mod.formula[[l]],data=use.dat),silent=T)}
-         out=unlist(extract.mod.dat(mod.l))
+          mod.l=fit.mod.l(mod.formula[[l]])
+          out=unlist(extract.mod.dat(mod.l))
           mod.dat=c(mod.dat,list(out))
           setTxtProgressBar(pb,l)
-
           }
     }
     close(pb)
