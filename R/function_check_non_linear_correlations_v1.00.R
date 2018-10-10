@@ -34,7 +34,7 @@ check.non.linear.correlations=function(dat){
   if(length(fact.vars)>0){require(nnet)}
 
   #x=test.mat[r,]
-  find.r.est=function(x){
+  find.r.est.2=function(x){
     r.est=NA
     response.var1=as.character(unlist(x["rows"]))
     predictor.var2=as.character(unlist(x["cols"]))
@@ -63,13 +63,15 @@ check.non.linear.correlations=function(dat){
      }
     # if both the response.var1 variable and the predictor.var2 are continuous, do a gam
     if(class.response.var1=="continuous" & class.predictor.var2 == "continuous"){
-       fit=gam(response.var1~s(predictor.var2),data=dat.r)
-       r.sq=summary(fit)$r.sq
-       if(r.sq>0){r.est=sqrt(r.sq)}else{r.est=0}
+       k.use=length(unique(dat.r$predictor.var2))
+       fit=try(gam(response.var1~s(predictor.var2,k=k.use),data=dat.r),silent=T)
+       if(class(fit)[[1]]!="try-error"){
+        r.sq=summary(fit)$r.sq
+       if(r.sq>0){r.est=sqrt(r.sq)}else{r.est=0}}
      }
     return(r.est)}
 
-  out.cor.dat=apply(test.mat,MARGIN=1,FUN=find.r.est)
+  out.cor.dat=apply(test.mat,MARGIN=1,FUN=find.r.est.2)
   test.mat$r.sq=out.cor.dat
 
   # now put the results in the correlation matrix
