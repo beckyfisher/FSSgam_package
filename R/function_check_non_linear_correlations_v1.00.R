@@ -33,15 +33,21 @@ check.non.linear.correlations=function(dat){
   require(mgcv)
   if(length(fact.vars)>0){require(nnet)}
 
+  #r=r+1
   #x=test.mat[r,]
   find.r.est.2=function(x){
     r.est=NA
     response.var1=as.character(unlist(x["rows"]))
     predictor.var2=as.character(unlist(x["cols"]))
-    if(length(grep(response.var1,fact.vars))==1){class.response.var1="factor"}
-    if(length(grep(response.var1,cont.vars))==1){class.response.var1="continuous"}
-    if(length(grep(predictor.var2,fact.vars))==1){class.predictor.var2="factor"}
-    if(length(grep(predictor.var2,cont.vars))==1){class.predictor.var2="continuous"}
+    class.response.var1=character()
+    class.predictor.var2=character()
+    if(length(match(response.var1,fact.vars))==1){class.response.var1="factor"}
+    if(length(match(response.var1,cont.vars))==1){class.response.var1="continuous"}
+    if(length(match(predictor.var2,fact.vars))==1){class.predictor.var2="factor"}
+    if(length(match(predictor.var2,cont.vars))==1){class.predictor.var2="continuous"}
+
+    #return(c(class.response.var1,class.predictor.var2))}
+
     dat.r=na.omit(dat[,c(response.var1,predictor.var2)])
     dat.r$response.var1=dat.r[,response.var1]
     dat.r$predictor.var2=dat.r[,predictor.var2]
