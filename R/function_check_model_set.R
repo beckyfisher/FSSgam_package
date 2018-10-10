@@ -2,7 +2,7 @@
 #'
 #' A function to generate a complete model set as would be fitted by full.subsets.gam
 #' but without fitting the actual model set.
-#' @param NA see ?full.subsets.gam
+#' @param NA see ?full.subsets.gam for details of function arguments and their defaults.
 #' @details This function was developed for troubleshooting purposes. It is not always maintained
 #' @export
 #' @return a list containing the number of formulated models (n.mods),
@@ -21,6 +21,7 @@ check.model.set=function(use.dat,
                           smooth.smooth.interactions=F,
                           cov.cutoff=0.28,
                           cor.matrix=NA,
+                          non.linear.correlations=F,
                           max.predictors=3,
                           k=5,
                           bs.arg="'cr'",
@@ -223,7 +224,10 @@ check.model.set=function(use.dat,
         if(length(pred.vars.cont)<2){
             stop("You have less than 2 continuous predictors you wish interactions for.
             Please reset 'smooth.smooth.interactions' to 'False'")}
-      continuous.correlations=check.correlations(use.dat[,pred.vars.cont])
+       if(non.linear.correlations==T){
+        continuous.correlations=check.non.linear.correlations(use.dat[,pred.vars.cont])}else{
+        continuous.correlations=check.correlations(use.dat[,pred.vars.cont])}
+
       cont.combns=list()
       cont.cmbns.max.predictors=max.predictors
       if(max.predictors>length(pred.vars.cont)){cont.cmbns.max.predictors=length(pred.vars.cont)}
@@ -252,7 +256,10 @@ check.model.set=function(use.dat,
             stop("You specified less than 2 variables as smooth.smooth.interactions.")}
         if(max(is.na(match(smooth.smooth.interactions,colnames(use.dat))))==1){
             stop("Not all specified smooth.smooth.interactions are supplied in use.dat")}
-      continuous.correlations=check.correlations(use.dat[,smooth.smooth.interactions])
+      if(non.linear.correlations==T){
+       continuous.correlations=check.non.linear.correlations(use.dat[,smooth.smooth.interactions])}else{
+       continuous.correlations=check.correlations(use.dat[,smooth.smooth.interactions])}
+
       cont.combns=list()
       cont.cmbns.max.predictors=max.predictors
       if(max.predictors>length(smooth.smooth.interactions)){cont.cmbns.max.predictors=length(smooth.smooth.interactions)}
@@ -277,7 +284,9 @@ check.model.set=function(use.dat,
 
   all.predictors=na.omit(unique(c(all.predictors,pred.vars.fact)))
   # calculate a correlation matrix between all predictors
-  cc=check.correlations(use.dat[,all.predictors],parallel=parallel,n.cores=n.cores)
+  if(non.linear.correlations==T){
+   cc=check.non.linear.correlations(use.dat[,all.predictors])}else{
+   cc=check.correlations(use.dat[,all.predictors],parallel=parallel,n.cores=n.cores)}
   if(length(cor.matrix)==1){
    cor.matrix=cc
    # replace NA's with zero.
@@ -300,6 +309,7 @@ check.model.set=function(use.dat,
   for(i in 1:max.predictors){
     all.mods=c(all.mods,
      combn(na.omit(c(pred.vars.cont,pred.vars.fact,
+                     linear.vars,
                      interaction.terms,
                      linear.interaction.terms,
                      smooth.smooth.interaction.terms)),
@@ -334,6 +344,7 @@ check.model.set=function(use.dat,
      col.index=which(match(colnames(cor.matrix),unique(mod.terms))>0)
      cor.mat.m=cor.matrix[row.index,col.index]
      if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){use.mods[[m]]=NA}
+     if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){use.mods[[m]]=NA}
     }
 
     # remove the model if there are more than the number of terms specified in "max.predictors"
