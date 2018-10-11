@@ -123,11 +123,10 @@ return(var.inclusions)
 #'
 fit.mod.l <- function(formula.l,test.fit.=test.fit,use.dat.=use.dat){
 if(length(grep("dsm",class(test.fit.)))>0){
- assign("X",use.dat.,pos=1)
  mod.l=try(update(test.fit.,formula=formula.l),
            silent=T)}
 if(length(grep("dsm",class(test.fit.)))==0){
- mod.l=try(update(test.fit.,formula=formula.l,data=X),
+ mod.l=try(update(test.fit.,formula=formula.l,data=use.dat.),
            silent=T)}
 return(mod.l)
 }
