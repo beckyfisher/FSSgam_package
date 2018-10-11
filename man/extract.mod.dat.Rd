@@ -8,6 +8,8 @@ extract.mod.dat(mod.fit, r2.type. = r2.type)
 }
 \arguments{
 \item{mod.fit}{A dsm, gam or uGamm fitted model object}
+
+\item{r2.type}{The type of r2 to extract. Passed through arguments supplied to fit.model.set}
 }
 \value{
 A list of model fit parameters

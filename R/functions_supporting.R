@@ -28,6 +28,8 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
 #'
 #' @param  mod.fit A dsm, gam or uGamm fitted model object
 #'
+#' @param  r2.type The type of r2 to extract. Passed through arguments supplied to fit.model.set
+#'
 #' @details Extracts model fit parameters from a dsm, gam or uGamm fitted model object
 #'
 #' @export
