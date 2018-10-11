@@ -102,7 +102,8 @@ fit.model.set=function(model.set.list,
     # now make a table of all the model summary data
     mod.data.out=data.frame("modname"=names(success.models))
     mod.data.out$formula=unlist(lapply(success.models,FUN=function(x){as.character(formula(x)[3])}))
-    mod.data.out=cbind(mod.data.out,do.call("rbind",lapply(success.models,FUN=function(x){unlist(extract.mod.dat(x))})))
+    mod.data.out=cbind(mod.data.out,do.call("rbind",lapply(success.models,FUN=function(x){
+                        unlist(extract.mod.dat(x),r2.type.=r2.type)})))
 
   }else{ # if model fits are not to be saved
     #for all models make a table indicating which variables are included
