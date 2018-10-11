@@ -81,7 +81,7 @@ fit.model.set=function(model.set.list,
              }else{
         out.dat=list()
         for(l in 1:length(mod.formula)){
-           mod.l=fit.mod.l(mod.formula[[l]])
+           mod.l=fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat.=use.dat)
            out.dat=c(out.dat,list(mod.l))
           setTxtProgressBar(pb,l)
            }
@@ -135,8 +135,8 @@ fit.model.set=function(model.set.list,
              }else{
         mod.dat=list()
         for(l in 1:length(mod.formula)){
-          mod.l=fit.mod.l(mod.formula[[l]])
-          out=unlist(extract.mod.dat(mod.l))
+          mod.l=fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat.=use.dat)
+          out=unlist(extract.mod.dat(mod.l,r2.type.=r2.type))
           mod.dat=c(mod.dat,list(out))
           setTxtProgressBar(pb,l)
           }
