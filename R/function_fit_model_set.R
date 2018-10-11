@@ -42,7 +42,7 @@ fit.model.set=function(model.set.list,
                           r2.type="r2.lm.est",
                           report.unique.r2=F){
   # make sure use.dat is a data.frame
-  use.dat=model.set.list$used.data
+  use.dat <<- model.set.list$used.data
   n.mods=model.set.list$n.mods
   mod.formula=model.set.list$mod.formula
   test.fit=model.set.list$test.fit
