@@ -284,8 +284,8 @@ full.subsets.gam=function(use.dat,
         continuous.correlations=check.correlations(use.dat[,pred.vars.cont])}
 
       cont.combns=list()
-      cont.cmbns.max.predictors=max.predictors
-      if(max.predictors>length(pred.vars.cont)){cont.cmbns.max.predictors=length(pred.vars.cont)}
+      cont.cmbns.max.predictors=2#max.predictors
+      #if(max.predictors>length(pred.vars.cont)){cont.cmbns.max.predictors=length(pred.vars.cont)}
       for(i in 2:cont.cmbns.max.predictors){
         if(i<=length(pred.vars.cont)){
         cont.combns=c(cont.combns,
