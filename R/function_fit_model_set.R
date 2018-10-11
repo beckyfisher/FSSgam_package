@@ -73,7 +73,7 @@ fit.model.set=function(model.set.list,
                      .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                      .errorhandling='pass',
                      .options.snow = opts)%dopar%{
-       fit.mod.l(mod.formula[[l]])
+       fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat.=use.dat)
     }
      close(pb)
      stopCluster(cl)
@@ -127,7 +127,6 @@ fit.model.set=function(model.set.list,
                                          test.fit.=test.fit,
                                          use.dat.=use.dat),
                                r2.type.=r2.type))
-
      }
      close(pb)
      stopCluster(cl)
