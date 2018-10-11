@@ -4,7 +4,7 @@
 \alias{extract.mod.dat}
 \title{extract.mod.dat}
 \usage{
-extract.mod.dat(mod.fit)
+extract.mod.dat(mod.fit, r2.type. = r2.type)
 }
 \arguments{
 \item{mod.fit}{A dsm, gam or uGamm fitted model object}
