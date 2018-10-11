@@ -33,7 +33,7 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
 #' @export
 #' @return A list of model fit parameters
 #'
-extract.mod.dat <- function(mod.fit){
+extract.mod.dat <- function(mod.fit,r2.type.=r2.type){
 #x=mod.fit
  mod.dat=list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA)
  if(class(mod.fit)[[1]]!="try-error"){
@@ -42,15 +42,15 @@ extract.mod.dat <- function(mod.fit){
   mod.dat$BIC=BIC(mod.fit)
   #R.sq
         tempOut=NA
-        if(class(mod.fit)[1]=="gam" & r2.type=="dev"){tempOut=summary(mod.fit)$dev.expl}
-        if(class(mod.fit)[1]=="gam" & r2.type=="r2"){tempOut=summary(mod.fit)$r.sq}
-        if(class(mod.fit)[1]=="gam" & r2.type=="r2.lm.est"){
+        if(class(mod.fit)[1]=="gam" & r2.type.=="dev"){tempOut=summary(mod.fit)$dev.expl}
+        if(class(mod.fit)[1]=="gam" & r2.type.=="r2"){tempOut=summary(mod.fit)$r.sq}
+        if(class(mod.fit)[1]=="gam" & r2.type.=="r2.lm.est"){
            tempOut=summary(lm(mod.fit$y~predict(mod.fit)))$r.sq}
-        if(class(mod.fit)[[1]]=="gamm4" & r2.type=="dev"){
+        if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="dev"){
            tempOut=summary(mod.fit$gam)$dev.expl
            if(length(tempOut)==0){tempOut=NA}}
-        if(class(mod.fit)[[1]]=="gamm4" & r2.type=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
-        if(class(mod.fit)[[1]]=="gamm4" & r2.type=="r2.lm.est"){
+        if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
+        if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="r2.lm.est"){
            tempOut=summary(lm(attributes(mod.fit$mer)$frame$y~
                         predict(mod.fit[[1]],re.form=NA,type="response")))$r.sq}
            if(is.null(tempOut)){tempOut=NA}
