@@ -125,8 +125,8 @@ fit.model.set=function(model.set.list,
                      .options.snow = opts)%dopar%{
         unlist(extract.mod.dat(fit.mod.l(mod.formula[[l]],
                                          test.fit.=test.fit,
-                                         use.dat.=use.dat)),
-                               r2.type.=r2.type)
+                                         use.dat.=use.dat),
+                               r2.type.=r2.type))
 
      }
      close(pb)
