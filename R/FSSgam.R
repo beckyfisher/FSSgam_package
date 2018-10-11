@@ -20,12 +20,13 @@
 #'
 #' The function(s) takes a range of arguments that allow control over the model set being constructed, including specifying cyclic and linear continuous predictors, specification of the smoothing algorithm used and the maximum complexity allowed for smooth terms.
 #'
-#' The full subsets can be carried out via one of two methods allowed in the package.
+#' The full subsets analysis can be carried out via one of two alternative methods allowed in the package.
+#'
 #' The first is through a direct call to full.subsets.gam (this is the original function).
 #' This function both constructs and fits the complete model set, based on the user supplied input. This function requires that all model fits are saved, and is therefore
-#' not suitable for extremely large models sets, as these will cause issues with memory.
+#' not suitable for extremely large models sets, as these will cause issues with memory. This method may be superceded in future versions of FSSgam, so for any new project please use the second method.
 #'
-#' The second method is via a call to generate.model.set followed by fit.model set. This pair of functions splits the process of generating the model set from actually fitting and extracting the relevant model data.
+#' The second method is via a call to generate.model.set followed by as second call to fit.model set. This pair of functions splits the process of generating the model set from actually fitting and extracting the relevant model data.
 #' This method is useful for large model sets, because it allows the model set to be interrrogated before fitting and also optionally allows model fit data to not be saved, thus alleviating memory issues.
 #'
 #' The use of the function(s) is demonstrated via case studies that highlight how appropriate model sets can be easily constructed, and the broader utility of the approach for exploratory ecology.
