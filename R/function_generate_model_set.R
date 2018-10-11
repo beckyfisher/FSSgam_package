@@ -293,7 +293,7 @@ generate.model.set=function(use.dat,
   # calculate a correlation matrix between all predictors
   if(non.linear.correlations==T){
    cc=check.non.linear.correlations(use.dat[,all.predictors])}else{
-   cc=check.correlations(use.dat[,all.predictors],parallel=parallel,n.cores=n.cores)}
+   cc=check.correlations(use.dat[,all.predictors])}
   if(length(cor.matrix)==1){
    cor.matrix=cc
    # replace NA's with zero.
