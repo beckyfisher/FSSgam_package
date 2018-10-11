@@ -532,18 +532,6 @@ full.subsets.gam=function(use.dat,
   if(length(success.models)==0){
         stop("None of your models fitted successfully. Please check your input objects.")}
 
-  # some functions for extracting model information
-  require(MuMIn)
-  wi<<-function(AIC.vals){# This function calculate the Aikaike weights:
-   # wi=(exp(-1/2*AICc.vals.adj))/Sum.wi=1 to r (exp(-1/2*AICc.vals.adj))
-   AICc.vals.adj=AIC.vals-min(na.omit(AIC.vals))
-   wi.den=rep(NA,length(AICc.vals.adj))
-   for(i in 1:length(AICc.vals.adj)){
-    wi.den[i]=exp(-1/2*AICc.vals.adj[i])}
-   wi.den.sum=sum(na.omit(wi.den))
-   wi=wi.den/wi.den.sum
-   return(wi)}
-
   # of the successful models, make a table indicating which variables are included
   var.inclusions=matrix(0,ncol=length(included.vars),length(success.models))
   colnames(var.inclusions)=c(included.vars)
