@@ -4,7 +4,7 @@
 \alias{fit.mod.l}
 \title{fit.mod.l}
 \usage{
-fit.mod.l(formula.l, test.fit = test.fit, use.dat = use.dat)
+fit.mod.l(formula.l, test.fit. = test.fit, use.dat. = use.dat)
 }
 \arguments{
 \item{formula.l}{A model formula}

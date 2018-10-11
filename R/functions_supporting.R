@@ -34,41 +34,41 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
 #' @return A list of model fit parameters
 #'
 extract.mod.dat <- function(mod.fit){
-x=mod.fit
-mod.dat=list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA)
-if(class(x)[[1]]!="try-error"){
+#x=mod.fit
+ mod.dat=list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA)
+ if(class(mod.fit)[[1]]!="try-error"){
   # AIC and BIC
   mod.dat$AICc=AICc(mod.fit)
   mod.dat$BIC=BIC(mod.fit)
   #R.sq
         tempOut=NA
-        if(class(x)[1]=="gam" & r2.type=="dev"){tempOut=summary(x)$dev.expl}
-        if(class(x)[1]=="gam" & r2.type=="r2"){tempOut=summary(x)$r.sq}
-        if(class(x)[1]=="gam" & r2.type=="r2.lm.est"){
-           tempOut=summary(lm(x$y~predict(x)))$r.sq}
-        if(class(x)[[1]]=="gamm4" & r2.type=="dev"){
-           tempOut=summary(x$gam)$dev.expl
+        if(class(mod.fit)[1]=="gam" & r2.type=="dev"){tempOut=summary(mod.fit)$dev.expl}
+        if(class(mod.fit)[1]=="gam" & r2.type=="r2"){tempOut=summary(mod.fit)$r.sq}
+        if(class(mod.fit)[1]=="gam" & r2.type=="r2.lm.est"){
+           tempOut=summary(lm(mod.fit$y~predict(mod.fit)))$r.sq}
+        if(class(mod.fit)[[1]]=="gamm4" & r2.type=="dev"){
+           tempOut=summary(mod.fit$gam)$dev.expl
            if(length(tempOut)==0){tempOut=NA}}
-        if(class(x)[[1]]=="gamm4" & r2.type=="r2"){tempOut=summary(x$gam)$r.sq}
-        if(class(x)[[1]]=="gamm4" & r2.type=="r2.lm.est"){
-           tempOut=summary(lm(attributes(x$mer)$frame$y~
-                        predict(x[[1]],re.form=NA,type="response")))$r.sq}
+        if(class(mod.fit)[[1]]=="gamm4" & r2.type=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
+        if(class(mod.fit)[[1]]=="gamm4" & r2.type=="r2.lm.est"){
+           tempOut=summary(lm(attributes(mod.fit$mer)$frame$y~
+                        predict(mod.fit[[1]],re.form=NA,type="response")))$r.sq}
            if(is.null(tempOut)){tempOut=NA}
   mod.dat$r2.vals=round(tempOut)
   # Summed edf
-         if(class(x)[1]=="gam"){
-          edf.m=summary(x)$edf
-          p.coeff.m=summary(x)$p.coeff}else{
-           #edf.m=summary(x$gam)$edf
-           #p.coeff.m=summary(x$gam)$p.coeff
-           edf.m=x$gam$edf
-           p.coeff.m=x$gam$p.coeff
+         if(class(mod.fit)[1]=="gam"){
+          edf.m=summary(mod.fit)$edf
+          p.coeff.m=summary(mod.fit)$p.coeff}else{
+           #edf.m=summary(mod.fit$gam)$edf
+           #p.coeff.m=summary(mod.fit$gam)$p.coeff
+           edf.m=mod.fit$gam$edf
+           p.coeff.m=mod.fit$gam$p.coeff
            }
         edf.m[which(edf.m<1)]=1 # any edf<0 are reset to 1 to ensure proper
                                 # parameter count when there is shrinkage (bs='cc')
   mod.dat$edf=round(sum(c(edf.m,length(p.coeff.m))),2)
   # count the edf values less than 0.25 to check for serious shrinkage
-         if(class(x)[1]=="gam"){edf.m=summary(x)$edf}else{edf.m=x$gam$edf}
+         if(class(mod.fit)[1]=="gam"){edf.m=summary(mod.fit)$edf}else{edf.m=mod.fit$gam$edf}
   mod.dat$edf.less.1=length(which(edf.m<0.25))}
 return(mod.dat)}
 
@@ -119,12 +119,12 @@ return(var.inclusions)
 #' @export
 #' @return An updated dsm, gam or uGamm fitted model object
 #'
-fit.mod.l <- function(formula.l,test.fit=test.fit,use.dat=use.dat){
-if(length(grep("dsm",class(test.fit)))>0){
- mod.l=try(update(test.fit,formula=formula.l),
+fit.mod.l <- function(formula.l,test.fit.=test.fit,use.dat.=use.dat){
+if(length(grep("dsm",class(test.fit.)))>0){
+ mod.l=try(update(test.fit.,formula=formula.l),
            silent=T)}
-if(length(grep("dsm",class(test.fit)))==0){
- mod.l=try(update(test.fit,formula=formula.l,data=use.dat),
+if(length(grep("dsm",class(test.fit.)))==0){
+ mod.l=try(update(test.fit.,formula=formula.l,data=use.dat.),
            silent=T)}
 return(mod.l)
 }
