@@ -69,7 +69,9 @@ check.non.linear.correlations=function(dat){
      }
     # if both the response.var1 variable and the predictor.var2 are continuous, do a gam
     if(class.response.var1=="continuous" & class.predictor.var2 == "continuous"){
-       k.use=length(unique(dat.r$predictor.var2))
+       nn=length(unique(dat.r$predictor.var2))
+       k.use=4
+       if(nn<k.use){k.use=nn}
        fit=try(gam(response.var1~s(predictor.var2,k=k.use),data=dat.r),silent=T)
        if(class(fit)[[1]]!="try-error"){
         r.sq=summary(fit)$r.sq
