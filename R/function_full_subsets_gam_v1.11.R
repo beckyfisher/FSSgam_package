@@ -136,7 +136,7 @@ full.subsets.gam=function(use.dat,
                           parallel=parallel,
                           n.cores=n.cores,
                           r2.type=r2.type,
-                          report.unique.r2=report.unique.r2){
+                          report.unique.r2=report.unique.r2)
 
   # now return the list of outputs
   return(list(mod.data.out=out.dat$mod.data.out,
