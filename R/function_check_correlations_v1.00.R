@@ -18,6 +18,13 @@
 
 check.correlations=function(dat,parallel=F,n.cores=4){
   classes.dat=sapply(dat,class)
+  valid.cols=which(match(unlist(classes.dat),c("factor","character", "integer","numeric"))>0)
+  if(length(valid.cols<ncol(dat)){
+     invalid.cols=colnames(dat[-valid.cols])
+     invalid.classes=unlist(sapply(dat[,invalid.cols],class))
+     stop(paste("The predictor",
+        invalid.cols,"is of class",invalid.classes,"which is not supported.
+        Please check your input data.frame")}
   fact.vars=names(which(classes.dat=="factor" | classes.dat=="character"))
   cont.vars=names(which(classes.dat=="integer" | classes.dat=="numeric"))
   if(length(cont.vars)>1){
