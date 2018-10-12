@@ -1,6 +1,11 @@
 #' full.subsets.gam
 #'
-#' Conducts a full subsets analysis based on gam(m4)
+#' Conducts a full subsets analysis based on gam(m4). In the most recent version of FSSgam this function is now a wrapper
+#' for the two input functions, generate.model.set and fit.model set. Input arguments are the same as these two underlying functions.
+#' calling these underlying functions explicitly is the recommended method for running a fulls subsets analysis with the
+#' FSSgam pacakge because this enables the user to interrogate the candidate model set and the predictor correlation
+#' matrix before actually running the analysis.
+#'
 #' @param use.dat A data.frame, with columns matching those included in pred.vars.cont and pred.vars.fact, the response variable to be analysed and any other fields required for the analysis (such as random effects, see test.fit). Note that any variables in use.dat that are used in model fits must not contain missing values, as this invalidates comparison via AICc/ BIC. If missing values occur among the predictor variables the function will return an error warning indicating that these rows need to be removed or interpolated.
 #'
 #' @param test.fit A gam model fitted via a call to gam (mgcv) or uGamm (MuMIn). This can use any of the (preferably continuous) predictors in the call and will be used as a model to update in the fitting of the model set.
@@ -37,7 +42,9 @@
 #'
 #' @param parallel  A logical value indicating if parallel processing should be used. The default is FALSE.
 #'
-#' @param max.models The total number of models allowed to be fit. If the candidate set is bigger than this value, an error message will be returned, asking the user to reset this to a larger value.
+#' @param max.models The total number of models allowed to be fit and still save the model fits. If the candidate set is bigger than this value, a warning will be returned indicating that model fits will not be saved.
+#'
+#' @param save.model.fits Are the model fits to be saved in the output list? If TRUE this will be overriten if the model candidate set is bigger than max.models. If FALSE only model output data are saved.
 #'
 #' @param r2.type The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note gamm4 does not currently return a deviance.
 #'
