@@ -73,7 +73,7 @@ fit.model.set=function(model.set.list,
                      .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                      .errorhandling='pass',
                      .options.snow = opts)%dopar%{
-       fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat.=use.datModSet)
+       fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.datModSet)
     }
      close(pb)
      stopCluster(cl)
@@ -81,7 +81,7 @@ fit.model.set=function(model.set.list,
              }else{
         out.dat=list()
         for(l in 1:length(mod.formula)){
-           mod.l=fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat.=use.datModSet)
+           mod.l=fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.datModSet)
            out.dat=c(out.dat,list(mod.l))
           setTxtProgressBar(pb,l)
            }
@@ -124,7 +124,7 @@ fit.model.set=function(model.set.list,
                      .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                      #.errorhandling='pass',
                      .options.snow = opts)%dopar%{
-        unlist(extract.mod.dat(fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat.=use.datModSet),
+        unlist(extract.mod.dat(fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.datModSet),
                                r2.type.=r2.type))
      }
      close(pb)
@@ -133,7 +133,7 @@ fit.model.set=function(model.set.list,
              }else{
         mod.dat=list()
         for(l in 1:length(mod.formula)){
-          mod.l=fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat.=use.datModSet)
+          mod.l=fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.datModSet)
           out=unlist(extract.mod.dat(mod.l,r2.type.=r2.type))
           mod.dat=c(mod.dat,list(out))
           setTxtProgressBar(pb,l)
