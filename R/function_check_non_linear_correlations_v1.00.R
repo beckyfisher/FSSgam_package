@@ -28,8 +28,8 @@ check.non.linear.correlations=function(dat){
      invalid.cols=colnames(dat[-valid.cols])
      invalid.classes=unlist(sapply(dat[,invalid.cols],class))
      stop(paste("The predictor",
-        invalid.cols,"is of class",invalid.classes,"which is not supported.
-        Please check your input data.frame"))}
+        invalid.cols,"is of class",invalid.classes,
+        "which is not supported. Please check your input data.frame"))}
 
   fact.vars=names(which(classes.dat=="factor" | classes.dat=="character"))
   cont.vars=names(which(classes.dat=="integer" | classes.dat=="numeric"))
