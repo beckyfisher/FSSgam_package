@@ -121,12 +121,12 @@ return(var.inclusions)
 #' @export
 #' @return An updated dsm, gam or uGamm fitted model object
 #'
-fit.mod.l <- function(formula.l,test.fit.=test.fit,use.dat.=use.dat){
+fit.mod.l <- function(formula.l,test.fit.=test.fit,use.dat=use.dat){
 if(length(grep("dsm",class(test.fit.)))>0){
  mod.l=try(update(test.fit.,formula=formula.l),
            silent=T)}
 if(length(grep("dsm",class(test.fit.)))==0){
- mod.l=try(update(test.fit.,formula=formula.l,data=use.dat.),
+ mod.l=try(update(test.fit.,formula=formula.l,data=use.dat),
            silent=T)}
 return(mod.l)
 }
