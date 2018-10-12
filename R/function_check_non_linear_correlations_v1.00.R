@@ -24,7 +24,7 @@
 check.non.linear.correlations=function(dat){
   classes.dat=sapply(dat,class)
   valid.cols=which(match(unlist(classes.dat),c("factor","character", "integer","numeric"))>0)
-  if(length(valid.cols<ncol(dat)){
+  if(length(valid.cols<ncol(dat))){
      invalid.cols=colnames(dat[-valid.cols])
      invalid.classes=unlist(sapply(dat[,invalid.cols],class))
      stop(paste("The predictor",
