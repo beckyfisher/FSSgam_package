@@ -20,7 +20,7 @@ check.correlations=function(dat,parallel=F,n.cores=4){
   classes.dat=sapply(dat,class)
   classes.dat=lapply(classes.dat,FUN=paste,collapse=" ")
   valid.cols=which(match(unlist(classes.dat),c("factor","character", "integer","numeric"))>0)
-  if(length(valid.cols<ncol(dat))){
+  if(length(valid.cols)<ncol(dat)){
      invalid.cols=colnames(dat[-valid.cols])
      invalid.classes=classes.dat[invalid.cols]
      stop(
