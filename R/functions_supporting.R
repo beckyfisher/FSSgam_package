@@ -56,7 +56,7 @@ extract.mod.dat <- function(mod.fit,r2.type.=r2.type){
            tempOut=summary(lm(attributes(mod.fit$mer)$frame$y~
                         predict(mod.fit[[1]],re.form=NA,type="response")))$r.sq}
            if(is.null(tempOut)){tempOut=NA}
-  mod.dat$r2.vals=round(tempOut)
+  mod.dat$r2.vals=round(tempOut,3)
   # Summed edf
          if(class(mod.fit)[1]=="gam"){
           edf.m=summary(mod.fit)$edf
