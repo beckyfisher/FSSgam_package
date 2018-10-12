@@ -35,7 +35,7 @@
 #' To determine the relative importance of each predictor across the whole model set we summed the ?i values for all models containing each variable. The higher the combined weights for an explanatory parameter, the more important it is in the analysis (Burnham & Anderson, 2002). An assumption of the use of summed model weights to infer variable importance is that the number of models in which the different predictors are present is uniform. As our function removes models with correlated predictors, this is not always the case. To overcome this issue, the summed variable.importance scores are the summed weights for the best n models, where n is equal to the minimum number of models any one predictor is present in.
 
 fit.model.set=function(model.set.list,
-                          max.models=100,
+                          max.models=200,
                           save.model.fits=T,
                           parallel=F,
                           n.cores=4,
