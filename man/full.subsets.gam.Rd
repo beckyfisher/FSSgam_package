@@ -10,7 +10,7 @@ full.subsets.gam(use.dat, test.fit, pred.vars.cont = NA,
   factor.factor.interactions = F, smooth.smooth.interactions = F,
   cov.cutoff = 0.28, cor.matrix = NA, non.linear.correlations = F,
   max.predictors = 3, k = 5, bs.arg = "'cr'", null.terms = "",
-  max.models = 500, parallel = F, n.cores = 4,
+  max.models = 500, save.model.fits = T, parallel = F, n.cores = 4,
   r2.type = "r2.lm.est", report.unique.r2 = F,
   factor.interactions = "previous.arg",
   smooth.interactions = "previous.arg", size = "previous.arg")
@@ -50,7 +50,9 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 
 \item{null.terms}{A character vector indicating the form of any re smooths to be included in gam [e.g. s(site,bs=re)] or any other fixed terms or smooths that the user wants to include in the null model. Use of bs=re is an alternative way of fitting simple random structures that avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used. see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.}
 
-\item{max.models}{The total number of models allowed to be fit. If the candidate set is bigger than this value, an error message will be returned, asking the user to reset this to a larger value.}
+\item{max.models}{The total number of models allowed to be fit and still save the model fits. If the candidate set is bigger than this value, a warning will be returned indicating that model fits will not be saved.}
+
+\item{save.model.fits}{Are the model fits to be saved in the output list? If TRUE this will be overriten if the model candidate set is bigger than max.models. If FALSE only model output data are saved.}
 
 \item{parallel}{A logical value indicating if parallel processing should be used. The default is FALSE.}
 
@@ -78,7 +80,11 @@ variable.importance - A list containing importance scores for each included pred
 To determine the relative importance of each predictor across the whole model set we summed the ?i values for all models containing each variable. The higher the combined weights for an explanatory parameter, the more important it is in the analysis (Burnham & Anderson, 2002). An assumption of the use of summed model weights to infer variable importance is that the number of models in which the different predictors are present is uniform. As our function removes models with correlated predictors, this is not always the case. To overcome this issue, the summed variable.importance scores are the summed weights for the best n models, where n is equal to the minimum number of models any one predictor is present in.
 }
 \description{
-Conducts a full subsets analysis based on gam(m4)
+Conducts a full subsets analysis based on gam(m4). In the most recent version of FSSgam this function is now a wrapper
+for the two input functions, generate.model.set and fit.model set. Input arguments are the same as these two underlying functions.
+calling these underlying functions explicitly is the recommended method for running a fulls subsets analysis with the
+FSSgam pacakge because this enables the user to interrogate the candidate model set and the predictor correlation
+matrix before actually running the analysis.
 }
 \details{
 The function constructs and fits a complete model set based on the supplied arguments.

@@ -4,14 +4,14 @@
 \alias{fit.mod.l}
 \title{fit.mod.l}
 \usage{
-fit.mod.l(formula.l, test.fit. = test.fit, use.dat. = use.dat)
+fit.mod.l(formula.l, test.fit. = test.fit, use.dat = use.dat)
 }
 \arguments{
 \item{formula.l}{A model formula}
 
-\item{test.fit}{A dsm, gam or uGamm fitted model object}
-
 \item{use.dat}{the data used to fit test.fit#}
+
+\item{test.fit}{A dsm, gam or uGamm fitted model object}
 }
 \value{
 An updated dsm, gam or uGamm fitted model object

@@ -4,7 +4,7 @@
 \alias{fit.model.set}
 \title{fit.model.set}
 \usage{
-fit.model.set(model.set.list, max.models = 100, save.model.fits = T,
+fit.model.set(model.set.list, max.models = 200, save.model.fits = T,
   parallel = F, n.cores = 4, r2.type = "r2.lm.est",
   report.unique.r2 = F)
 }
