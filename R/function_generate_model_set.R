@@ -137,7 +137,7 @@ generate.model.set=function(use.dat,
       if(ncol(tt)>0){
         use.dat=cbind(use.dat,tt)
       }else{
-        warning("You have set factor.factor interactions to 'TRUE' but there are no 
+        warning("You have set factor.factor.interactions to 'TRUE' but there are no 
                 factors to interaction at your specified cor.cuttoff value.")}
       
       pred.vars.fact=c(pred.vars.fact,factor.interaction.terms)
