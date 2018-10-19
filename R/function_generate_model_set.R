@@ -127,14 +127,19 @@ generate.model.set=function(use.dat,
                 cor.mat.m=factor.correlations[row.index,col.index]
                 out=x
                 if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
+                if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){out=NA}                
                 return(out)})
         fact.combns[which(is.na(fact.combns))]=NULL
         tt=data.frame(lapply(fact.combns,FUN=function(x){
                    do.call("paste",as.list(use.dat[,x]))}))
         factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
         colnames(tt)=factor.interaction.terms
-
-      use.dat=cbind(use.dat,tt)
+      if(ncol(tt)>0){
+        use.dat=cbind(use.dat,tt)
+      }else{
+        warning("You have set factor.factor interactions to 'TRUE' but there are no 
+                factors to interaction at your specified cor.cuttoff value.")}
+      
       pred.vars.fact=c(pred.vars.fact,factor.interaction.terms)
       }
     }
