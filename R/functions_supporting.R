@@ -52,6 +52,7 @@ extract.mod.dat <- function(mod.fit,r2.type.=r2.type){
            tempOut=summary(mod.fit$gam)$dev.expl
            if(length(tempOut)==0){tempOut=NA}}
         if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
+        if(class(mod.fit)[[1]]=="gamm" & r2.type.=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
         if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="r2.lm.est"){
            tempOut=summary(lm(attributes(mod.fit$mer)$frame$y~
                         predict(mod.fit[[1]],re.form=NA,type="response")))$r.sq}
