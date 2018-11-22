@@ -141,6 +141,7 @@ fit.model.set=function(model.set.list,
     }
     close(pb)
     names(mod.dat)=names(mod.formula[1:n.mods])
+
     mod.data.out=cbind(mod.data.out,do.call("rbind",mod.dat))
 
     failed.models=mod.formula[which(is.na(mod.data.out$AICc)==T)]
@@ -155,7 +156,7 @@ fit.model.set=function(model.set.list,
   # substract the null model r2 value from each model r2 value
   if(report.unique.r2==T){
    null.r2=mod.data.out$r2.vals[which(mod.data.out$modname=="null")]
-   mod.dat$r2.vals.unique=mod.data.out$r2.vals-null.r2
+   mod.data.out$r2.vals.unique=mod.data.out$r2.vals-null.r2
    }
 
   ### now add columns for the included predictors to the dataframe
