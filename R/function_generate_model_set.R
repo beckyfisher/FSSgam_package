@@ -29,7 +29,7 @@
 #'
 #' @param bs.arg Specification of the smoother to use, see ?s for more information on smoother provided in gam (mgcv). Note that all continuous predictors specified in pred.vars.cont will be fitted using the same smooth, unless they are also specified as linear.terms or cyclic.vars. Note that any specification of bs in test.fit is discarded.
 #'
-#' @param cyclic.vars NA if there are no cyclic predictors, or if there are cyclic predictors,a character vector containing the names of any of the continuous predictors that should be modelled as cyclic variables. Note that these must also be contained in the pred.vars.cont charactervector. Please also note there are issues with bs='cc' and model selection as this uses by default shrinkage. With shrinkage, variables are retained in models but with zero edf, which makes interpretation of AICc and BIC confusing. To account for this always select only the most parsimonious model (that with the fewest parameters), not just that with the lowest AICc. Reported estimated degrees of freedom (edf) in the model output table represent the sum of the edf of the smooth terms plus the number of parametric coefficients. When cyclic variables are included and shrinkage is used, any estimated edf of the smooth terms that are less than 1 are reset to 1 before summing to ensure the the total number of predictors in the model is captured properly.
+#' @param cyclic.vars NA if there are no cyclic predictors, or if there are cyclic predictors, a character vector containing the names of any of the continuous predictors that should be modelled as cyclic variables. Note that these must also be contained in the pred.vars.cont charactervector. Please also note there are issues with bs='cc' and model selection as this uses by default shrinkage. With shrinkage, variables are retained in models but with zero edf, which makes interpretation of AICc and BIC confusing. To account for this always select only the most parsimonious model (that with the fewest parameters), not just that with the lowest AICc. Reported estimated degrees of freedom (edf) in the model output table represent the sum of the edf of the smooth terms plus the number of parametric coefficients. When cyclic variables are included and shrinkage is used, any estimated edf of the smooth terms that are less than 1 are reset to 1 before summing to ensure the the total number of predictors in the model is captured properly.
 #'
 #' @param linear.vars NA if there are no continuous predictors to be treated as linear (not fitted as smooths). Only use this where variables are clearly continuous in nature, but you are confident a linear relationship is valid. It may also be useful for continuous predictors that are not well distributed along the x-axis (ie, sampling was conducted in clumped distances from a feature of interest). Where this is necessary, transformations should be considered where they can be used to theoretically linearize response relationships. Does not need to be contained in vector pred.vars.cont
 #'
@@ -205,6 +205,18 @@ generate.model.set=function(use.dat,
       }
     }
    if(class(factor.smooth.interactions)=="list"){
+
+
+     check.list=match(unlist(factor.smooth.interactions),all.predictors)
+
+
+     if(length(which(is.na(check.list)))>0){
+             stop(paste("Variable(s)",
+                        unlist(factor.smooth.interactions)[which(is.na(check.list))] ,
+                        "included in the factor.smooth.interactions list do(es)
+                        not appear in either pred.vars.fact, pred.vars.cont or linear.vars.
+                        Pleasure ensure all predictors are specified as one of these three types"))}
+
      cont.var.interactions=factor.smooth.interactions$cont.vars
      linear.var.interactions=factor.smooth.interactions$linear.vars
      factor.smooth.interactions=factor.smooth.interactions$fact.vars
