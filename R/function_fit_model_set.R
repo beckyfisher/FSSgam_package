@@ -79,10 +79,10 @@ fit.model.set=function(model.set.list,
      stopCluster(cl)
      registerDoSEQ()
              }else{
-        out.dat=list()
+        out.dat <- vector("list", length(mod.formula))
         for(l in 1:length(mod.formula)){
            mod.l=fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.datModSet)
-           out.dat=c(out.dat,list(mod.l))
+           out.dat[[l]]=mod.l
           setTxtProgressBar(pb,l)
            }
     }
@@ -131,11 +131,11 @@ fit.model.set=function(model.set.list,
      stopCluster(cl)
      registerDoSEQ()
              }else{
-        mod.dat=list()
+        mod.dat=vector("list", length(mod.formula))
         for(l in 1:length(mod.formula)){
           mod.l=fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.datModSet)
           out=unlist(extract.mod.dat(mod.l,r2.type.=r2.type))
-          mod.dat=c(mod.dat,list(out))
+          mod.dat[[l]]=out
           setTxtProgressBar(pb,l)
           }
     }
