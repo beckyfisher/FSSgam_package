@@ -326,7 +326,7 @@ generate.model.set=function(use.dat,
   }
 
   # make all possible combinations
-  if(length(na.omit(c(pred.vars.cont,
+  if(length(na.omit(c(pred.vars.cont,linear.vars,
                       pred.vars.fact)))<max.predictors){
         stop("Model max.predictors is greater than the number of predictors.")}
   all.mods=list()
