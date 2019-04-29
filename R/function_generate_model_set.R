@@ -381,6 +381,8 @@ generate.model.set=function(use.dat,
 
   use.mods[which(is.na(use.mods))]=NULL
 
+  use.mods=unique(lapply(use.mods,FUN=sort))
+
   # now make the models into gamm formula
   if(nchar(null.terms)==0){# if there is no bs='re' random effect random effect
                              # or other null term in the null model
