@@ -68,7 +68,7 @@ generate.model.set=function(use.dat,
   use.dat=as.data.frame(use.dat)
 
   # make an "intercept" term for the null model
-  use.dat$intercept=1
+  #use.dat$intercept=1
   interaction.terms=NA
   linear.interaction.terms=NA
   all.predictors=unique(na.omit(c(pred.vars.cont,pred.vars.fact,linear.vars)))
@@ -77,8 +77,8 @@ generate.model.set=function(use.dat,
 
   # check the null model will fit
   if(nchar(null.terms)>0){
-    null.formula=as.formula(paste("~ intercept-1",null.terms,sep="+"))}else{
-    null.formula=as.formula("~ intercept-1")}
+    null.formula=as.formula(paste("~ ",null.terms,sep=""))}else{
+    null.formula=as.formula("~ 1")}
 
   if(length(grep("dsm",class(test.fit)))>0){
     null.formula=as.formula(paste("~1",null.terms,sep="+"))
