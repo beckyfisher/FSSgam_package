@@ -5,7 +5,11 @@
 #'
 #' @param test.fit A gam model fitted via a call to gam (mgcv) or uGamm (MuMIn). This can use any of the (preferably continuous) predictors in the call and will be used as a model to update in the fitting of the model set.
 #' The test fit must contain the appropriate random effects and call to family (if not gaussian) and if gamm4 should be used, or gamm in the case of a uGamm call (see ?uGamm).
-#' Both gamm from mgcv and gamm4 have slightly different features, as well as advantages and disadvantages, thus it is important that the full subsets function is able to deal with test.fit models based on either package. For example gamm4 is based on the lme4 package [Bates, D.M. (2010) lme4: Mixed-Effects Modeling with R. Springer, New York] which allows crossed random effects and avoids issues with PQL for non-gaussian model fits. On the other hand gamm (mgcv) is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day], variance structures [Pinheiro, J.C. and Bates., D.M. (1996) "Unconstrained Parametrizations for Variance-Covariance Matrices", Statistics and Computing, 6, 289-296], and a broader range of families that are not yet available in lmer (see ?family.mgcv).
+#' Both gamm from mgcv and gamm4 have slightly different features, as well as advantages and disadvantages, thus it is important that the full subsets function is able to deal with test.fit models based on either package.
+#' For example gamm4 is based on the lme4 package [Bates, D.M. (2010) lme4: Mixed-Effects Modeling with R. Springer, New York] which allows crossed random effects and avoids issues with PQL for non-gaussian model fits.
+#' On the other hand gamm (mgcv) is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day],
+#' variance structures [Pinheiro, J.C. and Bates., D.M. (1996) "Unconstrained Parametrizations for Variance-Covariance Matrices", Statistics and Computing, 6, 289-296],
+#' and a broader range of families that are not yet available in lmer (see ?family.mgcv).
 #' Models that have no random effects and are based only on gam (mgcv) are best fit via a direct call to gam, rather than using the uGamm wrapper.
 #'
 #' @param pred.vars.cont A character vector indicating the continuous predictors to use. By default all continuous predictors will be fitted using a smoother (but see argument linear.vars). These must match column names in use.dat exactly. If NA is used the function can be run without any smooth predictors.
@@ -33,7 +37,13 @@
 #'
 #' @param linear.vars NA if there are no continuous predictors to be treated as linear (not fitted as smooths). Only use this where variables are clearly continuous in nature, but you are confident a linear relationship is valid. It may also be useful for continuous predictors that are not well distributed along the x-axis (ie, sampling was conducted in clumped distances from a feature of interest). Where this is necessary, transformations should be considered where they can be used to theoretically linearize response relationships. Does not need to be contained in vector pred.vars.cont
 #'
-#' @param null.terms A character vector indicating the form of any re smooths to be included in gam [e.g. s(site,bs=re)] or any other fixed terms or smooths that the user wants to include in the null model. Use of bs=re is an alternative way of fitting simple random structures that avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used. see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.
+#' @param null.terms A character vector indicating the form of any re smooths to be included in gam
+#' [e.g. s(site,bs=re)] or any other fixed terms or smooths that the user wants to include in
+#' the null model. Use of bs=re is an alternative way of fitting simple random structures that
+#' avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used.
+#' see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.
+#' to fit a correlation structure only (but no random effects) this must be acheived through a call the gamm
+#' via , with no random effects, fitted
 #'
 #' @details The function constructs a complete model set based on the supplied arguments.
 #' for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
@@ -81,7 +91,7 @@ generate.model.set=function(use.dat,
     null.formula=as.formula("~ 1")}
 
   if(length(grep("dsm",class(test.fit)))>0){
-    null.formula=as.formula(paste("~1",null.terms,sep="+"))
+    #null.formula=as.formula(paste("~",null.terms,sep=""))
     null.fit=try(update(test.fit,formula=null.formula),silent=T)
   }else{
     null.fit=try(update(test.fit,formula=null.formula,data=use.dat),silent=T)}
