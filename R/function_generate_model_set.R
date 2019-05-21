@@ -75,7 +75,7 @@ generate.model.set=function(use.dat,
                           bs.arg="'cr'",
                           null.terms=""){
   # make sure use.dat is a data.frame
-  use.dat=as.data.frame(use.dat)
+  #use.dat=as.data.frame(use.dat)
 
   # make an "intercept" term for the null model
   #use.dat$intercept=1
