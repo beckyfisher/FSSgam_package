@@ -216,8 +216,8 @@ generate.model.set=function(use.dat,
     }
    if(class(factor.smooth.interactions)=="list"){
 
-
-     check.list=match(unlist(factor.smooth.interactions),all.predictors)
+     check.list=match(na.omit(
+     unlist(factor.smooth.interactions)),all.predictors)
 
 
      if(length(which(is.na(check.list)))>0){
@@ -246,7 +246,8 @@ generate.model.set=function(use.dat,
        linear.interaction.terms=paste(linear.interactions$Var1,linear.interactions$Var2,
                                   sep=".t.")}
       }
-    }
+
+        }
 
    }
 
