@@ -7,6 +7,7 @@ library(devtools)
 library(roxygen2)
 library(knitr)
 library(R.rsp)
+library(digest)
 
 setwd("C:/Users/rfisher/OneDrive - Australian Institute of Marine Science/Documents/AIMS/EcologicalRiskModelling/Full_subsets_methods/FSSgam_package")
 # copy function files over to FFSgam/R

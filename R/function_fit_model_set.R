@@ -43,7 +43,7 @@ fit.model.set=function(model.set.list,
                           report.unique.r2=F){
 
   use.datModSet <- model.set.list$used.data
-  n.mods=model.set.list$n.mods
+  n.mods=length(model.set.list$mod.formula)#model.set.list$n.mods
   mod.formula=model.set.list$mod.formula
   test.fit=model.set.list$test.fit
   included.vars=model.set.list$included.vars
