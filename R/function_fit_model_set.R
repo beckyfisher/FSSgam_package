@@ -87,7 +87,7 @@ fit.model.set=function(model.set.list,
            }
     }
     close(pb)
-    names(out.dat)=names(mod.formula[1:n.mods])
+    names(out.dat)=names(mod.formula)[1:n.mods]
 
     # find all the models that didn't fit and extract the error messages
     model.success=lapply(lapply(out.dat,FUN=class),FUN=function(x){
