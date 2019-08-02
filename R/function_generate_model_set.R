@@ -397,7 +397,7 @@ generate.model.set=function(use.dat,
   # now make the models into gamm formula
   if(nchar(null.terms)==0){# if there is no bs='re' random effect random effect
                              # or other null term in the null model
-    mod.formula=list(as.formula("~ intercept-1"))}
+    mod.formula=list(as.formula("~ 1"))}
   if(nchar(null.terms)>0){# to add a bs='re' random effect
     mod.formula=list(null.formula)}
 
