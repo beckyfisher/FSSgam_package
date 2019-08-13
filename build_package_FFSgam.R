@@ -14,11 +14,11 @@ setwd("C:/Users/rfisher/OneDrive - Australian Institute of Marine Science/Docume
 
 devtools::document()
 
-devtools::use_package("doSNOW")
-devtools::use_package("MuMIn")
-devtools::use_package("gamm4")
-devtools::use_package("mgcv")
-devtools::use_package("nnet")
-devtools::build()
+use_package("doSNOW")
+use_package("MuMIn")
+use_package("gamm4")
+use_package("mgcv")
+use_package("nnet")
+build()
 
 #devtools::install_github("beckyfisher/FSSgam_package")
