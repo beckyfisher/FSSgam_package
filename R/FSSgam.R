@@ -20,7 +20,7 @@
 #' Date: \tab 2018-09-14\cr
 #' Author: \tab Rebecca Fisher\cr
 #' Maintainer: \tab Rebecca Fisher\cr
-#' License: \tab GPL (>= 3)\cr
+#' License: \tab Apache 2\cr
 #' LazyLoad: \tab yes\cr
 #' Depends: \tab doSNOW, MuMIn, gamm4, mgcv, nnet\cr
 #' }
