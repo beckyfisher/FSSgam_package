@@ -16,20 +16,6 @@ License: \tab Apache 2\cr
 LazyLoad: \tab yes\cr
 Depends: \tab doSNOW, MuMIn, gamm4, mgcv, nnet\cr
 }}
-\description{
-\tabular{ll}{
-Package: \tab FSSgam\cr
-Type: \tab Package\cr
-Title: \tab FUll subsets multiple regression in R with gam(m4)\cr
-Version: \tab 1.11\cr
-Date: \tab 2018-09-14\cr
-Author: \tab Rebecca Fisher\cr
-Maintainer: \tab Rebecca Fisher\cr
-License: \tab Apache 2\cr
-LazyLoad: \tab yes\cr
-Depends: \tab doSNOW, MuMIn, gamm4, mgcv, nnet\cr
-}
-}
 \details{
 Full subsets information theoretic approaches are becoming an increasingly popular tool for exploring predictive power and variable importance where a wide range of candidate predictors are being considered.
 

@@ -4,12 +4,24 @@
 \alias{generate.model.set}
 \title{generate.model.set}
 \usage{
-generate.model.set(use.dat, test.fit, pred.vars.cont = NA,
-  pred.vars.fact = NA, cyclic.vars = NA, linear.vars = NA,
+generate.model.set(
+  use.dat,
+  test.fit,
+  pred.vars.cont = NA,
+  pred.vars.fact = NA,
+  cyclic.vars = NA,
+  linear.vars = NA,
   factor.smooth.interactions = pred.vars.fact,
-  factor.factor.interactions = F, smooth.smooth.interactions = F,
-  cov.cutoff = 0.28, cor.matrix = NA, non.linear.correlations = F,
-  max.predictors = 3, k = 5, bs.arg = "'cr'", null.terms = "")
+  factor.factor.interactions = F,
+  smooth.smooth.interactions = F,
+  cov.cutoff = 0.28,
+  cor.matrix = NA,
+  non.linear.correlations = F,
+  max.predictors = 3,
+  k = 5,
+  bs.arg = "'cr'",
+  null.terms = ""
+)
 }
 \arguments{
 \item{use.dat}{A data.frame, with columns matching those included in pred.vars.cont and pred.vars.fact, the response variable to be analysed and any other fields required for the analysis (such as random effects, see test.fit). Note that any variables in use.dat that are used in model fits must not contain missing values, as this invalidates comparison via AICc/ BIC. If missing values occur among the predictor variables the function will return an error warning indicating that these rows need to be removed or interpolated.}

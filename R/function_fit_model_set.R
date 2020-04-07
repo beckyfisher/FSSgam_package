@@ -46,7 +46,12 @@
 #' otherwise the formula can be used to refit the top model set via a call to update of the test fit: update(test.fit,formula=mod.formula[[l]])
 #'
 #' variable.importance - A list containing importance scores for each included predictor.
-#' To determine the relative importance of each predictor across the whole model set we summed the ?i values for all models containing each variable. The higher the combined weights for an explanatory parameter, the more important it is in the analysis (Burnham & Anderson, 2002). An assumption of the use of summed model weights to infer variable importance is that the number of models in which the different predictors are present is uniform. As our function removes models with correlated predictors, this is not always the case. To overcome this issue, the summed variable.importance scores are the summed weights for the best n models, where n is equal to the minimum number of models any one predictor is present in.
+#' To determine the relative importance of each predictor across the whole model set we summed the wi values for all models containing each variable. 
+#' The higher the combined weights for an explanatory parameter, the more important it is in the analysis (Burnham & Anderson, 2002). 
+#' An assumption of the use of summed model weights to infer variable importance is that the number of models in which the different predictors are present is uniform. 
+#' As our function removes models with correlated predictors, this is not always the case. 
+#' To overcome this issue, the summed variable.importance scores are the summed weights for the best n models, where n is equal to the minimum number of models any one predictor is present in.
+#' If you would like the variable importance scores to be based on all models in the set instead, set VI.mods="all".
 
 fit.model.set=function(model.set.list,
                           max.models=200,
@@ -54,7 +59,8 @@ fit.model.set=function(model.set.list,
                           parallel=F,
                           n.cores=4,
                           r2.type="r2.lm.est",
-                          report.unique.r2=F){
+                          report.unique.r2=F,
+                          VI.mods='min.n'){
 
   use.datModSet <- model.set.list$used.data
   n.mods=length(model.set.list$mod.formula)#model.set.list$n.mods
@@ -178,21 +184,33 @@ fit.model.set=function(model.set.list,
 
   # now calculate the variable importance
    # find the min number of models for each variable
-  min.mods=min(colSums(mod.data.out[,included.vars]))
-  # first for AICc
-  var.weights=unlist(lapply(included.vars,FUN=function(x){
+  min.mods=min(colSums(mod.data.out[,included.vars]))   
+  
+  if(VI.mods=='min.n'){
+    # first for AICc
+    var.weights=unlist(lapply(included.vars,FUN=function(x){
            sum(sort(mod.data.out$wi.AICc[which(mod.data.out[,x]==1)],decreasing=T)[1:min.mods])}))
-  names(var.weights)=included.vars
-  variable.weights.raw=var.weights
-  #variable.weights.raw=colSums(mod.data.out[,included.vars]*mod.data.out$wi.AICc)
-  aic.var.weights=list(variable.weights.raw=variable.weights.raw)
-  # next for BIC
-  var.weights=unlist(lapply(included.vars,FUN=function(x){
-           sum(sort(mod.data.out$wi.BIC[which(mod.data.out[,x]==1)],decreasing=T)[1:min.mods])}))
-  names(var.weights)=included.vars
-  variable.weights.raw=var.weights
-  #variable.weights.raw=colSums(mod.data.out[,included.vars]*mod.data.out$wi.BIC)
-  bic.var.weights=list(variable.weights.raw=variable.weights.raw)
+    names(var.weights)=included.vars
+    variable.weights.raw=var.weights
+    aic.var.weights=list(variable.weights.raw=variable.weights.raw)
+    
+    # next for BIC
+    var.weights=unlist(lapply(included.vars,FUN=function(x){
+      sum(sort(mod.data.out$wi.BIC[which(mod.data.out[,x]==1)],decreasing=T)[1:min.mods])}))
+    names(var.weights)=included.vars
+    variable.weights.raw=var.weights
+    bic.var.weights=list(variable.weights.raw=variable.weights.raw)   
+  }
+  if(VI.mods=='all'){  
+    # first for AICc
+    variable.weights.raw=colSums(mod.data.out[,included.vars]*mod.data.out$wi.AICc)
+    aic.var.weights=list(variable.weights.raw=variable.weights.raw)
+  
+    # next for BIC
+    variable.weights.raw=colSums(mod.data.out[,included.vars]*mod.data.out$wi.BIC)
+    bic.var.weights=list(variable.weights.raw=variable.weights.raw)
+  }
+  
   # now return the list of outputs
   return(list(mod.data.out=mod.data.out,
               failed.models=failed.models,
