@@ -89,8 +89,10 @@ generate.model.set=function(use.dat,
                           bs.arg="'cr'",
                           null.terms=""){
   # make sure use.dat is a data.frame
-  #use.dat=as.data.frame(use.dat)
-
+  if(class(use.dat)[1]!="data.frame"){
+    stop("use.dat must be a data.frame, perhaps you have a tibble? FSSgam does not currently support tibbles.")
+  }
+  
   # make an "intercept" term for the null model
   #use.dat$intercept=1
   interaction.terms=NA
