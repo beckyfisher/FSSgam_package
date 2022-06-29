@@ -138,7 +138,7 @@ if(length(grep("dsm",class(test.fit.)))>0){
  mod.l=try(update(test.fit.,formula=formula.l),
            silent=T)}
 if(length(grep("dsm",class(test.fit.)))==0){
- mod.l=try(update(test.fit.,formula=formula.l,data=use.dat),
+ mod.l=try(update(test.fit.,formula=formula.l,data=use.dat, family=family(test.fit.)),
            silent=T)}
 return(mod.l)
 }
