@@ -65,8 +65,18 @@ extract.mod.dat <- function(mod.fit,r2.type.=r2.type){
         if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
         if(class(mod.fit)[[1]]=="gamm" & r2.type.=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
         if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="r2.lm.est"){
-           tempOut=summary(lm(attributes(mod.fit$mer)$frame$y~
-                        predict(mod.fit[[1]],re.form=NA,type="response")))$r.sq}
+          if(family(mod.fit$mer)[1]=="binomial"){
+            y_dat <- attributes(mod.fit$mer)$frame$y
+            y <- y_dat[,1]/(y_dat[,1] + y_dat[,2])
+            x <- predict(mod.fit[[1]],re.form=NA,type="response")
+    
+            tempOut=summary(lm(y~x))$r.sq            
+           }else{
+            tempOut=summary(lm(attributes(mod.fit$mer)$frame$y~
+                        predict(mod.fit[[1]],re.form=NA,type="response")))$r.sq
+           }            
+          }
+
            if(is.null(tempOut)){tempOut=NA}
   mod.dat$r2.vals=round(tempOut,5)
   # Summed edf
