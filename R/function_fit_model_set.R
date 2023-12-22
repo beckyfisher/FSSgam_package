@@ -69,21 +69,22 @@ fit.model.set=function(model.set.list,
   included.vars=model.set.list$included.vars
 
   if(n.mods>max.models){
-        warning(paste("You have ",n.mods," models. Individual models fits will not be saved.
+        warning(paste("You have ", n.mods," models. Individual models fits will not be saved.
         If you want to save all the model fits all of these you need to
-        increase 'max.models' from ",max.models,".",sep=""))
+        increase 'max.models' from ", max.models,".", sep=""))
         save.model.fits=F
        }
 
   # some functions for extracting model information
   require(MuMIn)
+  
+  pb <- txtProgressBar(max = length(mod.formula), style = 3)
+  progress <- function(n) setTxtProgressBar(pb, n)
 
   ## Now do the model fitting
   # if all model fits are to be saved
   if(save.model.fits==T){
     # now fit the models by updating the test fit (with or without parallel)
-    pb <- txtProgressBar(max = length(mod.formula), style = 3)
-    progress <- function(n) setTxtProgressBar(pb, n)
     if(parallel==T){
      require(doSNOW)
      cl=makeCluster(n.cores)
@@ -132,9 +133,7 @@ fit.model.set=function(model.set.list,
     mod.data.out=data.frame("modname"=names(mod.formula))
     mod.data.out$formula=unlist(lapply(mod.formula,FUN=function(x){as.character(formula(x))[2]}))
 
-        # now fit the models by updating the test fit (with or without parallel)
-    pb <- txtProgressBar(max = length(mod.formula), style = 3)
-    progress <- function(n) setTxtProgressBar(pb, n)
+    # now fit the models by updating the test fit (with or without parallel)
     if(parallel==T){
      require(doSNOW)
      cl=makeCluster(n.cores)
