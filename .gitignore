@@ -3,5 +3,8 @@
 .RData
 .Ruserdata
 *.Rproj
+.Rbuildignore
 
 ignore/
+.positai
+*.csv
