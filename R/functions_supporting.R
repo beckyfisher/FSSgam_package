@@ -22,7 +22,6 @@
 #'
 #' @export
 #' @return A vector of Akaike weights
-#'
 wi <- function(AIC.vals){# This function calculate the Aikaike weights:
  # wi=(exp(-1/2*AICc.vals.adj))/Sum.wi=1 to r (exp(-1/2*AICc.vals.adj))
  AICc.vals.adj=AIC.vals-min(na.omit(AIC.vals))
@@ -45,14 +44,13 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
 #'
 #' @export
 #' @return A list of model fit parameters
-#'
 extract.mod.dat <- function(mod.fit,r2.type.=r2.type){
 #x=mod.fit
- mod.dat=list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA)
+ mod.dat <- list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA)
  if(class(mod.fit)[[1]]!="try-error"){
   # AIC and BIC
-  mod.dat$AICc=AICc(mod.fit)
-  mod.dat$BIC=BIC(mod.fit)
+  mod.dat$AICc <- AICc(mod.fit)
+  mod.dat$BIC <- BIC(mod.fit)
   #R.sq
         tempOut=NA
         if(class(mod.fit)[1]=="gam" & r2.type.=="dev"){tempOut=summary(mod.fit)$dev.expl}
@@ -92,8 +90,10 @@ extract.mod.dat <- function(mod.fit,r2.type.=r2.type){
                                 # parameter count when there is shrinkage (bs='cc')
   mod.dat$edf=round(sum(c(edf.m,length(p.coeff.m))),2)
   # count the edf values less than 0.25 to check for serious shrinkage
-         if(class(mod.fit)[1]=="gam"){edf.m=summary(mod.fit)$edf}else{edf.m=mod.fit$gam$edf}
-  mod.dat$edf.less.1=length(which(edf.m<0.25))}
+         if(class(mod.fit)[1]=="gam"){
+           edf.m <- summary(mod.fit)$edf}else{
+             edf.m <- mod.fit$gam$edf}
+  mod.dat$edf.less.1 <- length(which(edf.m<0.25))}
 return(mod.dat)}
 
 #' build.inclusion.mat
@@ -108,10 +108,9 @@ return(mod.dat)}
 #'
 #' @export
 #' @return A matrix of variables included in the model set
-#'
 build.inclusion.mat <- function(included.vars,formula.list){
-var.inclusions=matrix(0,ncol=length(included.vars),length(formula.list))
-colnames(var.inclusions)=c(included.vars)
+var.inclusions <- matrix(0,ncol=length(included.vars),length(formula.list))
+colnames(var.inclusions) <- c(included.vars)
 
 for(m in 1:length(formula.list)){
       pred.vars.m=unique(
@@ -142,7 +141,6 @@ return(var.inclusions)
 #'
 #' @export
 #' @return An updated dsm, gam or uGamm fitted model object
-#'
 fit.mod.l <- function(formula.l,test.fit.=test.fit,use.dat=use.dat){
 if(length(grep("dsm",class(test.fit.)))>0){
  mod.l=try(update(test.fit.,formula=formula.l),
@@ -152,7 +150,6 @@ if(length(grep("dsm",class(test.fit.)))==0){
            silent=T)}
 return(mod.l)
 }
-
 
 
 
