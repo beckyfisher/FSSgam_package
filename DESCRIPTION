@@ -16,3 +16,5 @@ Imports: doSNOW,
     nnet
 Suggests: R.rsp
 VignetteBuilder: R.rsp
+URL: https://beckyfisher.github.io/FSSgam
+BugReports: https://github.com/beckyfisher/FSSgam_package/issues
