@@ -1,20 +1,35 @@
 Package: FSSgam
-Title: Full subsets multiple regresssion in R using gam(m4)
+Title: Full Subsets Multiple Regression in R Using GAMs
 Version: 1.11
-Authors@R: c(person("Rebecca", "Fisher", email = "r.fisher@aims.gov.au", role = c("aut", "cre")))
-Description: Full subsets information theoretic approaches are becoming an increasingly popular tool for exploring predictive power and variable importance where a wide range of candidate predictors are being considered. This repository contains a simple function in the statistical programming language R that can be used to construct, fit and compare a complete model set of possible ecological or environmental predictors, given a response variable of interest. The function is based on Generalized Additive Models (GAM) and builds on the MuMIn package.. Advantages include the capacity to fit more predictors than there are replicates, automatic removal of models with correlated predictors, and model sets that include interactions between factors and smooth predictors, as all as smooth interactions with other smooths (via te). The function takes a range of arguments that allow control over the model set being constructed, including specifying cyclic and linear continuous predictors, specification of the smoothing algorithm used and the maximum complexity allowed for smooth terms.
+Authors@R: 
+    person("Rebecca", "Fisher", 
+           email = "r.fisher@aims.gov.au", 
+           role = c("aut", "cre"))
+Description: 
+    Full-subsets information-theoretic approaches are increasingly used to explore 
+    predictive power and variable importance when a wide range of candidate predictors 
+    are being considered. This package provides functions that can be used to construct, 
+    fit, and compare a complete model set of possible ecological or environmental 
+    predictors for a given response variable of interest. Models are based on 
+    Generalized Additive Models (GAMs) and build on the MuMIn package. Advantages include 
+    the capacity to fit more predictors than there are replicates, automatic removal of 
+    models with correlated predictors, and support for model sets that include 
+    interactions between factors and smooth predictors, as well as smooth-by-smooth 
+    interactions via te().
 Depends:
-    R (>= 3.3.2)
-License: Apache 2
+    R (>= 3.5)
+License: Apache License (== 2.0)
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.1.1
-Imports: doSNOW,
+RoxygenNote: 7.3.3
+Imports:
+    doSNOW,
     MuMIn,
     gamm4,
     mgcv,
     nnet
-Suggests: R.rsp
+Suggests:
+    R.rsp
 VignetteBuilder: R.rsp
 URL: https://beckyfisher.github.io/FSSgam
 BugReports: https://github.com/beckyfisher/FSSgam_package/issues
