@@ -35,3 +35,13 @@ NULL
 #' @name case_study3
 #' @docType data
 NULL
+
+#' Coral_data
+#'
+#' This is the dataset used for the extra examples vignette. 
+#' 
+#'
+#' @format A data frame with 350 rows and 73 variables
+#' @name coral_data
+#' @docType data
+NULL
