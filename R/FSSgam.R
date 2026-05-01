@@ -48,7 +48,6 @@
 #'
 #' @name FSSgam-package
 #' @aliases FSSgam FSSgam-package
-#' @docType package
 #' @author
 #' Rebecca Fisher (Australian Institue of Marine Science)
 #'
@@ -58,4 +57,5 @@
 #' @examples
 #' install.packages("FSSgam",dependencies=TRUE)
 #' library(FSSgam)
+"_PACKAGE"
 NULL

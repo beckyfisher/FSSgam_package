@@ -64,16 +64,16 @@ fit.model.set=function(model.set.list,
 
   use.datModSet <- model.set.list$used.data
   n.mods=length(model.set.list$mod.formula)#model.set.list$n.mods
-  mod.formula=model.set.list$mod.formula
+  mod.formula <- model.set.list$mod.formula
   test.fit=model.set.list$test.fit
-  included.vars=model.set.list$included.vars
+  included.vars <- model.set.list$included.vars
 
   if(n.mods>max.models){
         warning(paste("You have ", n.mods," models. Individual models fits will not be saved.
         If you want to save all the model fits all of these you need to
         increase 'max.models' from ", max.models,".", sep=""))
         save.model.fits=F
-       }
+  }
 
   # some functions for extracting model information
   require(MuMIn)
@@ -108,43 +108,44 @@ fit.model.set=function(model.set.list,
            }
     }
     close(pb)
-    names(out.dat)=names(mod.formula)[1:n.mods]
+    names(out.dat) <- names(mod.formula)[1:n.mods]
 
     # find all the models that didn't fit and extract the error messages
-    model.success=lapply(lapply(out.dat,FUN=class),FUN=function(x){
+    model.success <- lapply(lapply(out.dat,FUN=class),FUN=function(x){
        length(grep("gam",x))>0})
-    failed.models=mod.formula[which(model.success==F)]
-    success.models=out.dat[which(model.success==T)]
+    failed.models <- mod.formula[which(model.success==F)]
+    success.models <- out.dat[which(model.success==T)]
     if(length(success.models)==0){
           stop("None of your models fitted successfully. Please check your input objects.")}
 
     # of the successful models, make a table indicating which variables are included
-    var.inclusions=build.inclusion.mat(included.vars=included.vars,formula.list=success.models)
+    var.inclusions <- build.inclusion.mat(included.vars=included.vars,formula.list=success.models)
     # now make a table of all the model summary data
-    mod.data.out=data.frame("modname"=names(success.models))
-    mod.data.out$formula=unlist(lapply(success.models,FUN=function(x){as.character(formula(x)[3])}))
-    mod.data.out=cbind(mod.data.out,do.call("rbind",lapply(success.models,FUN=function(x){
+    mod.data.out <- data.frame("modname"=names(success.models))
+    mod.data.out$formula <- unlist(lapply(success.models,FUN=function(x){as.character(formula(x)[3])}))
+    mod.data.out <- cbind(mod.data.out,do.call("rbind",lapply(success.models,FUN=function(x){
                         unlist(extract.mod.dat(x,r2.type.=r2.type))})))
 
   }else{ # if model fits are not to be saved
     #for all models make a table indicating which variables are included
-    var.inclusions=build.inclusion.mat(included.vars=included.vars,formula.list=mod.formula)
+    var.inclusions <- build.inclusion.mat(included.vars=included.vars,formula.list=mod.formula)
      # now make a table of all the model summary data
-    mod.data.out=data.frame("modname"=names(mod.formula))
-    mod.data.out$formula=unlist(lapply(mod.formula,FUN=function(x){as.character(formula(x))[2]}))
+    mod.data.out <- data.frame("modname"=names(mod.formula))
+    mod.data.out$formula <- unlist(lapply(mod.formula,FUN=function(x){as.character(formula(x))[2]}))
 
     # now fit the models by updating the test fit (with or without parallel)
     if(parallel==T){
      require(doSNOW)
-     cl=makeCluster(n.cores)
+     cl <- makeCluster(n.cores)
      registerDoSNOW(cl)
      opts <- list(progress = progress)
-     mod.dat<<-foreach(l = 1:length(mod.formula),
+     mod.dat <- foreach(l = 1:length(mod.formula),
                      .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                      #.errorhandling='pass',
                      .options.snow = opts)%dopar%{
         unlist(extract.mod.dat(fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.datModSet),
                                r2.type.=r2.type))
+                       
      }
      close(pb)
      stopCluster(cl)
@@ -159,55 +160,55 @@ fit.model.set=function(model.set.list,
           }
     }
     close(pb)
-    names(mod.dat)=names(mod.formula[1:n.mods])
+    names(mod.dat) <- names(mod.formula[1:n.mods])
 
-    mod.data.out=cbind(mod.data.out,do.call("rbind",mod.dat))
+    mod.data.out <- cbind(mod.data.out,do.call("rbind",mod.dat))
 
-    failed.models=mod.formula[which(is.na(mod.data.out$AICc)==T)]
-    success.models=mod.formula[which(is.na(mod.data.out$AICc)==F)]
+    failed.models <- mod.formula[which(is.na(mod.data.out$AICc)==T)]
+    success.models <- mod.formula[which(is.na(mod.data.out$AICc)==F)]
   }
 
-  mod.data.out$delta.AICc=round(mod.data.out$AICc-min(mod.data.out$AICc,na.rm=T),3)
-  mod.data.out$delta.BIC=round(mod.data.out$BIC-min(mod.data.out$BIC,na.rm=T),3)
-  mod.data.out$wi.AICc=round(wi(mod.data.out$AICc),3)
-  mod.data.out$wi.BIC=round(wi(mod.data.out$BIC),3)
+  mod.data.out$delta.AICc <- round(mod.data.out$AICc-min(mod.data.out$AICc,na.rm=T),3)
+  mod.data.out$delta.BIC <- round(mod.data.out$BIC-min(mod.data.out$BIC,na.rm=T),3)
+  mod.data.out$wi.AICc <- round(wi(mod.data.out$AICc),3)
+  mod.data.out$wi.BIC <- round(wi(mod.data.out$BIC),3)
 
   # substract the null model r2 value from each model r2 value
   if(report.unique.r2==T){
-   null.r2=mod.data.out$r2.vals[which(mod.data.out$modname=="null")]
-   mod.data.out$r2.vals.unique=mod.data.out$r2.vals-null.r2
+     null.r2 <- mod.data.out$r2.vals[which(mod.data.out$modname=="null")]
+     mod.data.out$r2.vals.unique <- mod.data.out$r2.vals-null.r2
    }
 
   ### now add columns for the included predictors to the dataframe
-  mod.data.out=cbind(mod.data.out,var.inclusions)
+  mod.data.out <- cbind(mod.data.out,var.inclusions)
 
   # now calculate the variable importance
    # find the min number of models for each variable
-  min.mods=min(colSums(mod.data.out[,included.vars]))   
+  min.mods <- min(colSums(mod.data.out[,included.vars]))   
   
   if(VI.mods=='min.n'){
     # first for AICc
-    var.weights=unlist(lapply(included.vars,FUN=function(x){
+    var.weights <- unlist(lapply(included.vars,FUN=function(x){
            sum(sort(mod.data.out$wi.AICc[which(mod.data.out[,x]==1)],decreasing=T)[1:min.mods])}))
-    names(var.weights)=included.vars
-    variable.weights.raw=var.weights
-    aic.var.weights=list(variable.weights.raw=variable.weights.raw)
+    names(var.weights) <- included.vars
+    variable.weights.raw <- var.weights
+    aic.var.weights <- list(variable.weights.raw=variable.weights.raw)
     
     # next for BIC
-    var.weights=unlist(lapply(included.vars,FUN=function(x){
+    var.weights <- unlist(lapply(included.vars,FUN=function(x){
       sum(sort(mod.data.out$wi.BIC[which(mod.data.out[,x]==1)],decreasing=T)[1:min.mods])}))
-    names(var.weights)=included.vars
-    variable.weights.raw=var.weights
-    bic.var.weights=list(variable.weights.raw=variable.weights.raw)   
+    names(var.weights) <- included.vars
+    variable.weights.raw <- var.weights
+    bic.var.weights <- list(variable.weights.raw=variable.weights.raw)   
   }
   if(VI.mods=='all'){  
     # first for AICc
-    variable.weights.raw=colSums(mod.data.out[,included.vars]*mod.data.out$wi.AICc)
-    aic.var.weights=list(variable.weights.raw=variable.weights.raw)
+    variable.weights.raw <- colSums(mod.data.out[,included.vars]*mod.data.out$wi.AICc)
+    aic.var.weights <- list(variable.weights.raw=variable.weights.raw)
   
     # next for BIC
-    variable.weights.raw=colSums(mod.data.out[,included.vars]*mod.data.out$wi.BIC)
-    bic.var.weights=list(variable.weights.raw=variable.weights.raw)
+    variable.weights.raw <- colSums(mod.data.out[,included.vars]*mod.data.out$wi.BIC)
+    bic.var.weights <- list(variable.weights.raw=variable.weights.raw)
   }
   
   # now return the list of outputs

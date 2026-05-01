@@ -16,6 +16,9 @@ License: \tab Apache 2\cr
 LazyLoad: \tab yes\cr
 Depends: \tab doSNOW, MuMIn, gamm4, mgcv, nnet\cr
 }}
+\description{
+Full-subsets information-theoretic approaches are increasingly used to explore predictive power and variable importance when a wide range of candidate predictors are being considered. This package provides functions that can be used to construct, fit, and compare a complete model set of possible ecological or environmental predictors for a given response variable of interest. Models are based on Generalized Additive Models (GAMs) and build on the MuMIn package. Advantages include the capacity to fit more predictors than there are replicates, automatic removal of models with correlated predictors, and support for model sets that include interactions between factors and smooth predictors, as well as smooth-by-smooth interactions via te().
+}
 \details{
 Full subsets information theoretic approaches are becoming an increasingly popular tool for exploring predictive power and variable importance where a wide range of candidate predictors are being considered.
 
@@ -44,6 +47,14 @@ library(FSSgam)
 \references{
 Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
 \url{https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134}
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://beckyfisher.github.io/FSSgam}
+  \item Report bugs at \url{https://github.com/beckyfisher/FSSgam_package/issues}
+}
+
 }
 \author{
 Rebecca Fisher (Australian Institue of Marine Science)
