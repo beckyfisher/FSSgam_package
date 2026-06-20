@@ -42,6 +42,8 @@ Models that have no random effects and are based only on gam (mgcv) are best fit
 
 \item{pred.vars.cont}{A character vector indicating the continuous predictors to use. By default all continuous predictors will be fitted using a smoother (but see argument linear.vars). These must match column names in use.dat exactly. If NA is used the function can be run without any smooth predictors.}
 
+\item{pred.vars.fact}{A character vector indicating the factor predictors to use. These must match column names in use.dat exactly. If NA is used the function can be run without any factor predictors.}
+
 \item{cyclic.vars}{NA if there are no cyclic predictors, or if there are cyclic predictors,a character vector containing the names of any of the continuous predictors that should be modelled as cyclic variables. Note that these must also be contained in the pred.vars.cont charactervector. Please also note there are issues with bs='cc' and model selection as this uses by default shrinkage. With shrinkage, variables are retained in models but with zero edf, which makes interpretation of AICc and BIC confusing. To account for this always select only the most parsimonious model (that with the fewest parameters), not just that with the lowest AICc. Reported estimated degrees of freedom (edf) in the model output table represent the sum of the edf of the smooth terms plus the number of parametric coefficients. When cyclic variables are included and shrinkage is used, any estimated edf of the smooth terms that are less than 1 are reset to 1 before summing to ensure the the total number of predictors in the model is captured properly.}
 
 \item{linear.vars}{NA if there are no continuous predictors to be treated as linear (not fitted as smooths). Only use this where variables are clearly continuous in nature, but you are confident a linear relationship is valid. It may also be useful for continuous predictors that are not well distributed along the x-axis (ie, sampling was conducted in clumped distances from a feature of interest). Where this is necessary, transformations should be considered where they can be used to theoretically linearize response relationships. Does not need to be contained in vector pred.vars.cont}
@@ -73,9 +75,17 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 
 \item{parallel}{A logical value indicating if parallel processing should be used. The default is FALSE.}
 
+\item{n.cores}{An integer indicating the number of cores to use if parallel is TRUE. Defaults to 4.}
+
 \item{r2.type}{The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note gamm4 does not currently return a deviance.}
 
 \item{report.unique.r2}{The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.}
+
+\item{factor.interactions}{Deprecated. Superseded by factor.factor.interactions; retained only so older code does not break, and will warn if used.}
+
+\item{smooth.interactions}{Deprecated. Superseded by factor.smooth.interactions; retained only so older code does not break, and will warn if used.}
+
+\item{size}{Deprecated. Superseded by max.predictors; retained only so older code does not break, and will warn if used.}
 }
 \value{
 A list of the following output files:
@@ -107,4 +117,21 @@ matrix before actually running the analysis.
 The function constructs and fits a complete model set based on the supplied arguments.
 for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
 https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134
+}
+\examples{
+library(mgcv)
+data(case_study1)
+use.dat <- case_study1
+use.dat$site <- as.factor(use.dat$site)
+test.fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+                 family = tw(), data = use.dat)
+full.subsets.gam(
+  use.dat = use.dat,
+  test.fit = test.fit,
+  pred.vars.cont = c("complexity", "depth"),
+  pred.vars.fact = "ZONE",
+  null.terms = "s(site,bs='re')",
+  max.predictors = 2,
+  k = 3
+)
 }

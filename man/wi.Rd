@@ -18,3 +18,6 @@ Supporting function for functions full.subsets.gam and fit.model.set. Not called
 \details{
 Calculates Akaike weight values from a vector of AICc, AIC or BIC values
 }
+\examples{
+wi(c(100, 102, 105, 110))
+}

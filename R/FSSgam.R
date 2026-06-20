@@ -12,19 +12,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-#' \tabular{ll}{
-#' Package: \tab FSSgam\cr
-#' Type: \tab Package\cr
-#' Title: \tab FUll subsets multiple regression in R with gam(m4)\cr
-#' Version: \tab 1.11\cr
-#' Date: \tab 2018-09-14\cr
-#' Author: \tab Rebecca Fisher\cr
-#' Maintainer: \tab Rebecca Fisher\cr
-#' License: \tab Apache 2\cr
-#' LazyLoad: \tab yes\cr
-#' Depends: \tab doSNOW, MuMIn, gamm4, mgcv, nnet\cr
-#' }
-#'
 #' @details
 #' Full subsets information theoretic approaches are becoming an increasingly popular tool for exploring predictive power and variable importance where a wide range of candidate predictors are being considered.
 #'
@@ -55,7 +42,6 @@
 #' @references Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
 #' \url{https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134}
 #' @examples
-#' install.packages("FSSgam",dependencies=TRUE)
 #' library(FSSgam)
 "_PACKAGE"
 NULL

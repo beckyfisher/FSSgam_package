@@ -9,7 +9,7 @@ extract.mod.dat(mod.fit, r2.type. = r2.type)
 \arguments{
 \item{mod.fit}{A dsm, gam or uGamm fitted model object}
 
-\item{r2.type}{The type of r2 to extract. Passed through arguments supplied to fit.model.set}
+\item{r2.type.}{The type of r2 to extract. Passed through arguments supplied to fit.model.set}
 }
 \value{
 A list of model fit parameters
@@ -19,4 +19,12 @@ Supporting function for functions full.subsets.gam and fit.model.set. Not called
 }
 \details{
 Extracts model fit parameters from a dsm, gam or uGamm fitted model object
+}
+\examples{
+library(mgcv)
+library(MuMIn)
+data(case_study1)
+fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
+           family = tw(), data = case_study1)
+extract.mod.dat(fit, r2.type. = "r2")
 }

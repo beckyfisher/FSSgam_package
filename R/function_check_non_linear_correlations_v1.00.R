@@ -34,6 +34,9 @@
 #' R-square values reported for each of the fitted relationships. Note that the function
 #' assumes a gaussian distribution for continuous response variables. Substantial
 #' deviations from this assumption will yield spurious "correlation" estimates.
+#' @examples
+#' data(case_study1)
+#' check.non.linear.correlations(case_study1[, c("depth", "complexity", "ZONE")])
 
 check.non.linear.correlations=function(dat){
   classes.dat=sapply(dat,class)

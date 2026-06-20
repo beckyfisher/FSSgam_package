@@ -20,3 +20,8 @@ Supporting function for functions full.subsets.gam and fit.model.set. Not called
 \details{
 Builds var.inclusion matrix based on the included variables and set of model formula
 }
+\examples{
+included.vars <- c("depth", "complexity")
+formula.list <- list(depth = ~1, "depth+complexity" = ~1)
+build.inclusion.mat(included.vars, formula.list)
+}

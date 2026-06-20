@@ -23,9 +23,13 @@
 #'
 #' @param parallel  A logical value indicating if parallel processing should be used. The default is FALSE.
 #'
+#' @param n.cores An integer indicating the number of cores to use if parallel is TRUE. Defaults to 4.
+#'
 #' @param r2.type The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note gamm4 does not currently return a deviance.
 #'
 #' @param  report.unique.r2 The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.
+#'
+#' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.
 #'
 #' @details The function constructs and fits a complete model set based on the supplied arguments.
 #' for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
@@ -49,9 +53,26 @@
 #' To determine the relative importance of each predictor across the whole model set we summed the wi values for all models containing each variable. 
 #' The higher the combined weights for an explanatory parameter, the more important it is in the analysis (Burnham & Anderson, 2002). 
 #' An assumption of the use of summed model weights to infer variable importance is that the number of models in which the different predictors are present is uniform. 
-#' As our function removes models with correlated predictors, this is not always the case. 
+#' As our function removes models with correlated predictors, this is not always the case.
 #' To overcome this issue, the summed variable.importance scores are the summed weights for the best n models, where n is equal to the minimum number of models any one predictor is present in.
 #' If you would like the variable importance scores to be based on all models in the set instead, set VI.mods="all".
+#' @examples
+#' library(mgcv)
+#' data(case_study1)
+#' use.dat <- case_study1
+#' use.dat$site <- as.factor(use.dat$site)
+#' test.fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+#'                  family = tw(), data = use.dat)
+#' model.set <- generate.model.set(
+#'   use.dat = use.dat,
+#'   test.fit = test.fit,
+#'   pred.vars.cont = c("complexity", "depth"),
+#'   pred.vars.fact = "ZONE",
+#'   null.terms = "s(site,bs='re')",
+#'   max.predictors = 2,
+#'   k = 3
+#' )
+#' fit.model.set(model.set, parallel = FALSE)
 
 fit.model.set=function(model.set.list,
                           max.models=200,

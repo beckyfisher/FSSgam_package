@@ -29,3 +29,7 @@ among a continuous variable and a factor variable through the call lm(continuous
 and nnet to apporoximate the correlation among factor variables using a multnomial
 model fit.
 }
+\examples{
+data(case_study1)
+check.correlations(case_study1[, c("depth", "complexity", "ZONE")])
+}

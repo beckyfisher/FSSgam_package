@@ -9,9 +9,9 @@ fit.mod.l(formula.l, test.fit. = test.fit, use.dat = use.dat)
 \arguments{
 \item{formula.l}{A model formula}
 
-\item{use.dat}{the data used to fit test.fit#}
+\item{test.fit.}{A dsm, gam or uGamm fitted model object}
 
-\item{test.fit}{A dsm, gam or uGamm fitted model object}
+\item{use.dat}{the data used to fit test.fit#}
 }
 \value{
 An updated dsm, gam or uGamm fitted model object
@@ -22,4 +22,12 @@ Supporting function for functions full.subsets.gam and fit.model.set. Not called
 \details{
 Generates an updated model fit based on the supplied formula.
 This wrapper was required to allow full.subsets.gam and fit.model.set to be applied to dsm models
+}
+\examples{
+library(mgcv)
+data(case_study1)
+base.fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
+                 family = tw(), data = case_study1)
+fit.mod.l(formula.l = ~ s(complexity, k = 3, bs = "cr"),
+          test.fit. = base.fit, use.dat = case_study1)
 }

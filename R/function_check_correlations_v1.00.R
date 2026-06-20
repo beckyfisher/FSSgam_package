@@ -29,6 +29,9 @@
 #' model fit.
 #' @export
 #' @return a correlation matrix
+#' @examples
+#' data(case_study1)
+#' check.correlations(case_study1[, c("depth", "complexity", "ZONE")])
 
 check.correlations=function(dat,parallel=F,n.cores=4){
   classes.dat=sapply(dat,class)

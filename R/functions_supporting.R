@@ -22,6 +22,8 @@
 #'
 #' @export
 #' @return A vector of Akaike weights
+#' @examples
+#' wi(c(100, 102, 105, 110))
 wi <- function(AIC.vals){# This function calculate the Aikaike weights:
  # wi=(exp(-1/2*AICc.vals.adj))/Sum.wi=1 to r (exp(-1/2*AICc.vals.adj))
  AICc.vals.adj=AIC.vals-min(na.omit(AIC.vals))
@@ -38,12 +40,19 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
 #'
 #' @param  mod.fit A dsm, gam or uGamm fitted model object
 #'
-#' @param  r2.type The type of r2 to extract. Passed through arguments supplied to fit.model.set
+#' @param  r2.type. The type of r2 to extract. Passed through arguments supplied to fit.model.set
 #'
 #' @details Extracts model fit parameters from a dsm, gam or uGamm fitted model object
 #'
 #' @export
 #' @return A list of model fit parameters
+#' @examples
+#' library(mgcv)
+#' library(MuMIn)
+#' data(case_study1)
+#' fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
+#'            family = tw(), data = case_study1)
+#' extract.mod.dat(fit, r2.type. = "r2")
 extract.mod.dat <- function(mod.fit,r2.type.=r2.type){
 #x=mod.fit
  mod.dat <- list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA)
@@ -108,6 +117,10 @@ return(mod.dat)}
 #'
 #' @export
 #' @return A matrix of variables included in the model set
+#' @examples
+#' included.vars <- c("depth", "complexity")
+#' formula.list <- list(depth = ~1, "depth+complexity" = ~1)
+#' build.inclusion.mat(included.vars, formula.list)
 build.inclusion.mat <- function(included.vars,formula.list){
 var.inclusions <- matrix(0,ncol=length(included.vars),length(formula.list))
 colnames(var.inclusions) <- c(included.vars)
@@ -132,7 +145,7 @@ return(var.inclusions)
 #'
 #' @param  formula.l A model formula
 #'
-#' @param  test.fit A dsm, gam or uGamm fitted model object
+#' @param  test.fit. A dsm, gam or uGamm fitted model object
 #'
 #' @param  use.dat the data used to fit test.fit#
 #'
@@ -141,6 +154,13 @@ return(var.inclusions)
 #'
 #' @export
 #' @return An updated dsm, gam or uGamm fitted model object
+#' @examples
+#' library(mgcv)
+#' data(case_study1)
+#' base.fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
+#'                  family = tw(), data = case_study1)
+#' fit.mod.l(formula.l = ~ s(complexity, k = 3, bs = "cr"),
+#'           test.fit. = base.fit, use.dat = case_study1)
 fit.mod.l <- function(formula.l,test.fit.=test.fit,use.dat=use.dat){
 if(length(grep("dsm",class(test.fit.)))>0){
  mod.l=try(update(test.fit.,formula=formula.l),
