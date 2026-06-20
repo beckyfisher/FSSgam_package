@@ -97,6 +97,9 @@ check.non.linear.correlations=function(dat){
        nn=length(unique(dat.r$predictor.var2))
        k.use=4
        if(nn<k.use){k.use=nn}
+       # s() must stay unqualified here: mgcv's formula parser matches smooth
+       # terms by literal symbol name, so `mgcv::s(...)` is not recognised as a
+       # smooth term and silently breaks model.frame() construction.
        fit=try(mgcv::gam(response.var1~s(predictor.var2,k=k.use),data=dat.r),silent=TRUE)
        if(!inherits(fit,"try-error")){
         r.sq=summary(fit)$r.sq
