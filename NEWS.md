@@ -11,3 +11,15 @@ Modernisation release ahead of CRAN submission.
 * Added runnable `@examples` to all exported functions.
 * Added `data-raw/`, `build_package_FFSgam.R`, and `CLAUDE.md` to
   `.Rbuildignore`.
+* Renamed the core implementations to `generate_model_set()` and
+  `fit_model_set()`. `generate.model.set()` and `fit.model.set()` remain
+  exported but are now deprecated wrappers (see `R/deprecated.R`) that warn
+  via `.Deprecated()` and forward to the new names; `full.subsets.gam()`
+  calls the new names internally so it does not itself emit deprecation
+  warnings.
+* Replaced `require()`/bare calls throughout `R/` with explicit
+  `package::function()` calls, and `class(x) == "y"` checks with
+  `inherits(x, "y")`. Note: smooth-term constructors (`s()`, `te()`, `t2()`)
+  are kept unqualified inside model formulas, because mgcv resolves them by
+  literal symbol name during formula parsing rather than through normal
+  function dispatch -- `mgcv::s(...)` inside a formula does not work.
