@@ -14,7 +14,7 @@
 
 #' wi
 #'
-#' Supporting function for functions full.subsets.gam and fit.model.set. Not called directly.
+#' Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
 #'
 #' @param  AIC.vals vector of AICc, AIC or BIC values
 #'
@@ -26,21 +26,21 @@
 #' wi(c(100, 102, 105, 110))
 wi <- function(AIC.vals){# This function calculate the Aikaike weights:
  # wi=(exp(-1/2*AICc.vals.adj))/Sum.wi=1 to r (exp(-1/2*AICc.vals.adj))
- AICc.vals.adj=AIC.vals-min(na.omit(AIC.vals))
+ AICc.vals.adj=AIC.vals-min(stats::na.omit(AIC.vals))
  wi.den=rep(NA,length(AICc.vals.adj))
  for(i in 1:length(AICc.vals.adj)){
   wi.den[i]=exp(-1/2*AICc.vals.adj[i])}
- wi.den.sum=sum(na.omit(wi.den))
+ wi.den.sum=sum(stats::na.omit(wi.den))
  wi=wi.den/wi.den.sum
  return(wi)}
 
 #' extract.mod.dat
 #'
-#' Supporting function for functions full.subsets.gam and fit.model.set. Not called directly.
+#' Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
 #'
 #' @param  mod.fit A dsm, gam or uGamm fitted model object
 #'
-#' @param  r2.type. The type of r2 to extract. Passed through arguments supplied to fit.model.set
+#' @param  r2.type. The type of r2 to extract. Passed through arguments supplied to fit_model_set
 #'
 #' @details Extracts model fit parameters from a dsm, gam or uGamm fitted model object
 #'
@@ -53,35 +53,35 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
 #' fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
 #'            family = tw(), data = case_study1)
 #' extract.mod.dat(fit, r2.type. = "r2")
-extract.mod.dat <- function(mod.fit,r2.type.=r2.type){
+extract.mod.dat <- function(mod.fit,r2.type.="r2.lm.est"){
 #x=mod.fit
  mod.dat <- list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA)
  if(class(mod.fit)[[1]]!="try-error"){
   # AIC and BIC
-  mod.dat$AICc <- AICc(mod.fit)
-  mod.dat$BIC <- BIC(mod.fit)
+  mod.dat$AICc <- MuMIn::AICc(mod.fit)
+  mod.dat$BIC <- stats::BIC(mod.fit)
   #R.sq
         tempOut=NA
         if(class(mod.fit)[1]=="gam" & r2.type.=="dev"){tempOut=summary(mod.fit)$dev.expl}
         if(class(mod.fit)[1]=="gam" & r2.type.=="r2"){tempOut=summary(mod.fit)$r.sq}
         if(class(mod.fit)[1]=="gam" & r2.type.=="r2.lm.est"){
-           tempOut=summary(lm(mod.fit$y~predict(mod.fit)))$r.sq}
+           tempOut=summary(stats::lm(mod.fit$y~stats::predict(mod.fit)))$r.sq}
         if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="dev"){
            tempOut=summary(mod.fit$gam)$dev.expl
            if(length(tempOut)==0){tempOut=NA}}
         if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
         if(class(mod.fit)[[1]]=="gamm" & r2.type.=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
         if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="r2.lm.est"){
-          if(family(mod.fit$mer)[1]=="binomial"){
+          if(stats::family(mod.fit$mer)[1]=="binomial"){
             y_dat <- attributes(mod.fit$mer)$frame$y
             y <- y_dat[,1]/(y_dat[,1] + y_dat[,2])
-            x <- predict(mod.fit[[1]],re.form=NA,type="response")
-    
-            tempOut=summary(lm(y~x))$r.sq            
+            x <- stats::predict(mod.fit[[1]],re.form=NA,type="response")
+
+            tempOut=summary(stats::lm(y~x))$r.sq
            }else{
-            tempOut=summary(lm(attributes(mod.fit$mer)$frame$y~
-                        predict(mod.fit[[1]],re.form=NA,type="response")))$r.sq
-           }            
+            tempOut=summary(stats::lm(attributes(mod.fit$mer)$frame$y~
+                        stats::predict(mod.fit[[1]],re.form=NA,type="response")))$r.sq
+           }
           }
 
            if(is.null(tempOut)){tempOut=NA}
@@ -107,11 +107,11 @@ return(mod.dat)}
 
 #' build.inclusion.mat
 #'
-#' Supporting function for functions full.subsets.gam and fit.model.set. Not called directly.
+#' Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
 #'
 #' @param  included.vars A character vector of variables included in the model set
 #'
-#' @param  formula.list A list of model formula, as obtained through generate.model.set
+#' @param  formula.list A list of model formula, as obtained through generate_model_set
 #'
 #' @details Builds var.inclusion matrix based on the included variables and set of model formula
 #'
@@ -128,12 +128,12 @@ colnames(var.inclusions) <- c(included.vars)
 for(m in 1:length(formula.list)){
       pred.vars.m=unique(
         unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(names(formula.list)[m],
-        split="+",fixed=T)),
-        split=".by.",fixed=T)),
-        split=".I.",fixed=T)),
-        split="*",fixed=T)),
-        split=".t.",fixed=T)),
-        split=".te.",fixed=T)))
+        split="+",fixed=TRUE)),
+        split=".by.",fixed=TRUE)),
+        split=".I.",fixed=TRUE)),
+        split="*",fixed=TRUE)),
+        split=".t.",fixed=TRUE)),
+        split=".te.",fixed=TRUE)))
       if(pred.vars.m[1]!="null"){var.inclusions[m,pred.vars.m]=1}}
 return(var.inclusions)
 }
@@ -141,7 +141,7 @@ return(var.inclusions)
 
 #' fit.mod.l
 #'
-#' Supporting function for functions full.subsets.gam and fit.model.set. Not called directly.
+#' Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
 #'
 #' @param  formula.l A model formula
 #'
@@ -150,7 +150,7 @@ return(var.inclusions)
 #' @param  use.dat the data used to fit test.fit#
 #'
 #' @details Generates an updated model fit based on the supplied formula.
-#' This wrapper was required to allow full.subsets.gam and fit.model.set to be applied to dsm models
+#' This wrapper was required to allow full.subsets.gam and fit_model_set to be applied to dsm models
 #'
 #' @export
 #' @return An updated dsm, gam or uGamm fitted model object
@@ -161,13 +161,13 @@ return(var.inclusions)
 #'                  family = tw(), data = case_study1)
 #' fit.mod.l(formula.l = ~ s(complexity, k = 3, bs = "cr"),
 #'           test.fit. = base.fit, use.dat = case_study1)
-fit.mod.l <- function(formula.l,test.fit.=test.fit,use.dat=use.dat){
+fit.mod.l <- function(formula.l,test.fit.,use.dat){
 if(length(grep("dsm",class(test.fit.)))>0){
- mod.l=try(update(test.fit.,formula=formula.l),
-           silent=T)}
+ mod.l=try(stats::update(test.fit.,formula=formula.l),
+           silent=TRUE)}
 if(length(grep("dsm",class(test.fit.)))==0){
- mod.l=try(update(test.fit.,formula=formula.l,data=use.dat, family=family(test.fit.)),
-           silent=T)}
+ mod.l=try(stats::update(test.fit.,formula=formula.l,data=use.dat, family=stats::family(test.fit.)),
+           silent=TRUE)}
 return(mod.l)
 }
 

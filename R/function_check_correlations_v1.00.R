@@ -33,7 +33,7 @@
 #' data(case_study1)
 #' check.correlations(case_study1[, c("depth", "complexity", "ZONE")])
 
-check.correlations=function(dat,parallel=F,n.cores=4){
+check.correlations=function(dat,parallel=FALSE,n.cores=4){
   classes.dat=sapply(dat,class)
   classes.dat=lapply(classes.dat,FUN=paste,collapse=" ")
   valid.cols=which(match(unlist(classes.dat),c("factor","character", "integer","numeric"))>0)
@@ -49,7 +49,7 @@ check.correlations=function(dat,parallel=F,n.cores=4){
   fact.vars=names(which(classes.dat=="factor" | classes.dat=="character"))
   cont.vars=names(which(classes.dat=="integer" | classes.dat=="numeric"))
   if(length(cont.vars)>1){
-   cor.mat=cor(dat[,cont.vars],use="pairwise.complete.obs")}else{
+   cor.mat=stats::cor(dat[,cont.vars],use="pairwise.complete.obs")}else{
    cor.mat=matrix(1,ncol=1,nrow=1)
    colnames(cor.mat)=cont.vars
    rownames(cor.mat)=cont.vars}
@@ -57,7 +57,7 @@ check.correlations=function(dat,parallel=F,n.cores=4){
    if(length(cont.vars)>0){
     lm.grid=expand.grid(list(fact.var=fact.vars,cont.var=cont.vars))
     r.estimates=cbind(lm.grid,apply(lm.grid,MARGIN=1,FUN=function(x){
-        sqrt(summary(lm(dat[,x[2]]~factor(dat[,x[1]])))$r.sq)}))
+        sqrt(summary(stats::lm(dat[,x[2]]~factor(dat[,x[1]])))$r.sq)}))
 
     fact.cont.upper.right=matrix(NA,ncol=length(fact.vars),nrow=length(cont.vars))
     colnames(fact.cont.upper.right)=fact.vars;rownames(fact.cont.upper.right)=cont.vars
@@ -89,33 +89,31 @@ check.correlations=function(dat,parallel=F,n.cores=4){
 
   # estimate r values for fact-fact combinations
   lm.grid=expand.grid(list(fact.var1=fact.vars,fact.var2=fact.vars))
-  require(nnet)
-  if(parallel==T){
-   require(doSNOW)
-   cl=makeCluster(n.cores)
-   registerDoSNOW(cl)
-   out.cor.dat<-foreach(r = 1:nrow(lm.grid),.packages=c('nnet'),.errorhandling='pass')%dopar%{
+  if(parallel==TRUE){
+   cl=parallel::makeCluster(n.cores)
+   doSNOW::registerDoSNOW(cl)
+   out.cor.dat<-foreach::foreach(r = 1:nrow(lm.grid),.packages=c('nnet'),.errorhandling='pass')%dopar%{
     var.1=as.character(lm.grid[r,1])
     var.2=as.character(lm.grid[r,2])
-    dat.r=na.omit(dat[,c(var.1,var.2)])
-    fit <- try(summary(multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=F))$deviance,silent=T)
-    null.fit=try(summary(multinom(dat[,var.1] ~ 1,trace=F))$deviance,silent=T)
-    if(class(fit)!="try-error"){
+    dat.r=stats::na.omit(dat[,c(var.1,var.2)])
+    fit <- try(summary(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE))$deviance,silent=TRUE)
+    null.fit=try(summary(nnet::multinom(dat[,var.1] ~ 1,trace=FALSE))$deviance,silent=TRUE)
+    if(!inherits(fit,"try-error")){
        if(round(fit,4)==round(null.fit,4)){r.est=0}else{
       r.est=sqrt(1-(fit/null.fit))}
       c(var.1,var.2,r.est)}}
-   stopCluster(cl)
-   registerDoSEQ()
+   parallel::stopCluster(cl)
+   foreach::registerDoSEQ()
    }else{
     out.cor.dat=list()
     for(r in 1:nrow(lm.grid)){
           var.1=as.character(lm.grid[r,1])
           var.2=as.character(lm.grid[r,2])
-          dat.r=na.omit(dat[,c(var.1,var.2)])
-          fit <- try(summary(multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=F))$deviance,silent=T)
-          null.fit=try(summary(multinom(dat[,var.1] ~ 1,trace=F))$deviance,silent=T)
+          dat.r=stats::na.omit(dat[,c(var.1,var.2)])
+          fit <- try(summary(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE))$deviance,silent=TRUE)
+          null.fit=try(summary(nnet::multinom(dat[,var.1] ~ 1,trace=FALSE))$deviance,silent=TRUE)
           out=NA
-          if(class(fit)!="try-error"){
+          if(!inherits(fit,"try-error")){
            if(round(fit,4)==round(null.fit,4)){r.est=0}else{
                    r.est=sqrt(1-(fit/null.fit))}
                    out=c(var.1,var.2,r.est)}

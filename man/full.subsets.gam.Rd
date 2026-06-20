@@ -12,21 +12,21 @@ full.subsets.gam(
   cyclic.vars = NA,
   linear.vars = NA,
   factor.smooth.interactions = pred.vars.fact,
-  factor.factor.interactions = F,
-  smooth.smooth.interactions = F,
+  factor.factor.interactions = FALSE,
+  smooth.smooth.interactions = FALSE,
   cov.cutoff = 0.28,
   cor.matrix = NA,
-  non.linear.correlations = F,
+  non.linear.correlations = FALSE,
   max.predictors = 3,
   k = 5,
   bs.arg = "'cr'",
   null.terms = "",
   max.models = 500,
-  save.model.fits = T,
-  parallel = F,
+  save.model.fits = TRUE,
+  parallel = FALSE,
   n.cores = 4,
   r2.type = "r2.lm.est",
-  report.unique.r2 = F,
+  report.unique.r2 = FALSE,
   factor.interactions = "previous.arg",
   smooth.interactions = "previous.arg",
   size = "previous.arg"
@@ -108,7 +108,7 @@ To determine the relative importance of each predictor across the whole model se
 }
 \description{
 Conducts a full subsets analysis based on gam(m4). In the most recent version of FSSgam this function is now a wrapper
-for the two input functions, generate.model.set and fit.model set. Input arguments are the same as these two underlying functions.
+for the two input functions, generate_model_set and fit_model_set. Input arguments are the same as these two underlying functions.
 calling these underlying functions explicitly is the recommended method for running a fulls subsets analysis with the
 FSSgam pacakge because this enables the user to interrogate the candidate model set and the predictor correlation
 matrix before actually running the analysis.

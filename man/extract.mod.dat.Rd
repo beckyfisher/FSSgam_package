@@ -4,18 +4,18 @@
 \alias{extract.mod.dat}
 \title{extract.mod.dat}
 \usage{
-extract.mod.dat(mod.fit, r2.type. = r2.type)
+extract.mod.dat(mod.fit, r2.type. = "r2.lm.est")
 }
 \arguments{
 \item{mod.fit}{A dsm, gam or uGamm fitted model object}
 
-\item{r2.type.}{The type of r2 to extract. Passed through arguments supplied to fit.model.set}
+\item{r2.type.}{The type of r2 to extract. Passed through arguments supplied to fit_model_set}
 }
 \value{
 A list of model fit parameters
 }
 \description{
-Supporting function for functions full.subsets.gam and fit.model.set. Not called directly.
+Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
 }
 \details{
 Extracts model fit parameters from a dsm, gam or uGamm fitted model object

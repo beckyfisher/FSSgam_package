@@ -13,7 +13,7 @@ wi(AIC.vals)
 A vector of Akaike weights
 }
 \description{
-Supporting function for functions full.subsets.gam and fit.model.set. Not called directly.
+Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
 }
 \details{
 Calculates Akaike weight values from a vector of AICc, AIC or BIC values

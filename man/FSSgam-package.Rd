@@ -23,7 +23,7 @@ The first is through a direct call to full.subsets.gam (this is the original fun
 This function both constructs and fits the complete model set, based on the user supplied input. This function requires that all model fits are saved, and is therefore
 not suitable for extremely large models sets, as these will cause issues with memory. This method may be superceded in future versions of FSSgam, so for any new project please use the second method.
 
-The second method is via a call to generate.model.set followed by as second call to fit.model set. This pair of functions splits the process of generating the model set from actually fitting and extracting the relevant model data.
+The second method is via a call to generate_model_set followed by a second call to fit_model_set. This pair of functions splits the process of generating the model set from actually fitting and extracting the relevant model data.
 This method is useful for large model sets, because it allows the model set to be interrrogated before fitting and also optionally allows model fit data to not be saved, thus alleviating memory issues.
 
 The use of the function(s) is demonstrated via case studies that highlight how appropriate model sets can be easily constructed, and the broader utility of the approach for exploratory ecology.

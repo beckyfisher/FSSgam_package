@@ -4,7 +4,7 @@
 \alias{fit.mod.l}
 \title{fit.mod.l}
 \usage{
-fit.mod.l(formula.l, test.fit. = test.fit, use.dat = use.dat)
+fit.mod.l(formula.l, test.fit., use.dat)
 }
 \arguments{
 \item{formula.l}{A model formula}
@@ -17,11 +17,11 @@ fit.mod.l(formula.l, test.fit. = test.fit, use.dat = use.dat)
 An updated dsm, gam or uGamm fitted model object
 }
 \description{
-Supporting function for functions full.subsets.gam and fit.model.set. Not called directly.
+Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
 }
 \details{
 Generates an updated model fit based on the supplied formula.
-This wrapper was required to allow full.subsets.gam and fit.model.set to be applied to dsm models
+This wrapper was required to allow full.subsets.gam and fit_model_set to be applied to dsm models
 }
 \examples{
 library(mgcv)

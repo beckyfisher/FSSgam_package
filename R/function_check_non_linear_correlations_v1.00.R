@@ -58,9 +58,6 @@ check.non.linear.correlations=function(dat){
   test.mat=test.mat[which(test.mat$rows!=test.mat$cols),]
   rownames(test.mat)=1:nrow(test.mat)
 
-  require(mgcv)
-  if(length(fact.vars)>0){require(nnet)}
-
   #r=r+1
   #x=test.mat[r,]
   find.r.est.2=function(x){
@@ -69,23 +66,23 @@ check.non.linear.correlations=function(dat){
     predictor.var2=as.character(unlist(x["cols"]))
     class.response.var1=character()
     class.predictor.var2=character()
-    if(length(na.omit(match(response.var1,fact.vars)))==1){class.response.var1="factor"}
-    if(length(na.omit(match(response.var1,cont.vars)))==1){class.response.var1="continuous"}
-    if(length(na.omit(match(predictor.var2,fact.vars)))==1){class.predictor.var2="factor"}
-    if(length(na.omit(match(predictor.var2,cont.vars)))==1){class.predictor.var2="continuous"}
+    if(length(stats::na.omit(match(response.var1,fact.vars)))==1){class.response.var1="factor"}
+    if(length(stats::na.omit(match(response.var1,cont.vars)))==1){class.response.var1="continuous"}
+    if(length(stats::na.omit(match(predictor.var2,fact.vars)))==1){class.predictor.var2="factor"}
+    if(length(stats::na.omit(match(predictor.var2,cont.vars)))==1){class.predictor.var2="continuous"}
 
     #return(c(class.response.var1,class.predictor.var2))}
 
-    dat.r=na.omit(dat[,c(response.var1,predictor.var2)])
+    dat.r=stats::na.omit(dat[,c(response.var1,predictor.var2)])
     dat.r$response.var1=dat.r[,response.var1]
     dat.r$predictor.var2=dat.r[,predictor.var2]
 
     # if the response.var1 variable is a factor use a multinomial model
     if(class.response.var1=="factor"){
-      fit <- try(summary(multinom(response.var1 ~ predictor.var2,trace=F,
-          data=dat.r))$deviance,silent=T)
-      null.fit=try(summary(multinom(response.var1 ~ 1,trace=F,data=dat.r))$deviance,silent=T)
-      if(class(fit)!="try-error"){
+      fit <- try(summary(nnet::multinom(response.var1 ~ predictor.var2,trace=FALSE,
+          data=dat.r))$deviance,silent=TRUE)
+      null.fit=try(summary(nnet::multinom(response.var1 ~ 1,trace=FALSE,data=dat.r))$deviance,silent=TRUE)
+      if(!inherits(fit,"try-error")){
          if(round(fit,4)==round(null.fit,4)){r.est=0}else{
         r.est=sqrt(1-(fit/null.fit))}
         }
@@ -93,15 +90,15 @@ check.non.linear.correlations=function(dat){
     # if the response.var1 variable is continuous and the predictor.var2 is a factor, do an
     # anova
     if(class.response.var1=="continuous" & class.predictor.var2 == "factor"){
-       r.est=sqrt(summary(lm(response.var1~predictor.var2,data=dat.r))$r.sq)
+       r.est=sqrt(summary(stats::lm(response.var1~predictor.var2,data=dat.r))$r.sq)
      }
     # if both the response.var1 variable and the predictor.var2 are continuous, do a gam
     if(class.response.var1=="continuous" & class.predictor.var2 == "continuous"){
        nn=length(unique(dat.r$predictor.var2))
        k.use=4
        if(nn<k.use){k.use=nn}
-       fit=try(gam(response.var1~s(predictor.var2,k=k.use),data=dat.r),silent=T)
-       if(class(fit)[[1]]!="try-error"){
+       fit=try(mgcv::gam(response.var1~s(predictor.var2,k=k.use),data=dat.r),silent=TRUE)
+       if(!inherits(fit,"try-error")){
         r.sq=summary(fit)$r.sq
        if(r.sq>0){r.est=sqrt(r.sq)}else{r.est=0}}
      }

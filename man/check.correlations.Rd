@@ -4,7 +4,7 @@
 \alias{check.correlations}
 \title{check.correlations}
 \usage{
-check.correlations(dat, parallel = F, n.cores = 4)
+check.correlations(dat, parallel = FALSE, n.cores = 4)
 }
 \arguments{
 \item{dat}{the data.frame containing the columns for which a correlation

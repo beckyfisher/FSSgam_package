@@ -12,9 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-#' generate.model.set
+#' generate_model_set
 #'
-#' Generate a complete full subsets model set for analysis based on gam(m4) via a call to fit.model.set.
+#' Generate a complete full subsets model set for analysis based on gam(m4) via a call to fit_model_set.
 #' @param use.dat A data.frame, with columns matching those included in pred.vars.cont and pred.vars.fact, the response variable to be analysed and any other fields required for the analysis (such as random effects, see test.fit). Note that any variables in use.dat that are used in model fits must not contain missing values, as this invalidates comparison via AICc/ BIC. If missing values occur among the predictor variables the function will return an error warning indicating that these rows need to be removed or interpolated.
 #'
 #' @param test.fit A gam model fitted via a call to gam (mgcv) or uGamm (MuMIn). This can use any of the (preferably continuous) predictors in the call and will be used as a model to update in the fitting of the model set.
@@ -71,7 +71,7 @@
 #'
 #' predictor.correlations - The matrix of estimated predictor correlations returned by the function check.correlations and used for model exclusion based on cov.cutoff
 #'
-#' generated.models - A list containing the model formula that were generated (and will be fitted by fit.model.set).
+#' generated.models - A list containing the model formula that were generated (and will be fitted by fit_model_set).
 #' @examples
 #' library(mgcv)
 #' data(case_study1)
@@ -79,7 +79,7 @@
 #' use.dat$site <- as.factor(use.dat$site)
 #' test.fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
 #'                  family = tw(), data = use.dat)
-#' model.set <- generate.model.set(
+#' model.set <- generate_model_set(
 #'   use.dat = use.dat,
 #'   test.fit = test.fit,
 #'   pred.vars.cont = c("complexity", "depth"),
@@ -89,18 +89,18 @@
 #'   k = 3
 #' )
 
-generate.model.set=function(use.dat,
+generate_model_set=function(use.dat,
                           test.fit,
                           pred.vars.cont=NA,
                           pred.vars.fact=NA,
                           cyclic.vars=NA,
                           linear.vars=NA,
                           factor.smooth.interactions=pred.vars.fact,
-                          factor.factor.interactions=F,
-                          smooth.smooth.interactions=F,
+                          factor.factor.interactions=FALSE,
+                          smooth.smooth.interactions=FALSE,
                           cov.cutoff=0.28,
                           cor.matrix=NA,
-                          non.linear.correlations=F,
+                          non.linear.correlations=FALSE,
                           max.predictors=3,
                           k=5,
                           bs.arg="'cr'",
@@ -114,20 +114,20 @@ generate.model.set=function(use.dat,
   #use.dat$intercept=1
   interaction.terms=NA
   linear.interaction.terms=NA
-  all.predictors=unique(na.omit(c(pred.vars.cont,pred.vars.fact,linear.vars)))
+  all.predictors=unique(stats::na.omit(c(pred.vars.cont,pred.vars.fact,linear.vars)))
   included.vars=all.predictors
 
 
   # check the null model will fit
   if(nchar(null.terms)>0){
-    null.formula=as.formula(paste("~ ",null.terms,sep=""))}else{
-    null.formula=as.formula("~ 1")}
+    null.formula=stats::as.formula(paste("~ ",null.terms,sep=""))}else{
+    null.formula=stats::as.formula("~ 1")}
 
   if(length(grep("dsm",class(test.fit)))>0){
     #null.formula=as.formula(paste("~",null.terms,sep=""))
-    null.fit=try(update(test.fit,formula=null.formula),silent=T)
+    null.fit=try(stats::update(test.fit,formula=null.formula),silent=TRUE)
   }else{
-    null.fit=try(update(test.fit,formula=null.formula,data=use.dat),silent=T)}
+    null.fit=try(stats::update(test.fit,formula=null.formula,data=use.dat),silent=TRUE)}
 
   if(class(null.fit)[1]=="try-error"){
         stop(paste("Null model not successfully fitted, please check your inputs.
@@ -147,12 +147,12 @@ generate.model.set=function(use.dat,
   interaction.terms=NA
 
   # if there are factors
-  if(length(na.omit(pred.vars.fact))>0){
+  if(length(stats::na.omit(pred.vars.fact))>0){
   # if there are two or more factors
-  if(length(na.omit(pred.vars.fact))>1){
+  if(length(stats::na.omit(pred.vars.fact))>1){
     # make all the interactions between factors
-    if(class(factor.factor.interactions)=="logical"){
-     if(factor.factor.interactions==T){
+    if(inherits(factor.factor.interactions,"logical")){
+     if(factor.factor.interactions==TRUE){
         if(length(pred.vars.fact)<2){
             stop("You have less than 2 factors. Please reset 'factor.factor.interactions' to 'False'")}
       factor.correlations=check.correlations(use.dat[,pred.vars.fact])
@@ -162,7 +162,7 @@ generate.model.set=function(use.dat,
       for(i in 2:fact.cmbns.max.predictors){
         if(i<=length(pred.vars.fact)){
         fact.combns=c(fact.combns,
-         combn(pred.vars.fact,i,simplify=F)) }}
+         utils::combn(pred.vars.fact,i,simplify=FALSE)) }}
         # check which were correlated
         fact.combns=lapply(fact.combns,FUN=function(x){
                 row.index=which(match(rownames(factor.correlations),x)>0)
@@ -187,7 +187,7 @@ generate.model.set=function(use.dat,
       }
     }
     # make only specified interactions between factors
-    if(class(factor.factor.interactions)=="character"){
+    if(inherits(factor.factor.interactions,"character")){
         if(length(factor.factor.interactions)<2){
             stop("You specified less than 2 factors as factor.factor.interactions.")}
         if(max(is.na(match(factor.factor.interactions,colnames(use.dat))))==1){
@@ -202,7 +202,7 @@ generate.model.set=function(use.dat,
         for(i in 2:fact.cmbns.max.predictors){
           if(i<=length(factor.factor.interactions)){
           fact.combns=c(fact.combns,
-           combn(factor.factor.interactions,i,simplify=F)) }}
+           utils::combn(factor.factor.interactions,i,simplify=FALSE)) }}
           # check which were correlated
           fact.combns=lapply(fact.combns,FUN=function(x){
                   row.index=which(match(rownames(factor.correlations),x)>0)
@@ -229,27 +229,27 @@ generate.model.set=function(use.dat,
 
    # check which factors should be included as interactions with the smoothers
    # for if only factors are specified (including default)
-   if(class(factor.smooth.interactions)=="character"){
+   if(inherits(factor.smooth.interactions,"character")){
 
      factor.smooth.interactions=pred.vars.fact[which(unlist(lapply(strsplit(pred.vars.fact,
         split=".I."),function(x){
         max(is.na(match(x,factor.smooth.interactions)))}))==0)]
      # make the interaction terms between the factors and continuous predictors
 
-     if(length(na.omit(factor.smooth.interactions))>0){
+     if(length(stats::na.omit(factor.smooth.interactions))>0){
       all.interactions=expand.grid(pred.vars.cont,factor.smooth.interactions)
       interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")
 
       # now interactions between linear continous predictors and factors
-      if(length(na.omit(linear.vars))>0){
+      if(length(stats::na.omit(linear.vars))>0){
        linear.interactions=expand.grid(linear.vars,factor.smooth.interactions)
        linear.interaction.terms=paste(linear.interactions$Var1,linear.interactions$Var2,
                                   sep=".t.")}
       }
     }
-   if(class(factor.smooth.interactions)=="list"){
+   if(inherits(factor.smooth.interactions,"list")){
 
-     check.list=match(na.omit(
+     check.list=match(stats::na.omit(
      unlist(factor.smooth.interactions)),all.predictors)
 
 
@@ -269,12 +269,12 @@ generate.model.set=function(use.dat,
         max(is.na(match(x,factor.smooth.interactions)))}))==0)]
      # make the interaction terms between the factors and continuous predictors
 
-     if(length(na.omit(factor.smooth.interactions))>0){
+     if(length(stats::na.omit(factor.smooth.interactions))>0){
       all.interactions=expand.grid(cont.var.interactions,factor.smooth.interactions)
       interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")
 
       # now interactions between linear continous predictors and factors
-      if(length(na.omit(linear.var.interactions))>0){
+      if(length(stats::na.omit(linear.var.interactions))>0){
        linear.interactions=expand.grid(linear.var.interactions,factor.smooth.interactions)
        linear.interaction.terms=paste(linear.interactions$Var1,linear.interactions$Var2,
                                   sep=".t.")}
@@ -287,12 +287,12 @@ generate.model.set=function(use.dat,
    # if we want smooth.smooth interactions
    smooth.smooth.interaction.terms=NA
     # for interactions amonst all continuous predictors
-    if(class(smooth.smooth.interactions)=="logical"){
-      if(smooth.smooth.interactions==T){
+    if(inherits(smooth.smooth.interactions,"logical")){
+      if(smooth.smooth.interactions==TRUE){
         if(length(pred.vars.cont)<2){
             stop("You have less than 2 continuous predictors you wish interactions for.
             Please reset 'smooth.smooth.interactions' to 'False'")}
-       if(non.linear.correlations==T){
+       if(non.linear.correlations==TRUE){
         continuous.correlations=check.non.linear.correlations(use.dat[,pred.vars.cont])}else{
         continuous.correlations=check.correlations(use.dat[,pred.vars.cont])}
 
@@ -302,7 +302,7 @@ generate.model.set=function(use.dat,
       for(i in 2:cont.cmbns.max.predictors){
         if(i<=length(pred.vars.cont)){
         cont.combns=c(cont.combns,
-         combn(pred.vars.cont,i,simplify=F)) }}
+         utils::combn(pred.vars.cont,i,simplify=FALSE)) }}
         # check which were correlated
         cont.combns=lapply(cont.combns,FUN=function(x){
                 row.index=which(match(rownames(continuous.correlations),x)>0)
@@ -319,12 +319,12 @@ generate.model.set=function(use.dat,
      }
     }
     # for only specific interactions amonst continuous predictors
-    if(class(smooth.smooth.interactions)=="character"){
+    if(inherits(smooth.smooth.interactions,"character")){
         if(length(smooth.smooth.interactions)<2){
             stop("You specified less than 2 variables as smooth.smooth.interactions.")}
         if(max(is.na(match(smooth.smooth.interactions,colnames(use.dat))))==1){
             stop("Not all specified smooth.smooth.interactions are supplied in use.dat")}
-      if(non.linear.correlations==T){
+      if(non.linear.correlations==TRUE){
        continuous.correlations=check.non.linear.correlations(use.dat[,smooth.smooth.interactions])}else{
        continuous.correlations=check.correlations(use.dat[,smooth.smooth.interactions])}
 
@@ -334,7 +334,7 @@ generate.model.set=function(use.dat,
       for(i in 2:cont.cmbns.max.predictors){
         if(i<=length(smooth.smooth.interactions)){
         cont.combns=c(cont.combns,
-         combn(smooth.smooth.interactions,i,simplify=F)) }}
+         utils::combn(smooth.smooth.interactions,i,simplify=FALSE)) }}
         # check which were correlated
         cont.combns=lapply(cont.combns,FUN=function(x){
                 row.index=which(match(rownames(continuous.correlations),x)>0)
@@ -350,16 +350,16 @@ generate.model.set=function(use.dat,
         colnames(tt)=smooth.smooth.interaction.terms
     }
 
-  all.predictors=na.omit(unique(c(all.predictors,pred.vars.fact)))
+  all.predictors=stats::na.omit(unique(c(all.predictors,pred.vars.fact)))
   # calculate a correlation matrix between all predictors
-  if(non.linear.correlations==T){
+  if(non.linear.correlations==TRUE){
    cc=check.non.linear.correlations(use.dat[,all.predictors])}else{
    cc=check.correlations(use.dat[,all.predictors])}
   if(length(cor.matrix)==1){
    cor.matrix=cc
    # replace NA's with zero.
    cor.matrix[which(cor.matrix=="NaN")]=0
-   cor.matrix[which(is.na(cor.matrix)==T)]=0}else{
+   cor.matrix[which(is.na(cor.matrix)==TRUE)]=0}else{
       # check if the user defined matrix has the same rownames and colnames
       check.predictors=c(match(all.predictors,colnames(cor.matrix)),
                          match(all.predictors,rownames(cor.matrix)))
@@ -370,18 +370,18 @@ generate.model.set=function(use.dat,
   }
 
   # make all possible combinations
-  if(length(na.omit(c(pred.vars.cont,linear.vars,
+  if(length(stats::na.omit(c(pred.vars.cont,linear.vars,
                       pred.vars.fact)))<max.predictors){
         stop("Model max.predictors is greater than the number of predictors.")}
   all.mods=list()
   for(i in 1:max.predictors){
     all.mods=c(all.mods,
-     combn(na.omit(c(pred.vars.cont,pred.vars.fact,
+     utils::combn(stats::na.omit(c(pred.vars.cont,pred.vars.fact,
                      linear.vars,
                      interaction.terms,
                      linear.interaction.terms,
                      smooth.smooth.interaction.terms)),
-                     i,simplify=F))
+                     i,simplify=FALSE))
   }
 
   # remove redundant models
@@ -389,17 +389,17 @@ generate.model.set=function(use.dat,
   for(m in 1:length(all.mods)){
     mod.m=all.mods[[m]]
     mod.terms=unlist(strsplit(unlist(strsplit(unlist(strsplit(mod.m,
-                               split=".by.",fixed=T)),
-                               split=".t.",fixed=T)),
-                               split=".te.",fixed=T))
+                               split=".by.",fixed=TRUE)),
+                               split=".t.",fixed=TRUE)),
+                               split=".te.",fixed=TRUE))
     n.vars.m=unique(unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(mod.m,
-                                  split=".by.",fixed=T)),
-                                  split=".I.",fixed=T)),
-                                  split=".t.",fixed=T)),
-                                  split=".te.",fixed=T)))
-    cont.vars=na.omit(na.omit(c(pred.vars.cont,linear.vars))[match(mod.terms,
-                                           na.omit(c(pred.vars.cont,linear.vars)))])
-    fact.vars=unique(na.omit(pred.vars.fact[match(mod.terms,pred.vars.fact)]))
+                                  split=".by.",fixed=TRUE)),
+                                  split=".I.",fixed=TRUE)),
+                                  split=".t.",fixed=TRUE)),
+                                  split=".te.",fixed=TRUE)))
+    cont.vars=stats::na.omit(stats::na.omit(c(pred.vars.cont,linear.vars))[match(mod.terms,
+                                           stats::na.omit(c(pred.vars.cont,linear.vars)))])
+    fact.vars=unique(stats::na.omit(pred.vars.fact[match(mod.terms,pred.vars.fact)]))
 
     # if there are factor vars
     if(length(fact.vars)>0){
@@ -430,30 +430,30 @@ generate.model.set=function(use.dat,
   # now make the models into gamm formula
   if(nchar(null.terms)==0){# if there is no bs='re' random effect random effect
                              # or other null term in the null model
-    mod.formula=list(as.formula("~ 1"))}
+    mod.formula=list(stats::as.formula("~ 1"))}
   if(nchar(null.terms)>0){# to add a bs='re' random effect
     mod.formula=list(null.formula)}
 
   for(m in 1:length(use.mods)){
      mod.m=use.mods[[m]]
      cont.smooths=mod.m[which(match(mod.m,setdiff(pred.vars.cont,linear.vars))>0)]
-     by.smooths=mod.m[grep(".by.",mod.m,fixed=T)]
-     te.smooths=mod.m[grep(".te.",mod.m,fixed=T)]
+     by.smooths=mod.m[grep(".by.",mod.m,fixed=TRUE)]
+     te.smooths=mod.m[grep(".te.",mod.m,fixed=TRUE)]
      factor.terms=mod.m[which(match(mod.m,pred.vars.fact)>0)]
      linear.terms=mod.m[which(match(mod.m,linear.vars)>0)]
-     linear.interaction.terms=mod.m[grep(paste(linear.vars,".t.",sep=""),mod.m,fixed=T)]
+     linear.interaction.terms=mod.m[grep(paste(linear.vars,".t.",sep=""),mod.m,fixed=TRUE)]
      all.terms.vec=character()
 
      if(length(cont.smooths>0)){all.terms.vec=c(all.terms.vec,
                   paste("s(",cont.smooths,",k=",k,",bs=",bs.arg,")",sep=""))}
      if(length(by.smooths>0)){all.terms.vec=c(all.terms.vec,
-         paste("s(",gsub(".by.",",by=",by.smooths,fixed=T),",k=",k,",bs=",bs.arg,")",sep=""))}
+         paste("s(",gsub(".by.",",by=",by.smooths,fixed=TRUE),",k=",k,",bs=",bs.arg,")",sep=""))}
      if(length(te.smooths>0) & class(test.fit)[[1]]!="gamm4"){all.terms.vec=c(all.terms.vec,
-         paste("te(",gsub(".te.",",",te.smooths,fixed=T),",k=",k,",bs=",bs.arg,")",sep=""))}
+         paste("te(",gsub(".te.",",",te.smooths,fixed=TRUE),",k=",k,",bs=",bs.arg,")",sep=""))}
      if(length(te.smooths>0) & class(test.fit)[[1]]=="gamm4"){all.terms.vec=c(all.terms.vec,
-         paste("t2(",gsub(".te.",",",te.smooths,fixed=T),",k=",k,",bs=",bs.arg,")",sep=""))}
+         paste("t2(",gsub(".te.",",",te.smooths,fixed=TRUE),",k=",k,",bs=",bs.arg,")",sep=""))}
       if(length(linear.interaction.terms>0)){all.terms.vec=c(all.terms.vec,
-               gsub(".t.","*",linear.interaction.terms,fixed=T))}
+               gsub(".t.","*",linear.interaction.terms,fixed=TRUE))}
      if(length(factor.terms>0)){all.terms.vec=c(all.terms.vec,factor.terms)}
      if(length(linear.terms>0)){all.terms.vec=c(all.terms.vec,linear.terms)}
      if(max(is.na(cyclic.vars))!=1){
@@ -463,9 +463,9 @@ generate.model.set=function(use.dat,
                   all.terms.vec[v]=gsub(paste("bs=",bs.arg,sep=""),"bs='cc'",all.terms.vec[v])
                   }}}}
      for(v in 1:length(all.terms.vec)){
-         if(length(grep("te(",all.terms.vec[v],fixed=T))>0){
+         if(length(grep("te(",all.terms.vec[v],fixed=TRUE))>0){
             bs.arg.v=c("","")
-            smooth.vars.v=unlist(strsplit(gsub("te(","",all.terms.vec[v],fixed=T),split=","))[1:2]
+            smooth.vars.v=unlist(strsplit(gsub("te(","",all.terms.vec[v],fixed=TRUE),split=","))[1:2]
             var.type.vec=unlist(lapply(smooth.vars.v,FUN=function(x){match(x,cyclic.vars)}))
             bs.arg.v[which(is.na(var.type.vec))]=bs.arg
             bs.arg.v[which(var.type.vec>0)]="'cc'"
@@ -477,10 +477,10 @@ generate.model.set=function(use.dat,
 
      if(nchar(null.terms)==0){# if there is no bs='re' random effect
                                 # or other null term in the null model
-       formula.m=as.formula(paste("~",
+       formula.m=stats::as.formula(paste("~",
                paste(all.terms.vec,collapse="+")))}
      if(nchar(null.terms)>0){#
-       formula.m=as.formula(paste("~",
+       formula.m=stats::as.formula(paste("~",
                paste(c(all.terms.vec,null.terms),collapse="+")))}
      mod.formula=c(mod.formula,list(formula.m))
   }
