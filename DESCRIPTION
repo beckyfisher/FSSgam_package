@@ -34,3 +34,6 @@ Imports:
     utils
 URL: https://github.com/beckyfisher/FSSgam_package, https://beckyfisher.github.io/FSSgam
 BugReports: https://github.com/beckyfisher/FSSgam_package/issues
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
