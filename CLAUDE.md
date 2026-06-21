@@ -33,11 +33,9 @@ set before fitting.
 `generate.model.set()` and `fit.model.set()` (dot-case) are deprecated
 aliases retained for backward compatibility — see Section 5.
 
-**Known gap / next phase:** `generate_model_set()` and `fit_model_set()` are
-each still a single large function body (carried over from the pre-1.0
-`function_generate_model_set.R` / `function_fit_model_set.R` files). The
-v1.0.0 modernisation renamed them and cleaned up style/namespacing but did
-**not** decompose them into smaller internal helpers — see Section 6, Phase 6.
+`generate_model_set()` (in `R/generate-model-set.R`) and `fit_model_set()`
+(in `R/fit-model-set.R`) are each decomposed into named, unexported helpers
+— see Section 6, Phase 6 for what they are and how they were verified.
 
 The companion publication repo with all case studies, vignettes, and full
 worked examples lives at https://github.com/beckyfisher/FSSgam. That repo is
@@ -69,8 +67,8 @@ R/
   FSSgam.R                              # package-level doc ("_PACKAGE"), @importFrom directives
   data.R                                 # roxygen2 @docType data entries for bundled datasets
   deprecated.R                          # generate.model.set()/fit.model.set() — .Deprecated() wrappers
-  function_generate_model_set.R         # generate_model_set() — monolithic body, see Section 6 Phase 6
-  function_fit_model_set.R              # fit_model_set() — monolithic body, see Section 6 Phase 6
+  generate-model-set.R                  # generate_model_set() + 8 unexported helpers (Section 6 Phase 6)
+  fit-model-set.R                       # fit_model_set() + 4 unexported helpers (Section 6 Phase 6)
   function_full_subsets_gam_v1.11.R     # full.subsets.gam(), calls the snake_case names internally
   function_check_correlations_v1.00.R   # check.correlations()
   function_check_non_linear_correlations_v1.00.R  # check.non.linear.correlations()
@@ -197,6 +195,39 @@ baseline state of the repo, not aspirational:
 Do not re-do this work; build on top of it. If you find a regression in any
 of the above, fix it in place rather than reverting to the pre-1.0 style.
 
+### Phase 6 — Decompose the monolithic function bodies — Completed
+
+Done. `generate_model_set()` now lives in `R/generate-model-set.R`, split
+into eight unexported helpers (`validate_use_dat()`, `build_null_model()`,
+`check_predictor_missingness()`, `resolve_factor_interactions()`,
+`resolve_smooth_smooth_interactions()`, `build_predictor_correlation_matrix()`,
+`enumerate_candidate_models()`, `build_model_formulas()`). `fit_model_set()`
+now lives in `R/fit-model-set.R`, split into four (`fit_and_summarise_saved_models()`
+and `fit_and_summarise_unsaved_models()` are kept separate rather than
+unified — `save.model.fits=FALSE` exists specifically so fitted model
+objects are never all held in memory at once, and a shared helper would
+have undone that — plus `compute_model_weights()` and
+`compute_variable_importance()`). `function_generate_model_set.R` and
+`function_fit_model_set.R` no longer exist.
+
+Public arguments (`use.dat`, `test.fit`, `pred.vars.cont`, etc.) were not
+touched — only internal structure moved. No `R/utils.R` was created: after
+decomposing, nothing unexported turned out to be genuinely shared across
+files — everything outside these two files is either a deprecated wrapper
+or an already-exported, independently-documented function
+(`check.correlations()`, `wi()`, etc.) that already has a sensible home.
+
+Verified with a golden-master snapshot (14 `generate_model_set()` scenarios
+covering every branch, including ones not in the committed test suite —
+list-form `factor.smooth.interactions`, `cyclic.vars`, `linear.vars`, a
+user-supplied `cor.matrix`; plus 8 `fit_model_set()`-specific scenarios:
+`save.model.fits=FALSE`, `report.unique.r2`, `VI.mods='all'`, the
+`max.models` override, `parallel=TRUE`) compared before/after each
+extraction, on top of the full testthat suite and `devtools::check()`.
+If you decompose anything further, use the same approach: a scratch
+before/after comparison script for branches the committed tests don't
+reach, not just the committed suite alone.
+
 ### Phase 7 — Broader test coverage — Completed
 
 Done. `tests/testthat/` now also covers: `check.correlations()` and
@@ -223,33 +254,17 @@ it actually does while working in this codebase, fix it in its own commit
 with a regression test, the same way — don't fold it into an unrelated
 change.
 
-### Phase 6 — Decompose the monolithic function bodies (next)
+### Phase 8 — Suggested next priorities
 
-`generate_model_set()` (in `function_generate_model_set.R`) and
-`fit_model_set()` (in `function_fit_model_set.R`) are each still one long
-function body carried over from before the 1.0.0 rename. This phase was
-explicitly deferred during modernisation because decomposing ~1500 lines of
-previously-untested statistical code without a test safety net was judged
-too risky to do in the same pass as the rename. Phase 7 (above) closed that
-gap, so this is now unblocked.
-
-Suggested approach:
-- Read `vignettes/faq.Rmd` and `vignettes/case-study-1.Rmd` in the
-  publication repo first (see Section 5) — they're the best record of
-  intended behaviour.
-- Decompose `generate_model_set()` into clearly named, unexported helpers
-  (e.g. something like `build_formula_set()`, `resolve_factor_interactions()`,
-  `validate_inputs()`) and move them into `R/generate-model-set.R`.
-- Decompose `fit_model_set()` similarly into `R/fit-model-set.R` (e.g.
-  `fit_single_model()`, `collate_results()`, `compute_aicc_weights()`).
-- Move genuinely shared utilities into `R/utils.R`.
-- **Do not rename public arguments** (`use.dat`, `test.fit`,
-  `pred.vars.cont`, etc.) while decomposing — they're the documented,
-  citable public API from the 2018 paper. Internal local variables and new
-  helper function names are fair game for snake_case.
-- After each helper extraction, re-run `devtools::test()` before moving to
-  the next helper.
-- Commit incrementally; don't land the whole decomposition as one commit.
+With Phases 1–7 complete, candidates for what comes next (none started):
+- Decide on a release/versioning path: merge `dev` to `master`, tag, and
+  actually submit to CRAN (or decide what's still blocking that).
+- The companion docs repo (`beckyfisher/FSSgam`) still calls the deprecated
+  dot-case names in its vignettes — see `FSSgam-docs-CLAUDE.md` drafted for
+  that repo (a copy may already be in place there as `CLAUDE.md`).
+- Consider whether `check.correlations()`/`check.non.linear.correlations()`
+  warrant their own decomposition — they're smaller than the two functions
+  above but have similarly dense branching.
 
 ---
 
