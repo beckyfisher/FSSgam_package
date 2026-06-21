@@ -69,9 +69,10 @@ R/
   deprecated.R                          # generate.model.set()/fit.model.set() — .Deprecated() wrappers
   generate-model-set.R                  # generate_model_set() + 8 unexported helpers (Section 6 Phase 6)
   fit-model-set.R                       # fit_model_set() + 4 unexported helpers (Section 6 Phase 6)
+  check-correlations.R                  # check.correlations() + 3 unexported helpers (Section 6 Phase 6b)
+  check-non-linear-correlations.R       # check.non.linear.correlations() + 3 helpers (Section 6 Phase 6b)
+  utils.R                                # classify_correlation_predictors() — shared by both check-*.R files
   function_full_subsets_gam_v1.11.R     # full.subsets.gam(), calls the snake_case names internally
-  function_check_correlations_v1.00.R   # check.correlations()
-  function_check_non_linear_correlations_v1.00.R  # check.non.linear.correlations()
   functions_supporting.R                # wi(), extract.mod.dat(), build.inclusion.mat(), fit.mod.l()
                                          # (all exported but documented "not called directly")
 tests/testthat/                         # test-<name>.R, testthat 3rd edition
@@ -254,17 +255,45 @@ it actually does while working in this codebase, fix it in its own commit
 with a regression test, the same way — don't fold it into an unrelated
 change.
 
+### Phase 6b — Decompose check.correlations()/check.non.linear.correlations() — Completed
+
+Done. `check.correlations()` moved to `R/check-correlations.R`, split into
+`build_continuous_correlation_matrix()`, `build_factor_continuous_skeleton()`,
+and `fill_factor_factor_correlations()`. `check.non.linear.correlations()`
+moved to `R/check-non-linear-correlations.R`, split into
+`build_correlation_pair_grid()`, `estimate_non_linear_correlation()`, and
+`assemble_non_linear_correlation_matrix()`.
+
+Both functions had byte-identical column-validation/classification logic
+(14 lines). That's the genuinely shared utility Phase 6 didn't find —
+extracted into `classify_correlation_predictors()` in `R/utils.R`, which
+now exists.
+
+Verified the same way as Phase 6: a golden-master snapshot (7
+`check.correlations()` + 5 `check.non.linear.correlations()` scenarios
+spanning continuous-only/factor-only/mixed/single-column/two-dataset
+cases, plus the invalid-column-class error path) compared before/after,
+all exact matches. The `parallel=TRUE` path was checked separately in
+isolation (see below) rather than inside the snapshot script.
+
+**Caution for next time:** the `parallel=TRUE` scenario hung for several
+minutes the first time it ran *while other `devtools::` commands were
+running concurrently against the same package directory* (`document()`/
+`test()` in another shell while the capture script's own
+`devtools::load_all()` was still in flight) — likely resource contention,
+not a real bug. Re-run in isolation with `timeout`, it completed in under
+2 seconds with correct values. If a parallel/cluster test seems to hang,
+check whether something else is concurrently touching the package before
+assuming the code is broken.
+
 ### Phase 8 — Suggested next priorities
 
-With Phases 1–7 complete, candidates for what comes next (none started):
+With Phases 1–7 and 6b complete, candidates for what comes next (none started):
 - Decide on a release/versioning path: merge `dev` to `master`, tag, and
   actually submit to CRAN (or decide what's still blocking that).
 - The companion docs repo (`beckyfisher/FSSgam`) still calls the deprecated
   dot-case names in its vignettes — see `FSSgam-docs-CLAUDE.md` drafted for
   that repo (a copy may already be in place there as `CLAUDE.md`).
-- Consider whether `check.correlations()`/`check.non.linear.correlations()`
-  warrant their own decomposition — they're smaller than the two functions
-  above but have similarly dense branching.
 
 ---
 
