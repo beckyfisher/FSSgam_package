@@ -197,6 +197,32 @@ baseline state of the repo, not aspirational:
 Do not re-do this work; build on top of it. If you find a regression in any
 of the above, fix it in place rather than reverting to the pre-1.0 style.
 
+### Phase 7 — Broader test coverage — Completed
+
+Done. `tests/testthat/` now also covers: `check.correlations()` and
+`check.non.linear.correlations()` (basic matrices + invalid-column-class
+errors); `generate_model_set()`'s factor-factor-interaction,
+smooth-smooth-interaction (both the included-`te()` and
+excluded-by-`cov.cutoff` cases), and non-linear-correlation code paths
+(previously only checked ad hoc, never committed as tests); `full.subsets.gam()`
+including its `factor.interactions`/`smooth.interactions`/`size` legacy
+arguments; and the `functions_supporting.R` helpers (`wi()`,
+`extract.mod.dat()`, `build.inclusion.mat()`, `fit.mod.l()`).
+
+Writing these tests surfaced two genuine pre-existing bugs in
+`full.subsets.gam()` (both predated the 1.0.0 rename, now fixed with
+regression tests in `test-full_subsets_gam.R`, see `NEWS.md`):
+- the deprecated `size` argument was a no-op (it warned but never actually
+  fed its value into `max.predictors`);
+- `used.data` and `predictor.correlations` in the return value were always
+  `NULL` (referenced `model.set$use.dat`/`$cor.matrix`, which don't exist —
+  the real fields are `$used.data`/`$predictor.correlations`).
+
+If you find another function whose documented behaviour doesn't match what
+it actually does while working in this codebase, fix it in its own commit
+with a regression test, the same way — don't fold it into an unrelated
+change.
+
 ### Phase 6 — Decompose the monolithic function bodies (next)
 
 `generate_model_set()` (in `function_generate_model_set.R`) and
@@ -204,22 +230,13 @@ of the above, fix it in place rather than reverting to the pre-1.0 style.
 function body carried over from before the 1.0.0 rename. This phase was
 explicitly deferred during modernisation because decomposing ~1500 lines of
 previously-untested statistical code without a test safety net was judged
-too risky to do in the same pass as the rename. The Phase 3 testthat suite
-covers the default code path; see Phase 7 below for the coverage gaps that
-should be closed before attempting this decomposition.
+too risky to do in the same pass as the rename. Phase 7 (above) closed that
+gap, so this is now unblocked.
 
 Suggested approach:
 - Read `vignettes/faq.Rmd` and `vignettes/case-study-1.Rmd` in the
   publication repo first (see Section 5) — they're the best record of
   intended behaviour.
-- **Before decomposing, add Phase 7's missing test coverage first**
-  (factor-factor-interaction, smooth-smooth-interaction, and
-  non-linear-correlation code paths in particular). During the v1.0.0
-  rename these were only checked ad hoc against `case_study1` in the
-  session that did the rename, never committed as tests — so right now
-  there is no automated regression protection for them at all. Decomposing
-  without that coverage in place first would repeat the same risk the
-  rename deliberately avoided.
 - Decompose `generate_model_set()` into clearly named, unexported helpers
   (e.g. something like `build_formula_set()`, `resolve_factor_interactions()`,
   `validate_inputs()`) and move them into `R/generate-model-set.R`.
@@ -233,15 +250,6 @@ Suggested approach:
 - After each helper extraction, re-run `devtools::test()` before moving to
   the next helper.
 - Commit incrementally; don't land the whole decomposition as one commit.
-
-### Phase 7 — Broader test coverage (also pending)
-
-The Phase 3 suite covers `generate_model_set()`/`fit_model_set()`/the
-deprecated wrappers, but `check.correlations()`, `check.non.linear.correlations()`,
-`full.subsets.gam()`'s legacy-argument handling (`factor.interactions`,
-`smooth.interactions`, `size`), and the `functions_supporting.R` helpers
-(`wi()`, `extract.mod.dat()`, `build.inclusion.mat()`, `fit.mod.l()`) have no
-dedicated tests yet, only indirect coverage via the functions that call them.
 
 ---
 
