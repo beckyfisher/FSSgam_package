@@ -155,7 +155,7 @@ full.subsets.gam=function(use.dat,
               future versions.')
      }}
   if(size!="previous.arg"){
-     size=max.predictors
+     max.predictors=size
      warning('Argument size has been replaced with max.predictors.
               Please update your code as usage of size will not be supported in
               future versions.')
@@ -188,8 +188,8 @@ full.subsets.gam=function(use.dat,
 
   # now return the list of outputs
   return(list(mod.data.out=out.dat$mod.data.out,
-              used.data=model.set$use.dat,
-              predictor.correlations=model.set$cor.matrix,
+              used.data=model.set$used.data,
+              predictor.correlations=model.set$predictor.correlations,
               #mod.formula=mod.formula,
               failed.models=out.dat$failed.models,
               success.models=out.dat$success.models,

@@ -23,3 +23,12 @@ Modernisation release ahead of CRAN submission.
   are kept unqualified inside model formulas, because mgcv resolves them by
   literal symbol name during formula parsing rather than through normal
   function dispatch -- `mgcv::s(...)` inside a formula does not work.
+* Bug fix: `full.subsets.gam()`'s deprecated `size` argument (superseded by
+  `max.predictors`) was a no-op -- it warned correctly but never actually
+  fed its value into `max.predictors`. Calling `full.subsets.gam(size = n)`
+  now actually constrains the model set to `n` predictors, as documented.
+* Bug fix: `full.subsets.gam()`'s `used.data` and `predictor.correlations`
+  output fields were always `NULL` (a field-name mismatch referenced
+  `model.set$use.dat`/`$cor.matrix`, which don't exist -- the actual fields
+  are `$used.data`/`$predictor.correlations`). Both are now populated as
+  documented.
