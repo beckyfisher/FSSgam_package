@@ -32,7 +32,7 @@ Imports:
     parallel,
     stats,
     utils
-URL: https://github.com/beckyfisher/FSSgam_package, https://beckyfisher.github.io/FSSgam
+URL: https://github.com/beckyfisher/FSSgam_package, https://beckyfisher.github.io/FSSgam_package, https://beckyfisher.github.io/FSSgam
 BugReports: https://github.com/beckyfisher/FSSgam_package/issues
 Suggests: 
     testthat (>= 3.0.0)
