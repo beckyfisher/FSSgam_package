@@ -149,6 +149,14 @@ return(var.inclusions)
 #'
 #' @param  use.dat the data used to fit test.fit#
 #'
+#' @param  family. The family to refit formula.l with. Defaults to a fresh,
+#' independent re-evaluation of the family test.fit. itself used (see
+#' resolve_candidate_family in R/utils.R), so repeated calls never share
+#' mutable extended-family state (e.g. mgcv's nb()/tw() estimated theta).
+#' fit_model_set() resolves this once per candidate up front, on the
+#' calling process, and passes it in explicitly rather than relying on this
+#' default -- see the comment below for why.
+#'
 #' @details Generates an updated model fit based on the supplied formula.
 #' This wrapper was required to allow full_subsets_gam and fit_model_set to be applied to dsm models
 #'
@@ -161,24 +169,41 @@ return(var.inclusions)
 #'                  family = tw(), data = case_study1)
 #' fit_mod_l(formula.l = ~ s(complexity, k = 3, bs = "cr"),
 #'           test.fit. = base.fit, use.dat = case_study1)
-fit_mod_l <- function(formula.l,test.fit.,use.dat){
+fit_mod_l <- function(formula.l,test.fit.,use.dat,family.=resolve_candidate_family(test.fit.)){
 if(length(grep("dsm",class(test.fit.)))>0){
  mod.l=try(stats::update(test.fit.,formula=formula.l),
            silent=TRUE)}
 if(length(grep("dsm",class(test.fit.)))==0){
- # Deliberately not passing family=stats::family(test.fit.) here. mgcv's
- # extended families that estimate an extra parameter (nb(), tw(), ...)
- # store that estimate (theta) inside the family object's own environment
- # via getTheta()/putTheta(). Re-using the already-fitted family object
- # across every candidate formula warm-starts each refit's theta search
- # from test.fit.'s unrelated estimate, which destabilises mgcv's internal
- # IRLS loop for most (but not all) formulas (GitHub issue #12). Omitting
- # family= lets update() fall back to re-evaluating the original, unfitted
- # family call from test.fit.'s own call, giving every candidate model a
- # fresh, independent family object -- the same approach build_null_model()
- # (R/generate-model-set.R) already uses for the null model.
- mod.l=try(stats::update(test.fit.,formula=formula.l,data=use.dat),
-           silent=TRUE)}
+ # family. is resolved via resolve_candidate_family() (R/utils.R), not by
+ # omitting family= here and letting update() re-evaluate test.fit.'s
+ # original family call itself. That was tried twice and breaks one of two
+ # ways depending on which fix is "on":
+ #  - Passing the already-FITTED family (family=stats::family(test.fit.))
+ #    shares one mutable family object (theta etc.) across every candidate
+ #    refit, warm-starting each from test.fit.'s unrelated estimate and
+ #    destabilising mgcv's IRLS loop for most formulas (GitHub issue #12).
+ #  - Omitting family= entirely so update() re-evaluates test.fit.'s
+ #    original *expression* fixes that when the expression is a literal
+ #    constructor call (family = tw()), but when family was supplied as a
+ #    vector/list element (family = family.vec[[2]], GitHub issue #10) two
+ #    things break: (a) under parallel = TRUE, update() re-evaluates that
+ #    expression on a doSNOW worker process that never had family.vec
+ #    exported to it, so every refit fails with "object not found"; and
+ #    (b) even sequentially, re-evaluating an indexing expression doesn't
+ #    construct a new family object at all -- it returns the same shared
+ #    reference every time, silently reintroducing the #12 sharing problem.
+ # resolve_candidate_family() avoids both: it evaluates the original family
+ # expression once, in the environment test.fit. was actually created in
+ # (not wherever the refit itself happens to run), and clones any mutable
+ # state so every refit gets its own independent copy regardless of how
+ # family was originally specified.
+ if(is.null(family.)){
+  mod.l=try(stats::update(test.fit.,formula=formula.l,data=use.dat),
+            silent=TRUE)
+ }else{
+  mod.l=try(stats::update(test.fit.,formula=formula.l,data=use.dat,family=family.),
+            silent=TRUE)
+ }}
 return(mod.l)
 }
 

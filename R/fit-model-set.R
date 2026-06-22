@@ -135,6 +135,16 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
   pb <- utils::txtProgressBar(max = length(mod.formula), style = 3)
   progress <- function(n) utils::setTxtProgressBar(pb, n)
 
+  # Resolved once per candidate, here, before any parallel workers are
+  # started -- not lazily inside fit_mod_l() on whatever process ends up
+  # refitting that candidate. A doSNOW worker never has this (the calling
+  # process's) variables in scope, so resolving family on the worker would
+  # fail whenever family was supplied via a variable (GitHub issue #10).
+  # Resolving per-candidate (rather than once, shared) also keeps every
+  # refit's family object independent (GitHub issue #12). See
+  # resolve_candidate_family() in R/utils.R.
+  family.list <- lapply(seq_len(length(mod.formula)),function(i.) resolve_candidate_family(test.fit))
+
   if(parallel==TRUE){
    cl=parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
@@ -143,7 +153,7 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
                    .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                    .errorhandling='pass',
                    .options.snow = opts)%dopar%{
-     fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat)
+     fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
   }
    close(pb)
    parallel::stopCluster(cl)
@@ -151,7 +161,7 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
            }else{
       out.dat <- vector("list", length(mod.formula))
       for(l in 1:length(mod.formula)){
-         mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat)
+         mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
          out.dat[[l]]=mod.l
         utils::setTxtProgressBar(pb,l)
          }
@@ -194,6 +204,11 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
   mod.data.out <- data.frame("modname"=names(mod.formula))
   mod.data.out$formula <- unlist(lapply(mod.formula,FUN=function(x){as.character(stats::formula(x))[2]}))
 
+  # See the matching comment in fit_and_summarise_saved_models() above --
+  # resolved here, per candidate, before any parallel workers start (GitHub
+  # issues #10 and #12).
+  family.list <- lapply(seq_len(length(mod.formula)),function(i.) resolve_candidate_family(test.fit))
+
   if(parallel==TRUE){
    cl <- parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
@@ -202,7 +217,7 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
                    .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                    #.errorhandling='pass',
                    .options.snow = opts)%dopar%{
-      unlist(extract_mod_dat(fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat),
+      unlist(extract_mod_dat(fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]]),
                              r2.type.=r2.type))
 
    }
@@ -212,7 +227,7 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
            }else{
       mod.dat=vector("list", length(mod.formula))
       for(l in 1:length(mod.formula)){
-        mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat)
+        mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
         out=unlist(extract_mod_dat(mod.l,r2.type.=r2.type))
         mod.dat[[l]]=out
         utils::setTxtProgressBar(pb,l)

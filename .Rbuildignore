@@ -4,6 +4,7 @@
 ^\.claude$
 ^data-raw$
 ^build_package_FFSgam\.R$
+^issue10_reprex\.R$
 ^CLAUDE\.md$
 ^cran-comments\.md$
 ^ignore$

@@ -20,7 +20,12 @@
   its own mutable environment; re-using it warm-started every refit from an
   unrelated formula's estimate and destabilised the fit for most (but not
   all) candidates. Candidate models now get a fresh, independent family
-  object for every fit, the same way the null model already did.
+  object for every fit, the same way the null model already did -- and,
+  unlike an earlier attempt at this same fix, this now holds regardless of
+  how `family` was originally specified on `test.fit` (a literal call such
+  as `family = nb()`, or a variable/list element such as
+  `family = my.families[[2]]`), and no longer crashes every candidate under
+  `parallel = TRUE` when family was supplied via a variable.
 
 # FSSgam 1.0.0
 
