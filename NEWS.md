@@ -12,6 +12,15 @@
   backward-compatible alias -- a breaking change for any code calling these
   five directly, but none of them appear anywhere in the companion repo's
   published vignettes/FAQ.
+* Bug fix: `fit_model_set()` (and `full.subsets.gam()`/`full_subsets_gam()`,
+  which call it) failed to fit most candidate models when `test.fit` used
+  an mgcv extended family that estimates an extra parameter, such as
+  `nb()` (negative binomial). Each candidate refit reused the already-fitted
+  family object from `test.fit`, which carries that estimated parameter in
+  its own mutable environment; re-using it warm-started every refit from an
+  unrelated formula's estimate and destabilised the fit for most (but not
+  all) candidates. Candidate models now get a fresh, independent family
+  object for every fit, the same way the null model already did.
 
 # FSSgam 1.0.0
 

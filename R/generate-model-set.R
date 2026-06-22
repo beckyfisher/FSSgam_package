@@ -193,6 +193,9 @@ build_null_model=function(test.fit,use.dat,null.terms){
   if(length(grep("dsm",class(test.fit)))>0){
     null.fit=try(stats::update(test.fit,formula=null.formula),silent=TRUE)
   }else{
+    # family= is intentionally omitted here, same reasoning as fit_mod_l()
+    # in functions_supporting.R (see its comment) -- do not "fix" this by
+    # adding family=stats::family(test.fit) back in.
     null.fit=try(stats::update(test.fit,formula=null.formula,data=use.dat),silent=TRUE)}
 
   if(class(null.fit)[1]=="try-error"){
