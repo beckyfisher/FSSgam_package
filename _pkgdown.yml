@@ -3,6 +3,9 @@ url: https://beckyfisher.github.io/FSSgam_package/
 template:
   bootstrap: 5
 
+development:
+  mode: auto
+
 repo:
   url:
     home: https://github.com/beckyfisher/FSSgam_package/
