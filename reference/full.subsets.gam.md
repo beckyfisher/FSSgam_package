@@ -69,23 +69,23 @@ full.subsets.gam(
 #> ZONE+complexity.by.ZONE s(complexity, by = ZONE, k = 3, bs = "cr") + ZONE + s(site, bs = "re")
 #> ZONE+depth.by.ZONE           s(depth, by = ZONE, k = 3, bs = "cr") + ZONE + s(site, bs = "re")
 #>                             AICc      BIC r2.vals r2.vals.unique  edf
-#> null                    601.8170 613.9567 0.13574             NA 2.93
+#> null                    601.8165 613.9550 0.13574             NA 2.93
 #> complexity              530.3521 546.5630 0.55313             NA 5.15
-#> depth                   604.2485 620.2676 0.17579             NA 4.98
+#> depth                   604.2478 620.2653 0.17579             NA 4.98
 #> ZONE                    603.0187 616.7110 0.13529             NA 4.02
 #> ZONE+complexity         531.1829 548.2208 0.55773             NA 5.94
-#> ZONE+depth              604.7741 621.8049 0.17570             NA 5.94
-#> ZONE+complexity.by.ZONE 531.6304 549.9275 0.53534             NA 6.83
-#> ZONE+depth.by.ZONE      600.4767 619.5712 0.23486             NA 7.56
+#> ZONE+depth              604.7738 621.8040 0.17570             NA 5.94
+#> ZONE+complexity.by.ZONE 531.6302 549.9272 0.53534             NA 6.83
+#> ZONE+depth.by.ZONE      600.4762 619.5704 0.23486             NA 7.56
 #>                         edf.less.1 delta.AICc delta.BIC wi.AICc wi.BIC
-#> null                             0     71.465    67.394   0.000  0.000
+#> null                             0     71.464    67.392   0.000  0.000
 #> complexity                       0      0.000     0.000   0.457  0.616
-#> depth                            0     73.896    73.705   0.000  0.000
+#> depth                            0     73.896    73.702   0.000  0.000
 #> ZONE                             0     72.667    70.148   0.000  0.000
 #> ZONE+complexity                  0      0.831     1.658   0.302  0.269
-#> ZONE+depth                       0     74.422    75.242   0.000  0.000
-#> ZONE+complexity.by.ZONE          0      1.278     3.365   0.241  0.115
-#> ZONE+depth.by.ZONE               0     70.125    73.008   0.000  0.000
+#> ZONE+depth                       0     74.422    75.241   0.000  0.000
+#> ZONE+complexity.by.ZONE          0      1.278     3.364   0.241  0.115
+#> ZONE+depth.by.ZONE               0     70.124    73.007   0.000  0.000
 #>                         complexity depth ZONE
 #> null                             0     0    0
 #> complexity                       1     0    0

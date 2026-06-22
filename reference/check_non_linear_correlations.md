@@ -48,7 +48,7 @@ spurious "correlation" estimates.
 data(case_study1)
 check_non_linear_correlations(case_study1[, c("depth", "complexity", "ZONE")])
 #>                 depth complexity       ZONE
-#> depth      1.00000000  0.3918893 0.08234682
+#> depth      1.00000000  0.3918892 0.08234682
 #> complexity 0.38159050  1.0000000 0.01410832
 #> ZONE       0.07004624  0.0119875 1.00000000
 ```
