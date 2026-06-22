@@ -74,3 +74,35 @@ fit.model.set <- function(...) {
   .Deprecated("fit_model_set")
   fit_model_set(...)
 }
+
+#' full.subsets.gam
+#'
+#' Deprecated alias for \code{\link{full_subsets_gam}}. Retained because
+#' \code{full.subsets.gam} is used directly in the companion docs repository's
+#' published case studies (\url{https://github.com/beckyfisher/FSSgam}), e.g.
+#' case-study-2.Rmd. New code should call \code{\link{full_subsets_gam}}
+#' directly.
+#'
+#' @param ... Arguments passed on to \code{\link{full_subsets_gam}}.
+#' @export
+#' @return See \code{\link{full_subsets_gam}}.
+#' @examples
+#' library(mgcv)
+#' data(case_study1)
+#' use.dat <- case_study1
+#' use.dat$site <- as.factor(use.dat$site)
+#' test.fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+#'                  family = tw(), data = use.dat)
+#' full.subsets.gam(
+#'   use.dat = use.dat,
+#'   test.fit = test.fit,
+#'   pred.vars.cont = c("complexity", "depth"),
+#'   pred.vars.fact = "ZONE",
+#'   null.terms = "s(site,bs='re')",
+#'   max.predictors = 2,
+#'   k = 3
+#' )
+full.subsets.gam <- function(...) {
+  .Deprecated("full_subsets_gam")
+  full_subsets_gam(...)
+}

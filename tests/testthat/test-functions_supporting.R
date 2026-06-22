@@ -18,7 +18,7 @@ test_that("wi propagates NA at its original position", {
   expect_equal(sum(w, na.rm = TRUE), 1, tolerance = 1e-8)
 })
 
-test_that("extract.mod.dat extracts AICc/BIC/r2 for a fitted gam model", {
+test_that("extract_mod_dat extracts AICc/BIC/r2 for a fitted gam model", {
   library(mgcv)
   data(case_study1)
   fit <- gam(
@@ -26,21 +26,21 @@ test_that("extract.mod.dat extracts AICc/BIC/r2 for a fitted gam model", {
     family = tw(), data = case_study1
   )
 
-  out.r2 <- extract.mod.dat(fit, r2.type. = "r2")
+  out.r2 <- extract_mod_dat(fit, r2.type. = "r2")
   expect_equal(out.r2$AICc, MuMIn::AICc(fit), tolerance = 1e-6)
   expect_equal(out.r2$r2.vals, round(summary(fit)$r.sq, 5))
 
-  out.dev <- extract.mod.dat(fit, r2.type. = "dev")
+  out.dev <- extract_mod_dat(fit, r2.type. = "dev")
   expect_equal(out.dev$r2.vals, round(summary(fit)$dev.expl, 5))
 })
 
-test_that("extract.mod.dat returns an all-NA list for a try-error input", {
-  out <- extract.mod.dat(structure("boom", class = "try-error"))
+test_that("extract_mod_dat returns an all-NA list for a try-error input", {
+  out <- extract_mod_dat(structure("boom", class = "try-error"))
   expect_true(all(vapply(out, is.na, logical(1))))
   expect_named(out, c("AICc", "BIC", "r2.vals", "r2.vals.unique", "edf", "edf.less.1"))
 })
 
-test_that("build.inclusion.mat marks predictors present, regardless of interaction syntax", {
+test_that("build_inclusion_mat marks predictors present, regardless of interaction syntax", {
   included.vars <- c("a", "b", "c", "d")
   formula.list <- list(
     "null" = ~1,
@@ -52,9 +52,9 @@ test_that("build.inclusion.mat marks predictors present, regardless of interacti
     "a.t.b" = ~1,
     "a.te.b" = ~1
   )
-  mat <- build.inclusion.mat(included.vars, formula.list)
+  mat <- build_inclusion_mat(included.vars, formula.list)
 
-  # build.inclusion.mat does not set rownames -- it relies on row *position*
+  # build_inclusion_mat does not set rownames -- it relies on row *position*
   # matching the order of formula.list (fit_model_set() cbinds it onto
   # mod.data.out positionally), so index by position here too
   expect_equal(dim(mat), c(8, 4))
@@ -67,7 +67,7 @@ test_that("build.inclusion.mat marks predictors present, regardless of interacti
   }
 })
 
-test_that("fit.mod.l updates a test.fit with a new formula on the supplied data", {
+test_that("fit_mod_l updates a test.fit with a new formula on the supplied data", {
   library(mgcv)
   data(case_study1)
   base.fit <- gam(
@@ -75,7 +75,7 @@ test_that("fit.mod.l updates a test.fit with a new formula on the supplied data"
     family = tw(), data = case_study1
   )
 
-  updated <- fit.mod.l(
+  updated <- fit_mod_l(
     formula.l = ~ s(complexity, k = 3, bs = "cr"),
     test.fit. = base.fit,
     use.dat = case_study1
@@ -90,7 +90,7 @@ test_that("fit.mod.l updates a test.fit with a new formula on the supplied data"
   expect_equal(unname(coef(updated)), unname(coef(manual)), tolerance = 1e-4)
 })
 
-test_that("fit.mod.l returns a try-error for a formula that cannot be fit", {
+test_that("fit_mod_l returns a try-error for a formula that cannot be fit", {
   library(mgcv)
   data(case_study1)
   base.fit <- gam(
@@ -98,7 +98,7 @@ test_that("fit.mod.l returns a try-error for a formula that cannot be fit", {
     family = tw(), data = case_study1
   )
 
-  result <- fit.mod.l(
+  result <- fit_mod_l(
     formula.l = ~ s(not_a_column, k = 3, bs = "cr"),
     test.fit. = base.fit,
     use.dat = case_study1

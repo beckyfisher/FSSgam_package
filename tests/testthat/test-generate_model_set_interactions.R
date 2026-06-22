@@ -76,7 +76,7 @@ test_that("smooth-smooth interactions are excluded when predictors exceed cov.cu
   expect_false("complexity.te.depth" %in% names(model.set$mod.formula))
 })
 
-test_that("generate_model_set uses check.non.linear.correlations when requested", {
+test_that("generate_model_set uses check_non_linear_correlations when requested", {
   data(case_study1)
   use.dat <- case_study1
   use.dat$site <- as.factor(use.dat$site)
@@ -96,10 +96,10 @@ test_that("generate_model_set uses check.non.linear.correlations when requested"
     k = 3
   )
 
-  expected <- check.non.linear.correlations(use.dat[, c("complexity", "depth", "ZONE")])
+  expected <- check_non_linear_correlations(use.dat[, c("complexity", "depth", "ZONE")])
   expect_equal(model.set$predictor.correlations, expected)
   # the non-linear correlation matrix is asymmetric, unlike the default
-  # check.correlations() matrix
+  # check_correlations() matrix
   expect_false(isTRUE(all.equal(
     model.set$predictor.correlations,
     t(model.set$predictor.correlations)
