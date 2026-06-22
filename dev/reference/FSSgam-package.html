@@ -44,7 +44,7 @@
 <p>Advantages include the capacity to fit more predictors than there are replicates, automatic removal of models with correlated predictors, and model sets that include interactions between factors and smooth predictors, as all as smooth interactions with other smooths (via te).</p>
 <p>The function(s) takes a range of arguments that allow control over the model set being constructed, including specifying cyclic and linear continuous predictors, specification of the smoothing algorithm used and the maximum complexity allowed for smooth terms.</p>
 <p>The full subsets analysis can be carried out via one of two alternative methods allowed in the package.</p>
-<p>The first is through a direct call to full.subsets.gam (this is the original function).
+<p>The first is through a direct call to full_subsets_gam (this is the original function).
 This function both constructs and fits the complete model set, based on the user supplied input. This function requires that all model fits are saved, and is therefore
 not suitable for extremely large models sets, as these will cause issues with memory. This method may be superceded in future versions of FSSgam, so for any new project please use the second method.</p>
 <p>The second method is via a call to generate_model_set followed by a second call to fit_model_set. This pair of functions splits the process of generating the model set from actually fitting and extracting the relevant model data.
@@ -60,6 +60,7 @@ Please see the case study files on github for usage examples at <a href="https:/
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p>Useful links:</p><ul><li><p><a href="https://github.com/beckyfisher/FSSgam_package" class="external-link">https://github.com/beckyfisher/FSSgam_package</a></p></li>
+<li><p><a href="https://beckyfisher.github.io/FSSgam_package">https://beckyfisher.github.io/FSSgam_package</a></p></li>
 <li><p><a href="https://beckyfisher.github.io/FSSgam" class="external-link">https://beckyfisher.github.io/FSSgam</a></p></li>
 <li><p>Report bugs at <a href="https://github.com/beckyfisher/FSSgam_package/issues" class="external-link">https://github.com/beckyfisher/FSSgam_package/issues</a></p></li>
 </ul></div>

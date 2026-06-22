@@ -171,7 +171,7 @@ generate_model_set(
 - cor.matrix:
 
   By default predictor correlations are evaluated via a call to
-  check.correlations, a function taking a data.frame (containing all
+  check_correlations, a function taking a data.frame (containing all
   predictors) as argument and generating a correlation matrix comprised
   of: 1) correlation coefficients between all continuous predictors via
   a call to cor; 2) approximate correlation values between continuous
@@ -188,7 +188,7 @@ generate_model_set(
 
   Set this argument to TRUE of you would like to exclude continuous
   predictor combinations that are potentially "correlated" through
-  non-linear relationships. See ?check.non.linear.correlations for more
+  non-linear relationships. See ?check_non_linear_correlations for more
   details.
 
 - max.predictors:
@@ -236,7 +236,7 @@ supplied by the user, but with any hard coded interaction terms appended
 via cbind.
 
 predictor.correlations - The matrix of estimated predictor correlations
-returned by the function check.correlations and used for model exclusion
+returned by the function check_correlations and used for model exclusion
 based on cov.cutoff
 
 generated.models - A list containing the model formula that were

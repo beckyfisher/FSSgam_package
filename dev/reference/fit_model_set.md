@@ -100,10 +100,10 @@ failed.models - A list of model formula that failed to fit. Ideally the
 list of failed models should be empty, but when this is not the case
 interrogating failed.models provides a useful means of troubleshooting.
 Users can examine which models are not fitting and explore the reasons
-for this by fitting the failed models outside the full.subsets.gam call
+for this by fitting the failed models outside the full_subsets_gam call
 based on the listed formula. When a large number of models fail to fit
 properly it usually indicates poor specification of the initial test.fit
-or other arguments in the call to full.subsets.gam (such as the
+or other arguments in the call to full_subsets_gam (such as the
 inclusion of factor interactions when there are few data within each
 level of the factor), or that inappropriate variables are being included
 in the model set.

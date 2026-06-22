@@ -33,7 +33,8 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="fssgam-development-version">FSSgam (development version)<a class="anchor" aria-label="anchor" href="#fssgam-development-version"></a></h2>
-</div>
+<ul><li>Completed the snake_case rename across the public API. <code><a href="../reference/full.subsets.gam.html">full.subsets.gam()</a></code> is now a deprecated wrapper around the new <code><a href="../reference/full_subsets_gam.html">full_subsets_gam()</a></code> (same treatment as <code><a href="../reference/generate.model.set.html">generate.model.set()</a></code> and <code><a href="../reference/fit.model.set.html">fit.model.set()</a></code>, since it’s used directly in the companion docs repository’s published case studies). <code>check.correlations()</code>, <code>check.non.linear.correlations()</code>, <code>build.inclusion.mat()</code>, <code>extract.mod.dat()</code>, and <code>fit.mod.l()</code> are renamed outright to <code><a href="../reference/check_correlations.html">check_correlations()</a></code>, <code><a href="../reference/check_non_linear_correlations.html">check_non_linear_correlations()</a></code>, <code><a href="../reference/build_inclusion_mat.html">build_inclusion_mat()</a></code>, <code><a href="../reference/extract_mod_dat.html">extract_mod_dat()</a></code>, and <code><a href="../reference/fit_mod_l.html">fit_mod_l()</a></code> with no backward-compatible alias – a breaking change for any code calling these five directly, but none of them appear anywhere in the companion repo’s published vignettes/FAQ.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.0.0" id="fssgam-100">FSSgam 1.0.0<a class="anchor" aria-label="anchor" href="#fssgam-100"></a></h2>
 <p>Modernisation release ahead of CRAN submission.</p>
