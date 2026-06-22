@@ -166,7 +166,18 @@ if(length(grep("dsm",class(test.fit.)))>0){
  mod.l=try(stats::update(test.fit.,formula=formula.l),
            silent=TRUE)}
 if(length(grep("dsm",class(test.fit.)))==0){
- mod.l=try(stats::update(test.fit.,formula=formula.l,data=use.dat, family=stats::family(test.fit.)),
+ # Deliberately not passing family=stats::family(test.fit.) here. mgcv's
+ # extended families that estimate an extra parameter (nb(), tw(), ...)
+ # store that estimate (theta) inside the family object's own environment
+ # via getTheta()/putTheta(). Re-using the already-fitted family object
+ # across every candidate formula warm-starts each refit's theta search
+ # from test.fit.'s unrelated estimate, which destabilises mgcv's internal
+ # IRLS loop for most (but not all) formulas (GitHub issue #12). Omitting
+ # family= lets update() fall back to re-evaluating the original, unfitted
+ # family call from test.fit.'s own call, giving every candidate model a
+ # fresh, independent family object -- the same approach build_null_model()
+ # (R/generate-model-set.R) already uses for the null model.
+ mod.l=try(stats::update(test.fit.,formula=formula.l,data=use.dat),
            silent=TRUE)}
 return(mod.l)
 }

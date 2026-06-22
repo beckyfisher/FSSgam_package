@@ -55,3 +55,32 @@ test_that("fit_model_set works with a Tweedie family (non-Gaussian)", {
   expect_length(out$failed.models, 0)
   expect_true(all(is.finite(out$mod.data.out$AICc)))
 })
+
+test_that("fit_model_set works with a negative binomial family (extended family with estimated theta)", {
+  library(mgcv)
+  data(case_study1)
+  use.dat <- case_study1
+  use.dat$site <- as.factor(use.dat$site)
+  use.dat$Herbivore.abundance <- round(use.dat$Herbivore.abundance)
+  test.fit <- gam(
+    Herbivore.abundance ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    family = nb(),
+    data = use.dat
+  )
+
+  model.set <- generate_model_set(
+    use.dat = use.dat,
+    test.fit = test.fit,
+    pred.vars.cont = c("complexity", "depth"),
+    pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')",
+    max.predictors = 2,
+    k = 3
+  )
+
+  out <- fit_model_set(model.set, parallel = FALSE)
+
+  expect_equal(nrow(out$mod.data.out), model.set$n.mods)
+  expect_length(out$failed.models, 0)
+  expect_true(all(is.finite(out$mod.data.out$AICc)))
+})
