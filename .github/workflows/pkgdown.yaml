@@ -20,6 +20,12 @@ jobs:
       group: pkgdown-${{ github.event_name != 'pull_request' || github.run_id }}
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      # Release vs devel docs are routed by branch, not by DESCRIPTION's
+      # Version string -- checks both the pushed branch (github.ref_name)
+      # and a PR's target branch (github.base_ref) so master/dev no longer
+      # need to carry a permanently different Version (see CLAUDE.md
+      # Section 5).
+      PKGDOWN_MODE: ${{ (github.ref_name == 'dev' || github.base_ref == 'dev') && 'devel' || 'release' }}
     permissions:
       contents: write
     steps:
@@ -35,7 +41,25 @@ jobs:
           needs: website
 
       - name: Build site
-        run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
+        run: |
+          # Not using pkgdown::build_site_github_pages() directly: it applies
+          # the destination override on a plain path first (computing
+          # dst_path/in_dev from _pkgdown.yml's static default), then passes
+          # any further override= to build_site() as a *second* as_pkgdown()
+          # call -- which, on an already-built pkgdown object, only patches
+          # $meta and does not recompute dst_path/in_dev. That silently drops
+          # a development.mode override passed via override=, so devel docs
+          # would land in docs/ instead of docs/dev/. Passing destination and
+          # development.mode together in one as_pkgdown() call (as below)
+          # computes dst_path/in_dev correctly in a single pass.
+          pkg <- pkgdown::as_pkgdown(
+            ".",
+            override = list(destination = "docs",
+                            development = list(mode = Sys.getenv("PKGDOWN_MODE")))
+          )
+          pkgdown::clean_site(pkg)
+          pkgdown::build_site(pkg, preview = FALSE, install = FALSE, new_process = FALSE)
+          pkgdown:::build_github_pages(pkg)
         shell: Rscript {0}
 
       - name: Deploy to GitHub pages 🚀
