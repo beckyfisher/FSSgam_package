@@ -9,14 +9,19 @@ build.inclusion.mat(included.vars, formula.list)
 \arguments{
 \item{included.vars}{A character vector of variables included in the model set}
 
-\item{formula.list}{A list of model formula, as obtained through generate.model.set}
+\item{formula.list}{A list of model formula, as obtained through generate_model_set}
 }
 \value{
 A matrix of variables included in the model set
 }
 \description{
-Supporting function for functions full.subsets.gam and fit.model.set. Not called directly.
+Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
 }
 \details{
 Builds var.inclusion matrix based on the included variables and set of model formula
+}
+\examples{
+included.vars <- c("depth", "complexity")
+formula.list <- list(depth = ~1, "depth+complexity" = ~1)
+build.inclusion.mat(included.vars, formula.list)
 }

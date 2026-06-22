@@ -12,21 +12,21 @@ full.subsets.gam(
   cyclic.vars = NA,
   linear.vars = NA,
   factor.smooth.interactions = pred.vars.fact,
-  factor.factor.interactions = F,
-  smooth.smooth.interactions = F,
+  factor.factor.interactions = FALSE,
+  smooth.smooth.interactions = FALSE,
   cov.cutoff = 0.28,
   cor.matrix = NA,
-  non.linear.correlations = F,
+  non.linear.correlations = FALSE,
   max.predictors = 3,
   k = 5,
   bs.arg = "'cr'",
   null.terms = "",
   max.models = 500,
-  save.model.fits = T,
-  parallel = F,
+  save.model.fits = TRUE,
+  parallel = FALSE,
   n.cores = 4,
   r2.type = "r2.lm.est",
-  report.unique.r2 = F,
+  report.unique.r2 = FALSE,
   factor.interactions = "previous.arg",
   smooth.interactions = "previous.arg",
   size = "previous.arg"
@@ -41,6 +41,8 @@ Both gamm from mgcv and gamm4 have slightly different features, as well as advan
 Models that have no random effects and are based only on gam (mgcv) are best fit via a direct call to gam, rather than using the uGamm wrapper.}
 
 \item{pred.vars.cont}{A character vector indicating the continuous predictors to use. By default all continuous predictors will be fitted using a smoother (but see argument linear.vars). These must match column names in use.dat exactly. If NA is used the function can be run without any smooth predictors.}
+
+\item{pred.vars.fact}{A character vector indicating the factor predictors to use. These must match column names in use.dat exactly. If NA is used the function can be run without any factor predictors.}
 
 \item{cyclic.vars}{NA if there are no cyclic predictors, or if there are cyclic predictors,a character vector containing the names of any of the continuous predictors that should be modelled as cyclic variables. Note that these must also be contained in the pred.vars.cont charactervector. Please also note there are issues with bs='cc' and model selection as this uses by default shrinkage. With shrinkage, variables are retained in models but with zero edf, which makes interpretation of AICc and BIC confusing. To account for this always select only the most parsimonious model (that with the fewest parameters), not just that with the lowest AICc. Reported estimated degrees of freedom (edf) in the model output table represent the sum of the edf of the smooth terms plus the number of parametric coefficients. When cyclic variables are included and shrinkage is used, any estimated edf of the smooth terms that are less than 1 are reset to 1 before summing to ensure the the total number of predictors in the model is captured properly.}
 
@@ -73,9 +75,17 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 
 \item{parallel}{A logical value indicating if parallel processing should be used. The default is FALSE.}
 
+\item{n.cores}{An integer indicating the number of cores to use if parallel is TRUE. Defaults to 4.}
+
 \item{r2.type}{The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note gamm4 does not currently return a deviance.}
 
 \item{report.unique.r2}{The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.}
+
+\item{factor.interactions}{Deprecated. Superseded by factor.factor.interactions; retained only so older code does not break, and will warn if used.}
+
+\item{smooth.interactions}{Deprecated. Superseded by factor.smooth.interactions; retained only so older code does not break, and will warn if used.}
+
+\item{size}{Deprecated. Superseded by max.predictors; retained only so older code does not break, and will warn if used.}
 }
 \value{
 A list of the following output files:
@@ -98,7 +108,7 @@ To determine the relative importance of each predictor across the whole model se
 }
 \description{
 Conducts a full subsets analysis based on gam(m4). In the most recent version of FSSgam this function is now a wrapper
-for the two input functions, generate.model.set and fit.model set. Input arguments are the same as these two underlying functions.
+for the two input functions, generate_model_set and fit_model_set. Input arguments are the same as these two underlying functions.
 calling these underlying functions explicitly is the recommended method for running a fulls subsets analysis with the
 FSSgam pacakge because this enables the user to interrogate the candidate model set and the predictor correlation
 matrix before actually running the analysis.
@@ -107,4 +117,21 @@ matrix before actually running the analysis.
 The function constructs and fits a complete model set based on the supplied arguments.
 for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
 https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134
+}
+\examples{
+library(mgcv)
+data(case_study1)
+use.dat <- case_study1
+use.dat$site <- as.factor(use.dat$site)
+test.fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+                 family = tw(), data = use.dat)
+full.subsets.gam(
+  use.dat = use.dat,
+  test.fit = test.fit,
+  pred.vars.cont = c("complexity", "depth"),
+  pred.vars.fact = "ZONE",
+  null.terms = "s(site,bs='re')",
+  max.predictors = 2,
+  k = 3
+)
 }

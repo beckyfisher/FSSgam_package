@@ -2,3 +2,12 @@
 ^\.Rproj\.user$
 ^\.positai$
 ^\.claude$
+^data-raw$
+^build_package_FFSgam\.R$
+^CLAUDE\.md$
+^cran-comments\.md$
+^ignore$
+^\.github$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

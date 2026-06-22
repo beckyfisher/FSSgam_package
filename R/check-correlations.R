@@ -29,32 +29,48 @@
 #' model fit.
 #' @export
 #' @return a correlation matrix
+#' @examples
+#' data(case_study1)
+#' check.correlations(case_study1[, c("depth", "complexity", "ZONE")])
+check.correlations=function(dat,parallel=FALSE,n.cores=4){
+  vars=classify_correlation_predictors(dat)
+  fact.vars=vars$fact.vars
+  cont.vars=vars$cont.vars
 
-check.correlations=function(dat,parallel=F,n.cores=4){
-  classes.dat=sapply(dat,class)
-  classes.dat=lapply(classes.dat,FUN=paste,collapse=" ")
-  valid.cols=which(match(unlist(classes.dat),c("factor","character", "integer","numeric"))>0)
-  if(length(valid.cols)<ncol(dat)){
-     invalid.cols=colnames(dat[-valid.cols])
-     invalid.classes=classes.dat[invalid.cols]
-     stop(
-        paste("
-        The predictor",
-        invalid.cols,"is of class",invalid.classes,
-        "which is not supported. Please check your input data.frame.")
-     )}
-  fact.vars=names(which(classes.dat=="factor" | classes.dat=="character"))
-  cont.vars=names(which(classes.dat=="integer" | classes.dat=="numeric"))
+  cor.mat=build_continuous_correlation_matrix(dat=dat,cont.vars=cont.vars)
+
+  if(length(fact.vars)>0){
+    out.cor.mat=build_factor_continuous_skeleton(dat=dat,fact.vars=fact.vars,
+                          cont.vars=cont.vars,cor.mat=cor.mat)
+    out.cor.mat=fill_factor_factor_correlations(dat=dat,fact.vars=fact.vars,
+                          out.cor.mat=out.cor.mat,parallel=parallel,n.cores=n.cores)
+  }else{
+    out.cor.mat=cor.mat
+  }
+  return(out.cor.mat)
+}
+
+# Internal helpers for check.correlations(). Not exported.
+
+# Pearson correlation matrix among the continuous predictors only.
+build_continuous_correlation_matrix=function(dat,cont.vars){
   if(length(cont.vars)>1){
-   cor.mat=cor(dat[,cont.vars],use="pairwise.complete.obs")}else{
+   cor.mat=stats::cor(dat[,cont.vars],use="pairwise.complete.obs")}else{
    cor.mat=matrix(1,ncol=1,nrow=1)
    colnames(cor.mat)=cont.vars
    rownames(cor.mat)=cont.vars}
-  if(length(fact.vars)>0){
+  return(cor.mat)
+}
+
+# Builds the correlation matrix skeleton: continuous-continuous values from
+# cor.mat, factor-continuous values estimated via lm(continuous~factor), and
+# NA placeholders for factor-factor (filled in later by
+# fill_factor_factor_correlations()).
+build_factor_continuous_skeleton=function(dat,fact.vars,cont.vars,cor.mat){
    if(length(cont.vars)>0){
     lm.grid=expand.grid(list(fact.var=fact.vars,cont.var=cont.vars))
     r.estimates=cbind(lm.grid,apply(lm.grid,MARGIN=1,FUN=function(x){
-        sqrt(summary(lm(dat[,x[2]]~factor(dat[,x[1]])))$r.sq)}))
+        sqrt(summary(stats::lm(dat[,x[2]]~factor(dat[,x[1]])))$r.sq)}))
 
     fact.cont.upper.right=matrix(NA,ncol=length(fact.vars),nrow=length(cont.vars))
     colnames(fact.cont.upper.right)=fact.vars;rownames(fact.cont.upper.right)=cont.vars
@@ -83,36 +99,39 @@ check.correlations=function(dat,parallel=F,n.cores=4){
         fact.fact.lower.right=matrix(NA,ncol=length(fact.vars),nrow=length(fact.vars))
     colnames(fact.fact.lower.right)=fact.vars;rownames(fact.fact.lower.right)=fact.vars
     out.cor.mat=fact.fact.lower.right}
+  return(out.cor.mat)
+}
 
+# Estimates factor-factor correlations via nnet::multinom (parallel or
+# sequential) and fills them into out.cor.mat.
+fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.cores){
   # estimate r values for fact-fact combinations
   lm.grid=expand.grid(list(fact.var1=fact.vars,fact.var2=fact.vars))
-  require(nnet)
-  if(parallel==T){
-   require(doSNOW)
-   cl=makeCluster(n.cores)
-   registerDoSNOW(cl)
-   out.cor.dat<-foreach(r = 1:nrow(lm.grid),.packages=c('nnet'),.errorhandling='pass')%dopar%{
+  if(parallel==TRUE){
+   cl=parallel::makeCluster(n.cores)
+   doSNOW::registerDoSNOW(cl)
+   out.cor.dat<-foreach::foreach(r = 1:nrow(lm.grid),.packages=c('nnet'),.errorhandling='pass')%dopar%{
     var.1=as.character(lm.grid[r,1])
     var.2=as.character(lm.grid[r,2])
-    dat.r=na.omit(dat[,c(var.1,var.2)])
-    fit <- try(summary(multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=F))$deviance,silent=T)
-    null.fit=try(summary(multinom(dat[,var.1] ~ 1,trace=F))$deviance,silent=T)
-    if(class(fit)!="try-error"){
+    dat.r=stats::na.omit(dat[,c(var.1,var.2)])
+    fit <- try(summary(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE))$deviance,silent=TRUE)
+    null.fit=try(summary(nnet::multinom(dat[,var.1] ~ 1,trace=FALSE))$deviance,silent=TRUE)
+    if(!inherits(fit,"try-error")){
        if(round(fit,4)==round(null.fit,4)){r.est=0}else{
       r.est=sqrt(1-(fit/null.fit))}
       c(var.1,var.2,r.est)}}
-   stopCluster(cl)
-   registerDoSEQ()
+   parallel::stopCluster(cl)
+   foreach::registerDoSEQ()
    }else{
     out.cor.dat=list()
     for(r in 1:nrow(lm.grid)){
           var.1=as.character(lm.grid[r,1])
           var.2=as.character(lm.grid[r,2])
-          dat.r=na.omit(dat[,c(var.1,var.2)])
-          fit <- try(summary(multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=F))$deviance,silent=T)
-          null.fit=try(summary(multinom(dat[,var.1] ~ 1,trace=F))$deviance,silent=T)
+          dat.r=stats::na.omit(dat[,c(var.1,var.2)])
+          fit <- try(summary(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE))$deviance,silent=TRUE)
+          null.fit=try(summary(nnet::multinom(dat[,var.1] ~ 1,trace=FALSE))$deviance,silent=TRUE)
           out=NA
-          if(class(fit)!="try-error"){
+          if(!inherits(fit,"try-error")){
            if(round(fit,4)==round(null.fit,4)){r.est=0}else{
                    r.est=sqrt(1-(fit/null.fit))}
                    out=c(var.1,var.2,r.est)}
@@ -122,6 +141,6 @@ check.correlations=function(dat,parallel=F,n.cores=4){
     for(r in 1:length(out.cor.dat)){
        out.cor.mat[which(colnames(out.cor.mat)==out.cor.dat[[r]][1]),
                    which(rownames(out.cor.mat)==out.cor.dat[[r]][2])]=
-                   as.numeric(out.cor.dat[[r]][3])}}else{out.cor.mat=cor.mat}
+                   as.numeric(out.cor.dat[[r]][3])}
   return(out.cor.mat)
 }

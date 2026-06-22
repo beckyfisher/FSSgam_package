@@ -1,4 +1,11 @@
 # FSSgam_package
+
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/beckyfisher/FSSgam_package/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/beckyfisher/FSSgam_package/actions/workflows/R-CMD-check.yaml)
+[![CRAN status](https://www.r-pkg.org/badges/version/FSSgam)](https://CRAN.R-project.org/package=FSSgam)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+<!-- badges: end -->
+
 Functions and code for building the FFSgam package. 
 
 Please see https://github.com/beckyfisher/FSSgam for example of usage.
