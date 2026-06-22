@@ -111,11 +111,11 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 
 
 <dt id="arg-cor-matrix">cor.matrix<a class="anchor" aria-label="anchor" href="#arg-cor-matrix"></a></dt>
-<dd><p>By default predictor correlations are evaluated via a call to check.correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square-route of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square-route of the R2 value obtained via a call multinom (from package nnet, Venables &amp; Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.</p></dd>
+<dd><p>By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square-route of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square-route of the R2 value obtained via a call multinom (from package nnet, Venables &amp; Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.</p></dd>
 
 
 <dt id="arg-non-linear-correlations">non.linear.correlations<a class="anchor" aria-label="anchor" href="#arg-non-linear-correlations"></a></dt>
-<dd><p>Set this argument to TRUE of you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check.non.linear.correlations for more details.</p></dd>
+<dd><p>Set this argument to TRUE of you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.</p></dd>
 
 
 <dt id="arg-max-predictors">max.predictors<a class="anchor" aria-label="anchor" href="#arg-max-predictors"></a></dt>
@@ -144,7 +144,7 @@ via , with no random effects, fitted</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list of the following output files:</p>
 <p>used.data - A data.frame which is identical to the data.frame initially supplied by the user, but with any hard coded interaction terms appended via cbind.</p>
-<p>predictor.correlations - The matrix of estimated predictor correlations returned by the function check.correlations and used for model exclusion based on cov.cutoff</p>
+<p>predictor.correlations - The matrix of estimated predictor correlations returned by the function check_correlations and used for model exclusion based on cov.cutoff</p>
 <p>generated.models - A list containing the model formula that were generated (and will be fitted by fit_model_set).</p>
     </div>
     <div class="section level2">

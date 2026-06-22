@@ -38,7 +38,7 @@ the maximum complexity allowed for smooth terms.
 The full subsets analysis can be carried out via one of two alternative
 methods allowed in the package.
 
-The first is through a direct call to full.subsets.gam (this is the
+The first is through a direct call to full_subsets_gam (this is the
 original function). This function both constructs and fits the complete
 model set, based on the user supplied input. This function requires that
 all model fits are saved, and is therefore not suitable for extremely
@@ -72,6 +72,8 @@ and Evolution
 Useful links:
 
 - <https://github.com/beckyfisher/FSSgam_package>
+
+- <https://beckyfisher.github.io/FSSgam_package>
 
 - <https://beckyfisher.github.io/FSSgam>
 
