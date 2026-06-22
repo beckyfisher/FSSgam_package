@@ -1,3 +1,5 @@
+# FSSgam (development version)
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.
