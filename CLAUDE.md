@@ -180,6 +180,16 @@ build_package_FFSgam.R    # legacy dev script with a hardcoded Windows path; .Rb
   this split. Port shared, non-version-specific changes (like `_pkgdown.yml`
   edits) across branches individually instead, the way the `development:
   mode: auto` line itself was added to both branches separately in Phase 8.
+  **2026-06-22 incident:** this happened anyway — PR #2 merged `dev` (at the
+  pre-Phase-9 `af021ae` commit) into `master`, leaving `master`'s
+  `DESCRIPTION` at `1.0.0.9000` and the site frozen pre-rename. Fixed by
+  merging `dev`'s remaining tip commit (Phase 9, `e4eef4b`) into `master` for
+  content, then resetting `DESCRIPTION`'s `Version` back to `1.0.0` by hand
+  in a follow-up commit — pkgdown's `mode: auto` resolves `release` vs
+  `devel` purely from the `Version` string at build time (a 4th, `.9000`-style
+  component means `devel`), not from which branch produced the merge, so a
+  manual reset after any `dev`→`master` merge is the correct fix, not a
+  workaround.
 
 - **Bundled datasets are managed via `data-raw/case_study_datasets.R`.**
   Do not regenerate or modify the `.rda` files in `data/` manually. If new
