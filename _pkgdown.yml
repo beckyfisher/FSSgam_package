@@ -4,7 +4,11 @@ template:
   bootstrap: 5
 
 development:
-  mode: auto
+  # Static default for local/interactive builds. CI overrides this per
+  # branch (see .github/workflows/pkgdown.yaml) -- mode is no longer derived
+  # from DESCRIPTION's Version string, so master and dev can share the same
+  # Version without fighting every merge (see CLAUDE.md Section 5).
+  mode: release
 
 repo:
   url:
