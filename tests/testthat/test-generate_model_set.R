@@ -34,6 +34,40 @@ test_that("generate_model_set errors when use.dat is not a data.frame", {
   )
 })
 
+test_that("generate_model_set errors clearly when null.terms is not a single character string", {
+  data(case_study1)
+  use.dat <- case_study1
+  use.dat$site <- as.factor(use.dat$site)
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+
+  bad.null.terms <- list(
+    NA,
+    NULL,
+    123,
+    TRUE,
+    c("s(site,bs='re')", "s(other,bs='re')"),
+    factor("s(site,bs='re')")
+  )
+
+  for (null.terms in bad.null.terms) {
+    expect_error(
+      generate_model_set(
+        use.dat = use.dat,
+        test.fit = test.fit,
+        pred.vars.cont = c("complexity", "depth"),
+        pred.vars.fact = "ZONE",
+        null.terms = null.terms,
+        max.predictors = 2,
+        k = 3
+      ),
+      "null.terms must be a single character string"
+    )
+  }
+})
+
 test_that("generate_model_set errors when predictors contain NA", {
   data(case_study1)
   use.dat <- case_study1
