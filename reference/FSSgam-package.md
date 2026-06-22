@@ -1,0 +1,90 @@
+# FSSgam: Full Subsets Multiple Regression in R Using GAMs
+
+Full-subsets information-theoretic approaches are increasingly used to
+explore predictive power and variable importance when a wide range of
+candidate predictors are being considered. This package provides
+functions that can be used to construct, fit, and compare a complete
+model set of possible ecological or environmental predictors for a given
+response variable of interest. Models are based on Generalized Additive
+Models (GAMs) and build on the MuMIn package. Advantages include the
+capacity to fit more predictors than there are replicates, automatic
+removal of models with correlated predictors, and support for model sets
+that include interactions between factors and smooth predictors, as well
+as smooth-by-smooth interactions via te().
+
+## Details
+
+Full subsets information theoretic approaches are becoming an
+increasingly popular tool for exploring predictive power and variable
+importance where a wide range of candidate predictors are being
+considered.
+
+This package provides simple function(s) that can be used to construct,
+fit and compare a complete model set of possible ecological or
+environmental predictors, given a response variable of interest. The
+function(s) are based on Generalized Additive Models (GAM) and builds on
+the MuMIn package.
+
+Advantages include the capacity to fit more predictors than there are
+replicates, automatic removal of models with correlated predictors, and
+model sets that include interactions between factors and smooth
+predictors, as all as smooth interactions with other smooths (via te).
+
+The function(s) takes a range of arguments that allow control over the
+model set being constructed, including specifying cyclic and linear
+continuous predictors, specification of the smoothing algorithm used and
+the maximum complexity allowed for smooth terms.
+
+The full subsets analysis can be carried out via one of two alternative
+methods allowed in the package.
+
+The first is through a direct call to full.subsets.gam (this is the
+original function). This function both constructs and fits the complete
+model set, based on the user supplied input. This function requires that
+all model fits are saved, and is therefore not suitable for extremely
+large models sets, as these will cause issues with memory. This method
+may be superceded in future versions of FSSgam, so for any new project
+please use the second method.
+
+The second method is via a call to generate_model_set followed by a
+second call to fit_model_set. This pair of functions splits the process
+of generating the model set from actually fitting and extracting the
+relevant model data. This method is useful for large model sets, because
+it allows the model set to be interrrogated before fitting and also
+optionally allows model fit data to not be saved, thus alleviating
+memory issues.
+
+The use of the function(s) is demonstrated via case studies that
+highlight how appropriate model sets can be easily constructed, and the
+broader utility of the approach for exploratory ecology. Please see the
+case study files on github for usage examples at
+<https://github.com/beckyfisher/FSSgam>
+
+## References
+
+Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple
+function for full-subsets multiple regression in ecology with R. Ecology
+and Evolution
+<https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134>
+
+## See also
+
+Useful links:
+
+- <https://github.com/beckyfisher/FSSgam_package>
+
+- <https://beckyfisher.github.io/FSSgam>
+
+- Report bugs at <https://github.com/beckyfisher/FSSgam_package/issues>
+
+## Author
+
+Rebecca Fisher (Australian Institue of Marine Science)
+
+Maintainer: Rebecca Fisher <r.fisher@aims.gov.au>
+
+## Examples
+
+``` r
+library(FSSgam)
+```
