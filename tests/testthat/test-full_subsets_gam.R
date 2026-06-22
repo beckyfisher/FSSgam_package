@@ -1,4 +1,4 @@
-test_that("full.subsets.gam returns a fully populated output list", {
+test_that("full_subsets_gam returns a fully populated output list", {
   data(case_study1)
   use.dat <- case_study1
   use.dat$site <- as.factor(use.dat$site)
@@ -7,7 +7,7 @@ test_that("full.subsets.gam returns a fully populated output list", {
     data = use.dat
   )
 
-  out <- full.subsets.gam(
+  out <- full_subsets_gam(
     use.dat = use.dat,
     test.fit = test.fit,
     pred.vars.cont = c("complexity", "depth"),
@@ -30,11 +30,11 @@ test_that("full.subsets.gam returns a fully populated output list", {
   expect_false(is.null(out$predictor.correlations))
   expect_equal(
     out$predictor.correlations,
-    check.correlations(use.dat[, c("complexity", "depth", "ZONE")])
+    check_correlations(use.dat[, c("complexity", "depth", "ZONE")])
   )
 })
 
-test_that("full.subsets.gam matches a separate generate_model_set + fit_model_set call", {
+test_that("full_subsets_gam matches a separate generate_model_set + fit_model_set call", {
   data(case_study1)
   use.dat <- case_study1
   use.dat$site <- as.factor(use.dat$site)
@@ -48,7 +48,7 @@ test_that("full.subsets.gam matches a separate generate_model_set + fit_model_se
     null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
   )
 
-  combined <- full.subsets.gam(
+  combined <- full_subsets_gam(
     use.dat = args$use.dat, test.fit = args$test.fit,
     pred.vars.cont = args$pred.vars.cont, pred.vars.fact = args$pred.vars.fact,
     null.terms = args$null.terms, max.predictors = args$max.predictors, k = args$k
@@ -63,7 +63,7 @@ test_that("full.subsets.gam matches a separate generate_model_set + fit_model_se
   expect_equal(combined$mod.data.out$AICc, separate$mod.data.out$AICc)
 })
 
-test_that("full.subsets.gam's legacy factor.interactions argument forwards with a warning", {
+test_that("full_subsets_gam's legacy factor.interactions argument forwards with a warning", {
   data(case_study1)
   use.dat <- case_study1
   use.dat$site <- as.factor(use.dat$site)
@@ -73,7 +73,7 @@ test_that("full.subsets.gam's legacy factor.interactions argument forwards with 
   )
 
   expect_warning(
-    legacy <- full.subsets.gam(
+    legacy <- full_subsets_gam(
       use.dat = use.dat, test.fit = test.fit,
       pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
       factor.interactions = TRUE,
@@ -81,7 +81,7 @@ test_that("full.subsets.gam's legacy factor.interactions argument forwards with 
     ),
     "factor.factor.interactions"
   )
-  current <- full.subsets.gam(
+  current <- full_subsets_gam(
     use.dat = use.dat, test.fit = test.fit,
     pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
     factor.factor.interactions = TRUE,
@@ -91,7 +91,7 @@ test_that("full.subsets.gam's legacy factor.interactions argument forwards with 
   expect_equal(legacy$mod.data.out$AICc, current$mod.data.out$AICc)
 })
 
-test_that("full.subsets.gam's legacy smooth.interactions argument forwards with a warning", {
+test_that("full_subsets_gam's legacy smooth.interactions argument forwards with a warning", {
   data(case_study1)
   use.dat <- case_study1
   use.dat$site <- as.factor(use.dat$site)
@@ -101,7 +101,7 @@ test_that("full.subsets.gam's legacy smooth.interactions argument forwards with 
   )
 
   expect_warning(
-    legacy <- full.subsets.gam(
+    legacy <- full_subsets_gam(
       use.dat = use.dat, test.fit = test.fit,
       pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
       smooth.interactions = NA,
@@ -109,7 +109,7 @@ test_that("full.subsets.gam's legacy smooth.interactions argument forwards with 
     ),
     "factor.smooth.interactions"
   )
-  current <- full.subsets.gam(
+  current <- full_subsets_gam(
     use.dat = use.dat, test.fit = test.fit,
     pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
     factor.smooth.interactions = NA,
@@ -121,7 +121,7 @@ test_that("full.subsets.gam's legacy smooth.interactions argument forwards with 
   expect_false(any(grepl("\\.by\\.", legacy$mod.data.out$modname)))
 })
 
-test_that("full.subsets.gam's legacy size argument constrains max.predictors", {
+test_that("full_subsets_gam's legacy size argument constrains max.predictors", {
   data(case_study1)
   use.dat <- case_study1
   use.dat$site <- as.factor(use.dat$site)
@@ -133,7 +133,7 @@ test_that("full.subsets.gam's legacy size argument constrains max.predictors", {
   # regression test: size= used to be a no-op (it warned but never actually
   # fed its value into max.predictors)
   expect_warning(
-    legacy <- full.subsets.gam(
+    legacy <- full_subsets_gam(
       use.dat = use.dat, test.fit = test.fit,
       pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
       size = 1,
@@ -141,7 +141,7 @@ test_that("full.subsets.gam's legacy size argument constrains max.predictors", {
     ),
     "max.predictors"
   )
-  current <- full.subsets.gam(
+  current <- full_subsets_gam(
     use.dat = use.dat, test.fit = test.fit,
     pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
     max.predictors = 1,

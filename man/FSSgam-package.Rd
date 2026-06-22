@@ -19,7 +19,7 @@ The function(s) takes a range of arguments that allow control over the model set
 
 The full subsets analysis can be carried out via one of two alternative methods allowed in the package.
 
-The first is through a direct call to full.subsets.gam (this is the original function).
+The first is through a direct call to full_subsets_gam (this is the original function).
 This function both constructs and fits the complete model set, based on the user supplied input. This function requires that all model fits are saved, and is therefore
 not suitable for extremely large models sets, as these will cause issues with memory. This method may be superceded in future versions of FSSgam, so for any new project please use the second method.
 
@@ -40,6 +40,7 @@ Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for fu
 Useful links:
 \itemize{
   \item \url{https://github.com/beckyfisher/FSSgam_package}
+  \item \url{https://beckyfisher.github.io/FSSgam_package}
   \item \url{https://beckyfisher.github.io/FSSgam}
   \item Report bugs at \url{https://github.com/beckyfisher/FSSgam_package/issues}
 }

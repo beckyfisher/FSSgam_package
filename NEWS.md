@@ -1,5 +1,18 @@
 # FSSgam (development version)
 
+* Completed the snake_case rename across the public API.
+  `full.subsets.gam()` is now a deprecated wrapper around the new
+  `full_subsets_gam()` (same treatment as `generate.model.set()` and
+  `fit.model.set()`, since it's used directly in the companion docs
+  repository's published case studies). `check.correlations()`,
+  `check.non.linear.correlations()`, `build.inclusion.mat()`,
+  `extract.mod.dat()`, and `fit.mod.l()` are renamed outright to
+  `check_correlations()`, `check_non_linear_correlations()`,
+  `build_inclusion_mat()`, `extract_mod_dat()`, and `fit_mod_l()` with no
+  backward-compatible alias -- a breaking change for any code calling these
+  five directly, but none of them appear anywhere in the companion repo's
+  published vignettes/FAQ.
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.

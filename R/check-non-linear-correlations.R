@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-#' check.non.linear.correlations
+#' check_non_linear_correlations
 #'
 #' generates a correlation matrix among all columns of a data.frame
 #' @param dat the data.frame containing the columns for which a correlation
@@ -36,8 +36,8 @@
 #' deviations from this assumption will yield spurious "correlation" estimates.
 #' @examples
 #' data(case_study1)
-#' check.non.linear.correlations(case_study1[, c("depth", "complexity", "ZONE")])
-check.non.linear.correlations=function(dat){
+#' check_non_linear_correlations(case_study1[, c("depth", "complexity", "ZONE")])
+check_non_linear_correlations=function(dat){
   vars=classify_correlation_predictors(dat)
   fact.vars=vars$fact.vars
   cont.vars=vars$cont.vars
@@ -54,7 +54,7 @@ check.non.linear.correlations=function(dat){
   return(out.cor.mat)
 }
 
-# Internal helpers for check.non.linear.correlations(). Not exported.
+# Internal helpers for check_non_linear_correlations(). Not exported.
 
 # All ordered (row, col) column-name pairs of dat, excluding the diagonal.
 build_correlation_pair_grid=function(dat){

@@ -44,7 +44,7 @@
 #'
 #' used.data - A data.frame which is identical to the data.frame initially supplied by the user, but with any hard coded interaction terms appended via cbind.
 #'
-#' failed.models - A list of model formula that failed to fit. Ideally the list of failed models should be empty, but when this is not the case interrogating failed.models provides a useful means of troubleshooting. Users can examine which models are not fitting and explore the reasons for this by fitting the failed models outside the full.subsets.gam call based on the listed formula. When a large number of models fail to fit properly it usually indicates poor specification of the initial test.fit or other arguments in the call to full.subsets.gam (such as the inclusion of factor interactions when there are few data within each level of the factor), or that inappropriate variables are being included in the model set.
+#' failed.models - A list of model formula that failed to fit. Ideally the list of failed models should be empty, but when this is not the case interrogating failed.models provides a useful means of troubleshooting. Users can examine which models are not fitting and explore the reasons for this by fitting the failed models outside the full_subsets_gam call based on the listed formula. When a large number of models fail to fit properly it usually indicates poor specification of the initial test.fit or other arguments in the call to full_subsets_gam (such as the inclusion of factor interactions when there are few data within each level of the factor), or that inappropriate variables are being included in the model set.
 #'
 #' success.models - A complete list of all successfully fitted model formula. If models were saved, this can be used for multimodel inference and creating model averaged predictions.
 #' otherwise the formula can be used to refit the top model set via a call to update of the test fit: update(test.fit,formula=mod.formula[[l]])
@@ -143,7 +143,7 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
                    .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                    .errorhandling='pass',
                    .options.snow = opts)%dopar%{
-     fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat)
+     fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat)
   }
    close(pb)
    parallel::stopCluster(cl)
@@ -151,7 +151,7 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
            }else{
       out.dat <- vector("list", length(mod.formula))
       for(l in 1:length(mod.formula)){
-         mod.l=fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat)
+         mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat)
          out.dat[[l]]=mod.l
         utils::setTxtProgressBar(pb,l)
          }
@@ -168,12 +168,12 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
         stop("None of your models fitted successfully. Please check your input objects.")}
 
   # of the successful models, make a table indicating which variables are included
-  var.inclusions <- build.inclusion.mat(included.vars=included.vars,formula.list=success.models)
+  var.inclusions <- build_inclusion_mat(included.vars=included.vars,formula.list=success.models)
   # now make a table of all the model summary data
   mod.data.out <- data.frame("modname"=names(success.models))
   mod.data.out$formula <- unlist(lapply(success.models,FUN=function(x){as.character(stats::formula(x)[3])}))
   mod.data.out <- cbind(mod.data.out,do.call("rbind",lapply(success.models,FUN=function(x){
-                      unlist(extract.mod.dat(x,r2.type.=r2.type))})))
+                      unlist(extract_mod_dat(x,r2.type.=r2.type))})))
 
   return(list(mod.data.out=mod.data.out,failed.models=failed.models,
               success.models=success.models,var.inclusions=var.inclusions))
@@ -189,7 +189,7 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
   progress <- function(n) utils::setTxtProgressBar(pb, n)
 
   #for all models make a table indicating which variables are included
-  var.inclusions <- build.inclusion.mat(included.vars=included.vars,formula.list=mod.formula)
+  var.inclusions <- build_inclusion_mat(included.vars=included.vars,formula.list=mod.formula)
    # now make a table of all the model summary data
   mod.data.out <- data.frame("modname"=names(mod.formula))
   mod.data.out$formula <- unlist(lapply(mod.formula,FUN=function(x){as.character(stats::formula(x))[2]}))
@@ -202,7 +202,7 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
                    .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                    #.errorhandling='pass',
                    .options.snow = opts)%dopar%{
-      unlist(extract.mod.dat(fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat),
+      unlist(extract_mod_dat(fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat),
                              r2.type.=r2.type))
 
    }
@@ -212,8 +212,8 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
            }else{
       mod.dat=vector("list", length(mod.formula))
       for(l in 1:length(mod.formula)){
-        mod.l=fit.mod.l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat)
-        out=unlist(extract.mod.dat(mod.l,r2.type.=r2.type))
+        mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat)
+        out=unlist(extract_mod_dat(mod.l,r2.type.=r2.type))
         mod.dat[[l]]=out
         utils::setTxtProgressBar(pb,l)
         }

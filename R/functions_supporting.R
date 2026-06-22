@@ -14,7 +14,7 @@
 
 #' wi
 #'
-#' Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
+#' Supporting function for functions full_subsets_gam and fit_model_set. Not called directly.
 #'
 #' @param  AIC.vals vector of AICc, AIC or BIC values
 #'
@@ -34,9 +34,9 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
  wi=wi.den/wi.den.sum
  return(wi)}
 
-#' extract.mod.dat
+#' extract_mod_dat
 #'
-#' Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
+#' Supporting function for functions full_subsets_gam and fit_model_set. Not called directly.
 #'
 #' @param  mod.fit A dsm, gam or uGamm fitted model object
 #'
@@ -52,8 +52,8 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
 #' data(case_study1)
 #' fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
 #'            family = tw(), data = case_study1)
-#' extract.mod.dat(fit, r2.type. = "r2")
-extract.mod.dat <- function(mod.fit,r2.type.="r2.lm.est"){
+#' extract_mod_dat(fit, r2.type. = "r2")
+extract_mod_dat <- function(mod.fit,r2.type.="r2.lm.est"){
 #x=mod.fit
  mod.dat <- list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA)
  if(class(mod.fit)[[1]]!="try-error"){
@@ -105,9 +105,9 @@ extract.mod.dat <- function(mod.fit,r2.type.="r2.lm.est"){
   mod.dat$edf.less.1 <- length(which(edf.m<0.25))}
 return(mod.dat)}
 
-#' build.inclusion.mat
+#' build_inclusion_mat
 #'
-#' Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
+#' Supporting function for functions full_subsets_gam and fit_model_set. Not called directly.
 #'
 #' @param  included.vars A character vector of variables included in the model set
 #'
@@ -120,8 +120,8 @@ return(mod.dat)}
 #' @examples
 #' included.vars <- c("depth", "complexity")
 #' formula.list <- list(depth = ~1, "depth+complexity" = ~1)
-#' build.inclusion.mat(included.vars, formula.list)
-build.inclusion.mat <- function(included.vars,formula.list){
+#' build_inclusion_mat(included.vars, formula.list)
+build_inclusion_mat <- function(included.vars,formula.list){
 var.inclusions <- matrix(0,ncol=length(included.vars),length(formula.list))
 colnames(var.inclusions) <- c(included.vars)
 
@@ -139,9 +139,9 @@ return(var.inclusions)
 }
 
 
-#' fit.mod.l
+#' fit_mod_l
 #'
-#' Supporting function for functions full.subsets.gam and fit_model_set. Not called directly.
+#' Supporting function for functions full_subsets_gam and fit_model_set. Not called directly.
 #'
 #' @param  formula.l A model formula
 #'
@@ -150,7 +150,7 @@ return(var.inclusions)
 #' @param  use.dat the data used to fit test.fit#
 #'
 #' @details Generates an updated model fit based on the supplied formula.
-#' This wrapper was required to allow full.subsets.gam and fit_model_set to be applied to dsm models
+#' This wrapper was required to allow full_subsets_gam and fit_model_set to be applied to dsm models
 #'
 #' @export
 #' @return An updated dsm, gam or uGamm fitted model object
@@ -159,9 +159,9 @@ return(var.inclusions)
 #' data(case_study1)
 #' base.fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
 #'                  family = tw(), data = case_study1)
-#' fit.mod.l(formula.l = ~ s(complexity, k = 3, bs = "cr"),
+#' fit_mod_l(formula.l = ~ s(complexity, k = 3, bs = "cr"),
 #'           test.fit. = base.fit, use.dat = case_study1)
-fit.mod.l <- function(formula.l,test.fit.,use.dat){
+fit_mod_l <- function(formula.l,test.fit.,use.dat){
 if(length(grep("dsm",class(test.fit.)))>0){
  mod.l=try(stats::update(test.fit.,formula=formula.l),
            silent=TRUE)}

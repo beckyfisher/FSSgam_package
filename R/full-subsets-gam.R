@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-#' full.subsets.gam
+#' full_subsets_gam
 #'
 #' Conducts a full subsets analysis based on gam(m4). In the most recent version of FSSgam this function is now a wrapper
 #' for the two input functions, generate_model_set and fit_model_set. Input arguments are the same as these two underlying functions.
@@ -42,9 +42,9 @@
 #'
 #' @param  cov.cutoff A numeric value between 0 and 1 indicating the correlation cutoff value to use for excluding collinear models, based on the cor.matrix (see below). The default value is 0.28 (see Graham MH (2003). It is highly recommended to keep this value low, as correlation among predictors can yield spurious results. Note that predictors with a correlation greater than the specified value will still appear in the model set but will never appear in the same model. Including highly correlated predictors can make interpreting variable importance values difficult.
 #'
-#' @param cor.matrix  By default predictor correlations are evaluated via a call to check.correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square-route of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square-route of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
+#' @param cor.matrix  By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square-route of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square-route of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
 #'
-#' @param non.linear.correlations Set this argument to TRUE of you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check.non.linear.correlations for more details.
+#' @param non.linear.correlations Set this argument to TRUE of you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.
 #'
 #' @param k An integer indicating the dimension of the basis used to represent the smooth term (see ?s). The default value is 5. Higher values are not recommended unless a complex trend between the response variable and the continuous predictor variables is expected, and the data are sufficient to support this. k can be reduced to as low as 3 where there is trouble obtaining convergence, or sample size is low. Note that this must be set to override the default value, regardless of what k is used in the test.fit
 #'
@@ -87,9 +87,9 @@
 #'
 #' used.data - A data.frame which is identical to the data.frame initially supplied by the user, but with any hard coded interaction terms appended via cbind.
 #'
-#' predictor.correlations - The matrix of estimated predictor correlations returned by the function check.correlations and used for model exclusion based on cov.cutoff
+#' predictor.correlations - The matrix of estimated predictor correlations returned by the function check_correlations and used for model exclusion based on cov.cutoff
 #'
-#' failed.models - A list containing the try-error catch associated with models that failed to fit. Ideally the list of failed models should be empty, but when this is not the case interrogating failed.models provides a useful means of troubleshooting. Users can examine which models are not fitting and explore the reasons for this by fitting the failed models outside the full.subsets.gam call based on the listed formula. When a large number of models fail to fit properly it usually indicates poor specification of the initial test.fit or other arguments in the call to full.subsets.gam (such as the inclusion of factor interactions when there are few data within each level of the factor), or that inappropriate variables are being included in the model set.
+#' failed.models - A list containing the try-error catch associated with models that failed to fit. Ideally the list of failed models should be empty, but when this is not the case interrogating failed.models provides a useful means of troubleshooting. Users can examine which models are not fitting and explore the reasons for this by fitting the failed models outside the full_subsets_gam call based on the listed formula. When a large number of models fail to fit properly it usually indicates poor specification of the initial test.fit or other arguments in the call to full_subsets_gam (such as the inclusion of factor interactions when there are few data within each level of the factor), or that inappropriate variables are being included in the model set.
 #'
 #' success.models - A complete list of all successfully fitted models. This can be used for multimodel inference and creating model averaged predictions.
 #'
@@ -102,7 +102,7 @@
 #' use.dat$site <- as.factor(use.dat$site)
 #' test.fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
 #'                  family = tw(), data = use.dat)
-#' full.subsets.gam(
+#' full_subsets_gam(
 #'   use.dat = use.dat,
 #'   test.fit = test.fit,
 #'   pred.vars.cont = c("complexity", "depth"),
@@ -112,7 +112,7 @@
 #'   k = 3
 #' )
 
-full.subsets.gam=function(use.dat,
+full_subsets_gam=function(use.dat,
                           test.fit,
                           pred.vars.cont=NA,
                           pred.vars.fact=NA,

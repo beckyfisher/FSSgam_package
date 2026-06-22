@@ -36,32 +36,34 @@ reference:
     recommended only for small candidate sets since it does not let you
     inspect the model set before fitting.
   contents:
-  - full.subsets.gam
+  - full_subsets_gam
 
 - title: Correlation diagnostics
   contents:
-  - check.correlations
-  - check.non.linear.correlations
+  - check_correlations
+  - check_non_linear_correlations
 
 - title: Supporting functions
   desc: >
-    Used internally by full.subsets.gam() and fit_model_set(). Exported but
+    Used internally by full_subsets_gam() and fit_model_set(). Exported but
     not intended to be called directly.
   contents:
   - wi
-  - extract.mod.dat
-  - build.inclusion.mat
-  - fit.mod.l
+  - extract_mod_dat
+  - build_inclusion_mat
+  - fit_mod_l
 
 - title: Deprecated aliases
   desc: >
-    Legacy dot.case names retained for backward compatibility. These are the
-    function names cited in Fisher et al. (2018, Ecology and Evolution) and
-    used by existing downstream code. New code should call the snake_case
-    functions above directly.
+    Legacy dot.case names retained for backward compatibility. generate.model.set()
+    and fit.model.set() are the function names cited in Fisher et al. (2018,
+    Ecology and Evolution); full.subsets.gam() is retained because it's used
+    directly in the companion docs repository's published case studies. New
+    code should call the snake_case functions above directly.
   contents:
   - generate.model.set
   - fit.model.set
+  - full.subsets.gam
 
 - title: Datasets
   contents:

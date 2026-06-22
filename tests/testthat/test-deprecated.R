@@ -47,7 +47,7 @@ test_that("fit.model.set warns and forwards to fit_model_set", {
   expect_equal(old$mod.data.out$AICc, new$mod.data.out$AICc)
 })
 
-test_that("full.subsets.gam does not itself emit deprecation warnings", {
+test_that("full_subsets_gam does not itself emit deprecation warnings", {
   data(case_study1)
   use.dat <- case_study1
   use.dat$site <- as.factor(use.dat$site)
@@ -57,7 +57,7 @@ test_that("full.subsets.gam does not itself emit deprecation warnings", {
   )
 
   expect_no_warning(
-    full.subsets.gam(
+    full_subsets_gam(
       use.dat = use.dat,
       test.fit = test.fit,
       pred.vars.cont = c("complexity", "depth"),
@@ -67,4 +67,28 @@ test_that("full.subsets.gam does not itself emit deprecation warnings", {
       k = 3
     )
   )
+})
+
+test_that("full.subsets.gam warns and forwards to full_subsets_gam", {
+  data(case_study1)
+  use.dat <- case_study1
+  use.dat$site <- as.factor(use.dat$site)
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  args <- list(
+    use.dat = use.dat,
+    test.fit = test.fit,
+    pred.vars.cont = c("complexity", "depth"),
+    pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')",
+    max.predictors = 2,
+    k = 3
+  )
+
+  expect_warning(old <- do.call(full.subsets.gam, args), class = "deprecatedWarning")
+  new <- do.call(full_subsets_gam, args)
+
+  expect_equal(old$mod.data.out$AICc, new$mod.data.out$AICc)
 })

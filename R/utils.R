@@ -16,7 +16,7 @@
 
 # Validates that every column of dat is factor/character/integer/numeric,
 # then splits its column names into factor and continuous predictors. Used
-# identically by check.correlations() and check.non.linear.correlations().
+# identically by check_correlations() and check_non_linear_correlations().
 classify_correlation_predictors=function(dat){
   classes.dat=sapply(dat,class)
   classes.dat=lapply(classes.dat,FUN=paste,collapse=" ")

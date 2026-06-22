@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-#' check.correlations
+#' check_correlations
 #'
 #' generates a correlation matrix among all columns of a data.frame
 #' @param dat the data.frame containing the columns for which a correlation
@@ -31,8 +31,8 @@
 #' @return a correlation matrix
 #' @examples
 #' data(case_study1)
-#' check.correlations(case_study1[, c("depth", "complexity", "ZONE")])
-check.correlations=function(dat,parallel=FALSE,n.cores=4){
+#' check_correlations(case_study1[, c("depth", "complexity", "ZONE")])
+check_correlations=function(dat,parallel=FALSE,n.cores=4){
   vars=classify_correlation_predictors(dat)
   fact.vars=vars$fact.vars
   cont.vars=vars$cont.vars
@@ -50,7 +50,7 @@ check.correlations=function(dat,parallel=FALSE,n.cores=4){
   return(out.cor.mat)
 }
 
-# Internal helpers for check.correlations(). Not exported.
+# Internal helpers for check_correlations(). Not exported.
 
 # Pearson correlation matrix among the continuous predictors only.
 build_continuous_correlation_matrix=function(dat,cont.vars){
