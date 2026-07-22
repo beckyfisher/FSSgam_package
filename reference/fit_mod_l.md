@@ -6,7 +6,12 @@ Not called directly.
 ## Usage
 
 ``` r
-fit_mod_l(formula.l, test.fit., use.dat)
+fit_mod_l(
+  formula.l,
+  test.fit.,
+  use.dat,
+  family. = resolve_candidate_family(test.fit.)
+)
 ```
 
 ## Arguments
@@ -22,6 +27,16 @@ fit_mod_l(formula.l, test.fit., use.dat)
 - use.dat:
 
   the data used to fit test.fit#
+
+- family.:
+
+  The family to refit formula.l with. Defaults to a fresh, independent
+  re-evaluation of the family test.fit. itself used (see
+  resolve_candidate_family in R/utils.R), so repeated calls never share
+  mutable extended-family state (e.g. mgcv's nb()/tw() estimated theta).
+  fit_model_set() resolves this once per candidate up front, on the
+  calling process, and passes it in explicitly rather than relying on
+  this default – see the comment below for why.
 
 ## Value
 
