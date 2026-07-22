@@ -11,7 +11,7 @@
 
 ## Notes for CRAN reviewers
 
-* `generate.model.set()` and `fit.model.set()` are intentionally retained as
+* `full.subsets.gam()`, `generate.model.set()` and `fit.model.set()` are intentionally retained as
   exported, deprecated aliases (`R/deprecated.R`) for `generate_model_set()`
   and `fit_model_set()`. The dotted names are the function names cited in
   Fisher et al. (2018, Ecology and Evolution,

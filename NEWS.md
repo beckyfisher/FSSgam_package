@@ -20,7 +20,23 @@
   its own mutable environment; re-using it warm-started every refit from an
   unrelated formula's estimate and destabilised the fit for most (but not
   all) candidates. Candidate models now get a fresh, independent family
-  object for every fit, the same way the null model already did.
+  object for every fit, the same way the null model already did -- and,
+  unlike an earlier attempt at this same fix, this now holds regardless of
+  how `family` was originally specified on `test.fit` (a literal call such
+  as `family = nb()`, or a variable/list element such as
+  `family = my.families[[2]]`), and no longer crashes every candidate under
+  `parallel = TRUE` when family was supplied via a variable.
+* Bug fix: `generate_model_set()` (and `full_subsets_gam()`, which calls it)
+  did not validate the `null.terms` argument, so passing anything other than
+  a single character string (e.g. `NA`, `NULL`, a number, a logical, a
+  character vector of length > 1, or a factor) produced a confusing,
+  type-dependent low-level error -- or, for a bare numeric/logical value,
+  was silently accepted and spliced into a nonsense model formula instead of
+  failing. `null.terms` is now validated up front with a clear error message
+  (#7).
+* Added a test-coverage GitHub Actions workflow
+  (`.github/workflows/test-coverage.yaml`, using `covr` + Codecov) and a
+  coverage badge to the README (#3).
 
 # FSSgam 1.0.0
 

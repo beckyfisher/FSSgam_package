@@ -106,6 +106,7 @@ generate_model_set=function(use.dat,
                           null.terms=""){
 
   validate_use_dat(use.dat)
+  validate_null_terms(null.terms)
 
   all.predictors=unique(stats::na.omit(c(pred.vars.cont,pred.vars.fact,linear.vars)))
   included.vars=all.predictors
@@ -180,6 +181,17 @@ generate_model_set=function(use.dat,
 validate_use_dat=function(use.dat){
   if(class(use.dat)[1]!="data.frame"){
     stop("use.dat must be a data.frame, perhaps you have a tibble? FSSgam does not currently support tibbles.")
+  }
+}
+
+# Confirms null.terms is a single, non-missing character string (possibly "").
+# Without this check, downstream nchar(null.terms) calls fail in confusing,
+# type-dependent ways (e.g. NA errors "missing value where TRUE/FALSE needed",
+# a length>1 vector errors "the condition has length > 1", and a bare numeric
+# or logical value is silently accepted and spliced into a nonsense formula).
+validate_null_terms=function(null.terms){
+  if(!is.character(null.terms) || length(null.terms)!=1 || is.na(null.terms)){
+    stop("null.terms must be a single character string (e.g. \"s(site,bs='re')\"), or \"\" if no null term is required.")
   }
 }
 

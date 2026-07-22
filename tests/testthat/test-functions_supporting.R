@@ -90,6 +90,42 @@ test_that("fit_mod_l updates a test.fit with a new formula on the supplied data"
   expect_equal(unname(coef(updated)), unname(coef(manual)), tolerance = 1e-4)
 })
 
+test_that("fit_mod_l keeps every refit's extended-family state independent, even when family is shared via a variable", {
+  # Regression test for the conflict between GitHub issues #10 and #12.
+  # family.opts[[2]] is the exact object gam() used to fit base.fit, so
+  # fitting base.fit already mutates it in place (theta is stored in the
+  # family object's own mutable environment). If refits of base.fit shared
+  # that same object (or each other's), each one would retroactively change
+  # an earlier refit's -- or base.fit's own -- already-estimated theta.
+  #
+  # family.opts is assigned to the global environment (via <<-) rather than
+  # left local to this test_that() block -- see the matching comment in
+  # test-fit_model_set.R for why that's required here regardless of this
+  # fix (mgcv::gam() normalises away the environment a formula was
+  # originally written in).
+  library(mgcv)
+  data(case_study1)
+  use.dat <- case_study1
+  use.dat$Herbivore.abundance <- round(use.dat$Herbivore.abundance)
+  family.opts <<- list(gaussian(), nb())
+  on.exit(rm("family.opts", envir = globalenv()), add = TRUE)
+  base.fit <- gam(
+    Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
+    family = family.opts[[2]], data = use.dat
+  )
+  theta.after.base.fit <- family.opts[[2]]$getTheta(TRUE)
+
+  fit_a <- fit_mod_l(formula.l = ~ s(complexity, k = 3, bs = "cr"), test.fit. = base.fit, use.dat = use.dat)
+  theta.a <- fit_a$family$getTheta(TRUE)
+
+  fit_b <- fit_mod_l(formula.l = ~ s(depth, k = 3, bs = "cr") + s(complexity, k = 3, bs = "cr"),
+                      test.fit. = base.fit, use.dat = use.dat)
+
+  expect_equal(fit_a$family$getTheta(TRUE), theta.a, tolerance = 1e-10)
+  expect_equal(family.opts[[2]]$getTheta(TRUE), theta.after.base.fit, tolerance = 1e-10)
+  expect_false(identical(environment(fit_a$family$getTheta), environment(fit_b$family$getTheta)))
+})
+
 test_that("fit_mod_l returns a try-error for a formula that cannot be fit", {
   library(mgcv)
   data(case_study1)

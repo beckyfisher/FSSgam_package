@@ -3,7 +3,6 @@
 ^\.positai$
 ^\.claude$
 ^data-raw$
-^build_package_FFSgam\.R$
 ^CLAUDE\.md$
 ^cran-comments\.md$
 ^ignore$

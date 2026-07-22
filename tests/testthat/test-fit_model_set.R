@@ -56,6 +56,56 @@ test_that("fit_model_set works with a Tweedie family (non-Gaussian)", {
   expect_true(all(is.finite(out$mod.data.out$AICc)))
 })
 
+test_that("fit_model_set works when family is supplied as a list element rather than a literal call", {
+  # Regression test for GitHub issue #10. Passing family = family.opts[[2]]
+  # (rather than family = tw() written out directly) used to make every
+  # candidate model fail under parallel = TRUE, because fit_mod_l() relied
+  # on update() re-evaluating that *expression* wherever the refit itself
+  # ran -- fine on the calling process, but a doSNOW worker never has
+  # family.opts in scope. The parallel = TRUE crash itself isn't exercised
+  # here (committed tests don't spin up a cluster, see CLAUDE.md Section 6
+  # Phase 6b); this checks the same underlying fix sequentially: that
+  # resolve_candidate_family() (R/utils.R) can resolve and independently
+  # clone a family supplied this way at all, for every candidate, without
+  # error.
+  #
+  # family.opts is assigned to the global environment (via <<-) rather
+  # than left as a local variable of this test_that() block, to mirror how
+  # a real top-level user script would have it in scope. mgcv::gam()
+  # normalises away the environment a formula/call was originally written
+  # in, so re-evaluating test.fit's family expression always resolves
+  # variables via the global environment, never an intermediate calling
+  # function's local frame -- true of both the pre-fix and post-fix
+  # mechanisms, and not something this fix changes or needs to change.
+  library(mgcv)
+  data(case_study1)
+  use.dat <- case_study1
+  use.dat$site <- as.factor(use.dat$site)
+  family.opts <<- list(gaussian(), tw())
+  on.exit(rm("family.opts", envir = globalenv()), add = TRUE)
+  test.fit <- gam(
+    Herbivore.abundance ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    family = family.opts[[2]],
+    data = use.dat
+  )
+
+  model.set <- generate_model_set(
+    use.dat = use.dat,
+    test.fit = test.fit,
+    pred.vars.cont = c("complexity", "depth"),
+    pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')",
+    max.predictors = 2,
+    k = 3
+  )
+
+  out <- fit_model_set(model.set, parallel = FALSE)
+
+  expect_equal(nrow(out$mod.data.out), model.set$n.mods)
+  expect_length(out$failed.models, 0)
+  expect_true(all(is.finite(out$mod.data.out$AICc)))
+})
+
 test_that("fit_model_set works with a negative binomial family (extended family with estimated theta)", {
   library(mgcv)
   data(case_study1)
