@@ -2,6 +2,7 @@
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/beckyfisher/FSSgam_package/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/beckyfisher/FSSgam_package/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/beckyfisher/FSSgam_package/graph/badge.svg)](https://app.codecov.io/gh/beckyfisher/FSSgam_package)
 [![CRAN status](https://www.r-pkg.org/badges/version/FSSgam)](https://CRAN.R-project.org/package=FSSgam)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 <!-- badges: end -->

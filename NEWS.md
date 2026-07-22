@@ -34,6 +34,9 @@
   was silently accepted and spliced into a nonsense model formula instead of
   failing. `null.terms` is now validated up front with a clear error message
   (#7).
+* Added a test-coverage GitHub Actions workflow
+  (`.github/workflows/test-coverage.yaml`, using `covr` + Codecov) and a
+  coverage badge to the README (#3).
 
 # FSSgam 1.0.0
 
