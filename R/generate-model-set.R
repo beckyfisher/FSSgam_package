@@ -328,8 +328,14 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
      # make the interaction terms between the factors and continuous predictors
 
      if(length(stats::na.omit(factor.smooth.interactions))>0){
-      all.interactions=expand.grid(pred.vars.cont,factor.smooth.interactions)
-      interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")
+      # pred.vars.cont=NA is a documented way to run without smooth predictors.
+      # Without this guard expand.grid() pairs the NA itself with each factor,
+      # producing a phantom "NA.by.<factor>" term. It is discarded again later
+      # (it has no matching main effect), but not before enumerate_candidate_models()
+      # takes max() of an empty correlation sub-matrix and warns.
+      if(length(stats::na.omit(pred.vars.cont))>0){
+       all.interactions=expand.grid(pred.vars.cont,factor.smooth.interactions)
+       interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}
 
       # now interactions between linear continous predictors and factors
       if(length(stats::na.omit(linear.vars))>0){
@@ -361,8 +367,10 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
      # make the interaction terms between the factors and continuous predictors
 
      if(length(stats::na.omit(factor.smooth.interactions))>0){
-      all.interactions=expand.grid(cont.var.interactions,factor.smooth.interactions)
-      interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")
+      # see the matching guard in the character branch above
+      if(length(stats::na.omit(cont.var.interactions))>0){
+       all.interactions=expand.grid(cont.var.interactions,factor.smooth.interactions)
+       interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}
 
       # now interactions between linear continous predictors and factors
       if(length(stats::na.omit(linear.var.interactions))>0){
@@ -458,9 +466,14 @@ resolve_smooth_smooth_interactions=function(use.dat,pred.vars.cont,smooth.smooth
 # model exclusion: either computed from use.dat, or validated if the caller
 # supplied their own cor.matrix.
 build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.correlations,cor.matrix){
+  # drop=FALSE matters: with a single predictor use.dat[,all.predictors] would
+  # otherwise collapse to a bare vector, and both check_* functions require a
+  # data.frame (they classify columns via sapply(dat,class) and compare against
+  # ncol(dat)). Without it, any model set with exactly one predictor failed
+  # with an unrelated "argument is of length zero" error.
   if(non.linear.correlations==TRUE){
-   cc=check_non_linear_correlations(use.dat[,all.predictors])}else{
-   cc=check_correlations(use.dat[,all.predictors])}
+   cc=check_non_linear_correlations(use.dat[,all.predictors,drop=FALSE])}else{
+   cc=check_correlations(use.dat[,all.predictors,drop=FALSE])}
   if(length(cor.matrix)==1){
    cor.matrix=cc
    # replace NA's with zero.

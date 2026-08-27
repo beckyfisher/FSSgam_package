@@ -34,6 +34,22 @@
   was silently accepted and spliced into a nonsense model formula instead of
   failing. `null.terms` is now validated up front with a clear error message
   (#7).
+* Bug fix: `generate_model_set()` (and `full_subsets_gam()`, which calls it)
+  failed on model sets with exactly one predictor. `use.dat[, all.predictors]`
+  dropped to a bare vector before being passed to `check_correlations()` /
+  `check_non_linear_correlations()`, which report on the columns of a
+  data.frame, so the call failed with an unrelated "argument is of length
+  zero" (or, for `non.linear.correlations = TRUE`, "invalid 'row.names'
+  length") error instead of building a 1x1 correlation matrix.
+  `check_non_linear_correlations()` now also returns the 1x1 unit matrix for a
+  single-column input, matching `check_correlations()`.
+* Bug fix: `generate_model_set()` emitted two spurious
+  "no non-missing arguments to max; returning -Inf" warnings whenever factor
+  predictors were supplied with `pred.vars.cont = NA` (the documented way to
+  run without smooth predictors). A phantom `NA.by.<factor>` interaction term
+  was being constructed from the `NA` itself; it was discarded again before
+  the model set was returned, so only the warnings were visible.
+
 * Added a test-coverage GitHub Actions workflow
   (`.github/workflows/test-coverage.yaml`, using `covr` + Codecov) and a
   coverage badge to the README (#3).
