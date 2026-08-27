@@ -207,6 +207,17 @@ full_subsets_quietly <- function(...) {
   out
 }
 
+# Replaces one candidate's formula with one that cannot be fitted, keeping its
+# name. Used to exercise the partial-failure paths: injecting the failure into
+# the model set is more reliable than trying to find real data that makes some
+# candidates fail and not others.
+break_one_candidate <- function(model.set, modname = "ZONE+depth") {
+  stopifnot(modname %in% names(model.set$mod.formula))
+  model.set$mod.formula[[modname]] <-
+    stats::as.formula("~ s(not_a_column, k = 3, bs = 'cr') + s(site, bs = 're')")
+  model.set
+}
+
 # Guard for every test that starts a real doSNOW cluster.
 #
 # Two conditions must hold before such a test is meaningful, and one before it
