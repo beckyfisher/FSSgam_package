@@ -129,3 +129,187 @@ test_that("generate_model_set builds no phantom by-terms when pred.vars.cont is 
   )
   expect_false(any(grepl("NA.by.", names(model.set$mod.formula), fixed = TRUE)))
 })
+
+# ---- cor.matrix -------------------------------------------------------------
+
+test_that("generate_model_set uses a user-supplied cor.matrix verbatim", {
+  fit <- fixture_cs1_gaussian()
+  default.set <- fixture_cs1_model_set(fit = fit)
+
+  # complexity and depth are correlated above the default cov.cutoff in
+  # case_study1, so they never share a model. Supply a zero matrix instead and
+  # the combined model must appear.
+  zero.cor <- default.set$predictor.correlations
+  zero.cor[] <- 0
+  diag(zero.cor) <- 1
+
+  supplied <- fixture_cs1_model_set(fit = fit, cor.matrix = zero.cor)
+
+  expect_equal(supplied$predictor.correlations, zero.cor)
+  expect_false("complexity+depth" %in% names(default.set$mod.formula))
+  expect_true("complexity+depth" %in% names(supplied$mod.formula))
+})
+
+test_that("generate_model_set errors when a supplied cor.matrix omits a predictor", {
+  fit <- fixture_cs1_gaussian()
+  full.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
+  partial.cor <- full.cor[c("complexity", "depth"), c("complexity", "depth")]
+
+  expect_error(
+    fixture_cs1_model_set(fit = fit, cor.matrix = partial.cor),
+    "Supplied cor.matrix is missing required predictors: ZONE"
+  )
+})
+
+# ---- factor.smooth.interactions ---------------------------------------------
+
+test_that("factor.smooth.interactions = NA suppresses all by-terms", {
+  model.set <- fixture_cs1_model_set(factor.smooth.interactions = NA)
+
+  expect_false(any(grepl(".by.", names(model.set$mod.formula), fixed = TRUE)))
+  # Candidate names are built by sorting the term names, so they follow the
+  # active collation. testthat forces LC_COLLATE=C for reproducible output, which
+  # is why the factor sorts ahead of the lowercase continuous predictors here.
+  expect_setequal(
+    names(model.set$mod.formula),
+    c("null", "complexity", "depth", "ZONE", "ZONE+complexity", "ZONE+depth")
+  )
+})
+
+test_that("factor.smooth.interactions as a character vector selects which factors interact", {
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit,
+    pred.vars.cont = "depth",
+    pred.vars.fact = c("ZONE", "ZONE2"),
+    factor.smooth.interactions = "ZONE"
+  )
+
+  by.terms <- grep(".by.", names(model.set$mod.formula), fixed = TRUE, value = TRUE)
+  expect_true(length(by.terms) > 0)
+  expect_true(all(grepl(".by.ZONE$", by.terms)))
+  expect_false(any(grepl(".by.ZONE2", by.terms, fixed = TRUE)))
+})
+
+test_that("factor.smooth.interactions as a list gives per-predictor-type control", {
+  # The list form names which factors, continuous predictors and linear
+  # predictors take part, independently of pred.vars.fact/cont and linear.vars.
+  model.set <- fixture_cs1_model_set(
+    pred.vars.cont = c("complexity", "depth"),
+    pred.vars.fact = "ZONE",
+    linear.vars = "SCORE2",
+    factor.smooth.interactions = list(
+      fact.vars = "ZONE", cont.vars = "complexity", linear.vars = "SCORE2"
+    )
+  )
+  mod.names <- names(model.set$mod.formula)
+
+  # complexity was named as a cont.var, so its by-term is present; depth was not
+  expect_true("ZONE+complexity.by.ZONE" %in% mod.names)
+  expect_false(any(grepl("depth.by.", mod.names, fixed = TRUE)))
+  # SCORE2 was named as a linear.var, so it gets a .t. (product) interaction
+  expect_true("SCORE2.t.ZONE+ZONE" %in% mod.names)
+  expect_match(
+    deparse1(model.set$mod.formula[["SCORE2.t.ZONE+ZONE"]]), "SCORE2 * ZONE",
+    fixed = TRUE
+  )
+})
+
+test_that("factor.smooth.interactions list errors on a variable that is not a predictor", {
+  expect_error(
+    fixture_cs1_model_set(
+      factor.smooth.interactions = list(fact.vars = "ZONE", cont.vars = "not_a_column")
+    ),
+    "not_a_column"
+  )
+})
+
+# ---- factor.factor.interactions ---------------------------------------------
+
+test_that("factor.factor.interactions errors when fewer than two factors are named", {
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.fact = c("ZONE", "ZONE2"),
+      factor.factor.interactions = "ZONE"
+    ),
+    "less than 2 factors"
+  )
+})
+
+test_that("factor.factor.interactions errors when a named factor is not in use.dat", {
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.fact = c("ZONE", "ZONE2"),
+      factor.factor.interactions = c("ZONE", "not_a_column")
+    ),
+    "Not all specified factor.factor.interactions are supplied in use.dat"
+  )
+})
+
+# ---- smooth.smooth.interactions ---------------------------------------------
+
+test_that("smooth.smooth.interactions errors when fewer than two predictors are named", {
+  expect_error(
+    fixture_cs1_model_set(smooth.smooth.interactions = "depth"),
+    "less than 2 variables as smooth.smooth.interactions"
+  )
+})
+
+test_that("smooth.smooth.interactions errors when a named predictor is not in use.dat", {
+  expect_error(
+    fixture_cs1_model_set(
+      smooth.smooth.interactions = c("depth", "not_a_column")
+    ),
+    "Not all specified smooth.smooth.interactions are supplied in use.dat"
+  )
+})
+
+test_that("smooth.smooth.interactions errors when TRUE with fewer than two continuous predictors", {
+  expect_error(
+    fixture_cs1_model_set(
+      pred.vars.cont = "depth", pred.vars.fact = "ZONE",
+      smooth.smooth.interactions = TRUE, max.predictors = 2
+    ),
+    "less than 2 continuous predictors"
+  )
+})
+
+test_that("every linear.vars entry gets its own factor interaction term", {
+  # Regression test: the pattern used to find .t. terms was built as
+  # paste(linear.vars, ".t."), a vector whenever more than one linear predictor
+  # was supplied. grep() then used only its first element, so the second and
+  # later linear predictors' interaction terms were silently dropped from the
+  # fitted formula -- "SCORE2.t.ZONE+ZONE" was named as an interaction but
+  # fitted as the plain ZONE main-effect model.
+  expect_no_warning(
+    model.set <- fixture_cs1_model_set(
+      pred.vars.cont = NA,
+      pred.vars.fact = "ZONE",
+      linear.vars = c("complexity", "SCORE2"),
+      max.predictors = 2
+    )
+  )
+
+  expect_equal(
+    deparse1(model.set$mod.formula[["ZONE+complexity.t.ZONE"]]),
+    "~complexity * ZONE + ZONE + s(site, bs = \"re\")"
+  )
+  expect_equal(
+    deparse1(model.set$mod.formula[["SCORE2.t.ZONE+ZONE"]]),
+    "~SCORE2 * ZONE + ZONE + s(site, bs = \"re\")"
+  )
+})

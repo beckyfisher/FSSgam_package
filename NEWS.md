@@ -43,6 +43,14 @@
   length") error instead of building a 1x1 correlation matrix.
   `check_non_linear_correlations()` now also returns the 1x1 unit matrix for a
   single-column input, matching `check_correlations()`.
+* Bug fix: `generate_model_set()` silently dropped the interaction term from
+  every `linear.vars` predictor after the first. The pattern used to identify
+  `.t.` interaction terms was built as `paste(linear.vars, ".t.")`, a vector
+  whenever more than one linear predictor was supplied, and `grep()` used only
+  its first element (with a warning). Affected candidates were still named as
+  interactions but fitted as the corresponding factor main-effect model, so
+  the model table reported duplicate fits under distinct names.
+
 * Bug fix: `generate_model_set()` emitted two spurious
   "no non-missing arguments to max; returning -Inf" warnings whenever factor
   predictors were supplied with `pred.vars.cont = NA` (the documented way to
