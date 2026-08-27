@@ -120,9 +120,12 @@ test_that("fit_model_set fits a gamm4/uGamm model set with a random effect", {
   expect_true(all(is.finite(out$mod.data.out$AICc)))
   expect_s3_class(out$success.models[[1]], "gamm4")
   # the random effect is supplied outside the formula in a uGamm call, so it is
-  # carried into every candidate without appearing in null.terms
+  # carried into every candidate without appearing in null.terms. The grouping
+  # factors are read from the merMod's flist slot rather than through
+  # lme4::ranef(), to avoid a `::` call into a package this one does not declare
+  # (lme4 reaches the tests only as a dependency of gamm4).
   expect_true(all(vapply(
-    out$success.models, function(x) "Site" %in% names(lme4::ranef(x$mer)), logical(1)
+    out$success.models, function(x) "Site" %in% names(x$mer@flist), logical(1)
   )))
 })
 
