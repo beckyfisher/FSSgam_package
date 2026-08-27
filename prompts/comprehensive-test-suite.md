@@ -393,3 +393,24 @@ code and documentation disagree. Raised rather than changed here: fixing it
 means reordering two stages of `generate_model_set()`, which is refactor work.
 
 ---
+
+**Claude (work log, cycle 10 -- ninth review, clean):**
+
+The ninth review found no blocking items and nothing to fix before merge. It
+confirmed by mutation that the `.I.` variable-count split is now pinned, that
+the counts in `NEWS.md`, `CLAUDE.md`, the pull request body and CI agree at 447,
+and that the two mutation-survivor lists reconcile with their totals. Its own
+sweep of six mutations, aimed at each of this branch's six source fixes, caught
+all six -- including the two successive wrong forms of the `.t.` matching that
+the commit history records, each caught by the test written for it.
+
+One cosmetic correction to the pull request body: the mutation-testing paragraph
+described nine rounds as each having applied mutations, when six did. Corrected
+to 159 runs across six sweeps plus eight verification runs, and noted that the
+rounds re-tested each other's findings so this is a count of runs rather than of
+distinct mutations.
+
+The review cycle ends here: nine rounds, of which the last three found no
+blocking issues and the last found nothing requiring change.
+
+---
