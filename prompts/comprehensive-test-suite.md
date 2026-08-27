@@ -361,3 +361,35 @@ partial case. FSSgam_package#9 is named in `CLAUDE.md` rather than in any
 comment, and is now described that way.
 
 ---
+
+**Claude (work log, cycle 9 -- addressing an eighth independent review):**
+
+The eighth review found no blocking issues and recommended merging. Its
+should-fix item was that `NEWS.md` and `CLAUDE.md` still recorded 431 passing
+expectations against a suite of 444: the previous cycle updated the pull request
+body and not the two files, which is the fifth consecutive round in which that
+figure went out of step between the three places it appears. Corrected to 447,
+and `CLAUDE.md` now records the recurrence itself and the rule that follows from
+it -- update all three together or not at all -- since the pattern is more
+useful to the next person than any single corrected number.
+
+*One further guard of the class closed last cycle was still unpinned.* The `.I.`
+split in the variable count: a pasted factor-factor interaction column is one
+term but two variables, and `max.predictors` counts variables. Breaking that
+split alone, leaving the identical chain beside it untouched, took a
+two-predictor model set from 17 candidates to 29, the additions each carrying
+three variables. Now asserted, both specifically and as a general statement that
+no candidate carries more than `max.predictors` variables. The mutation fails two
+expectations.
+
+*A behaviour question raised as FSSgam_package#13.* Deleting the `cov.cutoff`
+screen inside `resolve_smooth_smooth_interactions()` is behaviour-preserving in
+every configuration the suite covers, because `enumerate_candidate_models()`
+screens the same pair afterwards. The one configuration that separates them is a
+supplied `cor.matrix`, which governs candidate exclusion but not `te()` term
+construction -- the latter recomputes correlations from `use.dat` regardless.
+`?generate_model_set` describes `cor.matrix` as governing exclusion generally, so
+code and documentation disagree. Raised rather than changed here: fixing it
+means reordering two stages of `generate_model_set()`, which is refactor work.
+
+---

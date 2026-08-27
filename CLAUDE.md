@@ -589,14 +589,17 @@ in the `family.vec[[2]]` reprex, versus 0/8 before this fix.
 ### Phase 13 — Comprehensive test suite (FSSgam_package#5) — Completed
 
 Done. The suite went from 105 passing expectations / 71.33% line coverage
-to 431 / 94.27%, with `tests/testthat/helper-fixtures.R` added so the
+to 447 / 94.27%, with `tests/testthat/helper-fixtures.R` added so the
 eight-line `use.dat`/`test.fit`/`model.set` preamble is written once.
 Runtime went from 4.8 s to about 15 s (this WSL host, R 4.6.1; it is
 machine dependent, so re-measure before and after rather than comparing
 against these).
 
-**Counting expectations.** Quote testthat's own `PASS` figure, which is
-`sum(as.data.frame(res)$passed)`. `sum(...$nb)` is *not* that: it includes
+**Counting expectations.** The figure appears in three places -- `NEWS.md`,
+this file and the pull request body -- and went out of step between them in
+five consecutive review rounds, every time because one was updated and the
+others were not. Update all three together or not at all. Quote testthat's
+own `PASS` figure, which is `sum(as.data.frame(res)$passed)`. `sum(...$nb)` is *not* that: it includes
 skipped expectations, so with the six skipped parallel tests it reads six
 high, and every count recorded during Phase 13 was wrong by exactly that
 margin until the sixth review round caught it. `master` and `fix_issues`

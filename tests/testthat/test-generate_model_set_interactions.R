@@ -342,6 +342,41 @@ test_that("interaction enumeration is capped by the number of predictors, not ma
   expect_true(all(grepl("^depth\\.te\\.SCORE2", te.terms)))
 })
 
+test_that("a pasted interaction counts as its component variables against max.predictors", {
+  # The .I. counterpart of the te() case: a factor-factor interaction column is
+  # one term but two variables, and max.predictors counts variables. Without the
+  # .I. split in that count, a two-predictor model set admits candidates carrying
+  # three.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+  fit$use.dat$ZONE3 <- factor(
+    ifelse(fit$use.dat$complexity > stats::median(fit$use.dat$complexity), "hi", "lo")
+  )
+
+  model.set <- suppress_nnet_nans(fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth",
+    pred.vars.fact = c("ZONE", "ZONE2", "ZONE3"),
+    factor.factor.interactions = TRUE, cov.cutoff = 0.95, max.predictors = 2
+  ))
+  mod.names <- names(model.set$mod.formula)
+
+  # the interaction alone already uses both predictors the set allows
+  expect_true("ZONE.I.ZONE2" %in% mod.names)
+  expect_false(any(grepl("^depth\\+ZONE\\.I\\.|\\.I\\..*\\+depth$", mod.names)))
+  # stated generally: no candidate may carry more than max.predictors variables
+  n.vars <- vapply(mod.names, function(nm) {
+    if (nm == "null") return(0L)
+    terms. <- unlist(strsplit(nm, "+", fixed = TRUE))
+    for (sep in c(".by.", ".I.", ".t.", ".te.")) {
+      terms. <- unlist(strsplit(terms., sep, fixed = TRUE))
+    }
+    length(unique(terms.))
+  }, integer(1))
+  expect_true(all(n.vars <= 2))
+})
+
 test_that("collinearity is screened in both triangles of the correlation matrix", {
   # Factor-factor correlations are asymmetric: check_correlations() estimates
   # each ordered pair with its own multinom() fit. A nested factor predicts its
