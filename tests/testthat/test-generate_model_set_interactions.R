@@ -341,3 +341,87 @@ test_that("interaction enumeration is capped by the number of predictors, not ma
   te.terms <- grep(".te.", names(smooths$mod.formula), fixed = TRUE, value = TRUE)
   expect_true(all(grepl("^depth\\.te\\.SCORE2", te.terms)))
 })
+
+test_that("collinearity is screened in both triangles of the correlation matrix", {
+  # Factor-factor correlations are asymmetric: check_correlations() estimates
+  # each ordered pair with its own multinom() fit. A nested factor predicts its
+  # parent exactly while the parent predicts it only partly, so the exceedance
+  # sits in one triangle and not the other, and which one depends purely on the
+  # order the predictors were named. Testing only the upper triangle would make
+  # the collinearity screen sensitive to argument order.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$fine <- factor(paste(fit$use.dat$ZONE, fit$use.dat$site))
+
+  model.set <- suppress_nnet_nans(fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth",
+    pred.vars.fact = c("fine", "ZONE"), cov.cutoff = 0.8, max.predictors = 2
+  ))
+  cm <- model.set$predictor.correlations
+
+  # the fixture must be asymmetric across the cutoff, or this pins nothing
+  expect_true(cm["ZONE", "fine"] > 0.8)
+  expect_true(cm["fine", "ZONE"] < 0.8)
+  # so the pair must still be excluded, from whichever triangle carries it
+  expect_false("fine+ZONE" %in% names(model.set$mod.formula))
+  expect_false("ZONE+fine" %in% names(model.set$mod.formula))
+  # and each factor on its own is unaffected
+  expect_true(all(c("fine", "ZONE") %in% names(model.set$mod.formula)))
+})
+
+test_that("factor-factor interactions are screened in both triangles too", {
+  # resolve_factor_interactions() has its own collinearity screen, separate from
+  # the enumeration-stage one tested above, and it is the screen that decides
+  # which pasted interaction columns get built at all. It needs the same
+  # both-triangles treatment for the same reason: with fine nested in ZONE the
+  # exceedance sits in the lower triangle only.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$fine <- factor(paste(fit$use.dat$ZONE, fit$use.dat$site))
+
+  expect_warning(
+    model.set <- suppress_nnet_nans(fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("fine", "ZONE"), factor.factor.interactions = TRUE,
+      cov.cutoff = 0.8, max.predictors = 2
+    )),
+    "no\\s+factors to interaction"
+  )
+
+  # the only available pair is collinear, so no interaction column is built
+  expect_false(any(grepl(".I.", colnames(model.set$used.data), fixed = TRUE)))
+  expect_false(any(grepl(".I.", names(model.set$mod.formula), fixed = TRUE)))
+})
+
+test_that("max.predictors counts variables, not terms", {
+  # A te() term carries two variables. Counting terms rather than variables
+  # would let a two-predictor model set admit a candidate with three.
+  model.set <- fixture_cs1_model_set(
+    pred.vars.cont = c("depth", "SCORE2"), pred.vars.fact = "ZONE",
+    smooth.smooth.interactions = TRUE, max.predictors = 2
+  )
+
+  expect_true("depth.te.SCORE2" %in% names(model.set$mod.formula))
+  # the te() term already uses both of the two predictors allowed, so it cannot
+  # be combined with a third
+  expect_false("ZONE+depth.te.SCORE2" %in% names(model.set$mod.formula))
+  expect_false(any(grepl(".te.", grep("+", names(model.set$mod.formula), fixed = TRUE,
+                                       value = TRUE), fixed = TRUE)))
+})
+
+test_that("smooth-smooth interactions are pairwise, whatever max.predictors allows", {
+  # cont.cmbns.max.predictors is fixed at 2 rather than following max.predictors:
+  # te() terms are bivariate by decision, not by accident, and the source carries
+  # a commented-out max.predictors on that line to say so.
+  model.set <- fixture_cs1_model_set(
+    pred.vars.cont = c("depth", "SCORE2", "complexity"), pred.vars.fact = NA,
+    smooth.smooth.interactions = TRUE, cov.cutoff = 0.9, max.predictors = 3
+  )
+  te.terms <- grep(".te.", names(model.set$mod.formula), fixed = TRUE, value = TRUE)
+
+  expect_true(length(te.terms) > 0)
+  # every te() term joins exactly two predictors, even though three would fit
+  # within max.predictors
+  n.joined <- vapply(strsplit(te.terms, "+", fixed = TRUE), function(terms.) {
+    max(lengths(strsplit(terms., ".te.", fixed = TRUE)))
+  }, integer(1))
+  expect_true(all(n.joined == 2))
+})

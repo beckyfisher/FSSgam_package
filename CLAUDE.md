@@ -721,17 +721,24 @@ the default `r2.type`), #7 (`full_subsets_gam()` does not
 forward `VI.mods`), #8 (locale-dependent model names), #9 (progress bar
 cannot be suppressed), #10 (spurious "NaNs produced" warnings out of
 `nnet`), and #12 (the factor-factor correlation diagonal is not exactly 1).
-Three of those are pinned by an expectation that changes when the issue is
-fixed: #6 (`test-functions_supporting.R` asserts the `NA` r2), #7
-(`test-full_subsets_gam.R` asserts `VI.mods` is absent from `formals()`) and
-#8 (candidate names asserted under C collation, which testthat forces). The
-other three are recorded in comments naming the issue but not pinned by any
-expectation, and fixing them would change no test: #9 (no expectation
-depends on the progress bar), #10 (`suppress_nnet_nans()` tolerates the
-warning being absent, which it already is on nnet 7.3-20) and #12 (the
-diagonal is asserted as `> 0.99`, which keeps passing once it is exactly 1).
-That asymmetry is deliberate -- an expectation that fails when a wart is
-fixed is worse than a comment -- but do not read the comments as coverage.
+Two of those are pinned by an expectation that must change when the issue is
+fixed: #6 (`test-functions_supporting.R` asserts the `NA` r2) and #7
+(`test-full_subsets_gam.R` asserts `VI.mods` is absent from `formals()`).
+
+#8 is a partial case. Candidate names are asserted throughout the suite under
+C collation, which testthat forces, so any change to how they are built shows
+up -- but the natural fix for #8 is to sort by byte order, under which the
+asserted names are exactly what they already are, and no test changes.
+
+#9, #10 and #12 are recorded in comments or in this file, and fixing any of
+them would change no test: #9 has no expectation depending on the progress
+bar and is named here rather than in a comment; #10's
+`suppress_nnet_nans()` tolerates the warning being absent, which it already
+is on nnet 7.3-20; and #12's diagonal is asserted as `> 0.99`, which keeps
+passing once it is exactly 1.
+
+That asymmetry is deliberate: an expectation that fails when a defect is
+corrected is worse than a comment. Do not read the comments as coverage.
 
 **Caution for next time:** doSNOW cluster startup stalled repeatedly while
 this work was done, including for a trivial `foreach()` containing no

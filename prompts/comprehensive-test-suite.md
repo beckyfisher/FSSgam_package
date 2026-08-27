@@ -318,3 +318,46 @@ wart is corrected is worse than a comment, but not something to describe as
 coverage. `CLAUDE.md` and the pull request body now say which is which.
 
 ---
+
+**Claude (work log, cycle 8 -- addressing a seventh independent review):**
+
+The seventh review reported no blocking findings and judged the branch
+mergeable. Its one substantive finding was a choice between adding tests and
+narrowing a sentence; the tests were added.
+
+*Four guards in the candidate-construction path were unpinned.* Each was
+confirmed by mutation, and each needed a configuration no existing fixture
+produced.
+
+- The lower-triangle collinearity test, in both places it appears. Factor-factor
+  correlations are asymmetric, because `check_correlations()` estimates each
+  ordered pair with its own `multinom()` fit, so a nested factor predicts its
+  parent exactly while the parent predicts it only partly. Which triangle
+  carries the exceedance depends on the order the predictors were named, so
+  testing one triangle would make the screen sensitive to argument order. A
+  factor nested inside `ZONE` gives 1.000 in one direction and 0.624 in the
+  other; the pair must still be excluded, and now is asserted to be, in both the
+  enumeration stage and the interaction-building stage.
+- `max.predictors` counts variables rather than terms, so a `te()` term uses up
+  two of them. Nothing had combined a `te()` with a further predictor at a
+  `max.predictors` low enough to exclude it.
+- `te()` terms are bivariate by decision -- the source carries a commented-out
+  `max.predictors` on that line to say so -- and every existing
+  `smooth.smooth.interactions = TRUE` test supplied exactly two continuous
+  predictors, so the third-order case was never reached.
+
+*The unsaved fitting path's family resolution is unpinned in every committed
+configuration.* Replacing it with `NULL` left the suite passing. The difference
+appears only under `parallel = TRUE` with a family supplied as a variable, and
+the test written for that case used the saved path. Added the unsaved variant to
+the opt-in parallel file. This matters because Phase 6 records that the two
+fitting paths are deliberately duplicated, so a later refactor unifying them is
+a realistic way to lose one copy of the Phase 12 fix.
+
+*Wording.* The claim that FSSgam_package#8 is pinned by an expectation that
+changes when it is fixed does not hold: the natural fix is to sort by byte
+order, under which the asserted names are what they already are. Recorded as a
+partial case. FSSgam_package#9 is named in `CLAUDE.md` rather than in any
+comment, and is now described that way.
+
+---

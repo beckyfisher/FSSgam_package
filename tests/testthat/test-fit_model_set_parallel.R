@@ -94,6 +94,16 @@ test_that("parallel = TRUE works when family was supplied as a list element", {
   expect_length(out$failed.models, 0)
   expect_equal(nrow(out$mod.data.out), model.set$n.mods)
   expect_true(all(is.finite(out$mod.data.out$AICc)))
+
+  # Both fitting paths resolve the family themselves, deliberately kept separate
+  # (CLAUDE.md Section 6, Phase 6), so both need exercising here. This is the
+  # only configuration that can tell the unsaved path's copy apart: sequentially
+  # a NULL family. still fits, and a Gaussian test.fit resolves to NULL anyway.
+  unsaved <- fit_quietly(model.set, parallel = TRUE, n.cores = 2,
+                          save.model.fits = FALSE)
+  expect_length(unsaved$failed.models, 0)
+  expect_true(all(is.finite(unsaved$mod.data.out$AICc)))
+  expect_equal(unsaved$mod.data.out$AICc, out$mod.data.out$AICc, tolerance = 1e-8)
 })
 
 test_that("full_subsets_gam forwards parallel and n.cores", {
