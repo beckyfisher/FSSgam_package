@@ -25,9 +25,18 @@
 #    absolute -- far tighter than anything that could reorder two models, and
 #    far looser than the 1e-8 scale on which BLAS differences appear.
 #
-# expect_snapshot_value() defaults to cran = FALSE, so none of this runs on
-# CRAN. Nothing snapshotted here embeds a path, a timestamp or an environment
-# address.
+# Every test here is also skipped on CI, deliberately. These snapshots pin what
+# the current mgcv/lme4/gamm4 versions produce on the machine that recorded
+# them; their purpose is to show that a refactor changes nothing when the suite
+# is run before and after it on the same machine. A CI runner with different
+# dependency versions produces genuinely different numbers, not noise around the
+# same ones. Measured on the first CI run of this file: the binomial gamm4 model
+# set reported edf of 4.000/5.000/8.000 locally and 4.260/5.050/8.350 on
+# ubuntu-latest -- a 6.5% difference on one value, which no tolerance intended
+# to absorb BLAS differences could or should accommodate.
+#
+# expect_snapshot_value() also defaults to cran = FALSE. Nothing snapshotted
+# here embeds a path, a timestamp or an environment address.
 
 # The columns the package rounds to three decimal places, plus the candidate
 # names and formulas. Compared exactly.
@@ -59,6 +68,7 @@ snapshot_numeric <- function(out) {
 }
 
 test_that("the Gaussian case_study1 model set is numerically unchanged", {
+  skip_on_ci()
   model.set <- fixture_cs1_model_set()
   out <- fit_quietly(model.set, parallel = FALSE, report.unique.r2 = TRUE)
 
@@ -67,6 +77,7 @@ test_that("the Gaussian case_study1 model set is numerically unchanged", {
 })
 
 test_that("variable importance under VI.mods = 'all' is numerically unchanged", {
+  skip_on_ci()
   model.set <- fixture_cs1_model_set()
   out <- fit_quietly(model.set, parallel = FALSE, VI.mods = "all")
 
@@ -83,6 +94,7 @@ test_that("the negative binomial case_study1 model set is numerically unchanged"
   # an extended family, so this also pins the behaviour of the per-candidate
   # family resolution that the two conflicting upstream issues
   # (beckyfisher/FSSgam#10 and #12) turned on
+  skip_on_ci()
   fit <- fixture_cs1_nb()
   model.set <- fixture_cs1_model_set(fit = fit)
   out <- fit_quietly(model.set, parallel = FALSE)
@@ -92,6 +104,7 @@ test_that("the negative binomial case_study1 model set is numerically unchanged"
 })
 
 test_that("the binomial gamm4/uGamm model set is numerically unchanged", {
+  skip_on_ci()
   fit <- fixture_coral_ugamm()
   model.set <- generate_model_set(
     use.dat = fit$use.dat,
@@ -108,6 +121,7 @@ test_that("the binomial gamm4/uGamm model set is numerically unchanged", {
 })
 
 test_that("the cyclic case_study3 model set is numerically unchanged", {
+  skip_on_ci()
   fit <- fixture_cs3_cyclic()
   model.set <- generate_model_set(
     use.dat = fit$use.dat,

@@ -7,7 +7,12 @@ test_that("generate_model_set builds factor-factor interaction terms when reques
     data = use.dat
   )
 
-  model.set <- generate_model_set(
+  # suppressWarnings: check_correlations() surfaces an "NaNs produced" warning
+  # out of nnet whenever a pasted interaction column is perfectly predicted by
+  # its own components, which is by construction (FSSgam_package#10). Whether
+  # the optimiser reaches that state depends on the nnet version, so it warns on
+  # some platforms and not others.
+  model.set <- suppressWarnings(generate_model_set(
     use.dat = use.dat,
     test.fit = test.fit,
     pred.vars.cont = c("complexity", "depth"),
@@ -16,7 +21,7 @@ test_that("generate_model_set builds factor-factor interaction terms when reques
     null.terms = "s(site,bs='re')",
     max.predictors = 2,
     k = 3
-  )
+  ))
 
   expect_true("ZONE.I.ZONE2" %in% colnames(model.set$used.data))
   expect_true("ZONE.I.ZONE2" %in% names(model.set$mod.formula))
@@ -132,13 +137,19 @@ test_that("factor.factor.interactions as a character vector selects which factor
     ifelse(fit$use.dat$complexity > stats::median(fit$use.dat$complexity), "hi", "lo")
   )
 
-  model.set <- fixture_cs1_model_set(
+  # suppressWarnings for the same reason as the three-factor test below: a
+  # pasted interaction column is perfectly predicted by its own components, and
+  # the multinom() summary check_correlations() takes its deviance from warns
+  # "NaNs produced" while computing standard errors it discards
+  # (FSSgam_package#10). Whether the optimiser reaches that state depends on the
+  # nnet version, so this warns on some platforms and not others.
+  model.set <- suppressWarnings(fixture_cs1_model_set(
     fit = fit,
     pred.vars.cont = "depth",
     pred.vars.fact = c("ZONE", "ZONE2", "ZONE3"),
     factor.factor.interactions = c("ZONE", "ZONE2"),
     max.predictors = 2
-  )
+  ))
 
   expect_true("ZONE.I.ZONE2" %in% colnames(model.set$used.data))
   expect_true("ZONE.I.ZONE2" %in% names(model.set$mod.formula))
@@ -282,26 +293,26 @@ test_that("interaction enumeration is capped by the number of predictors, not ma
     ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
   )
 
-  factors <- fixture_cs1_model_set(
+  factors <- suppressWarnings(fixture_cs1_model_set(
     fit = fit,
     pred.vars.cont = c("complexity", "depth"),
     pred.vars.fact = c("ZONE", "ZONE2"),
     factor.factor.interactions = TRUE,
     max.predictors = 3
-  )
+  ))
   # only the two-way interaction exists; a three-way one would need a third factor
   interaction.cols <- grep(".I.", colnames(factors$used.data), fixed = TRUE, value = TRUE)
   expect_equal(interaction.cols, "ZONE.I.ZONE2")
 
   # the character-vector form clamps against the number of factors it was given,
   # not against the whole of pred.vars.fact
-  named <- fixture_cs1_model_set(
+  named <- suppressWarnings(fixture_cs1_model_set(
     fit = fit,
     pred.vars.cont = c("complexity", "depth"),
     pred.vars.fact = c("ZONE", "ZONE2"),
     factor.factor.interactions = c("ZONE", "ZONE2"),
     max.predictors = 3
-  )
+  ))
   expect_equal(
     grep(".I.", colnames(named$used.data), fixed = TRUE, value = TRUE), "ZONE.I.ZONE2"
   )
