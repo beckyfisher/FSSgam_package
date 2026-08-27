@@ -247,3 +247,37 @@ in full rather than seven named columns, which is what the pull request body had
 claimed of it.
 
 ---
+
+**Claude (work log, cycle 6 -- addressing a fifth independent review):**
+
+The fifth review confirmed by mutation that both cycle-4 blockers are genuinely
+closed, and reported one new blocking finding from a sweep of 32 mutations, 27
+of which the suite catches.
+
+*Two `full_subsets_gam()` forwarding tests passed when the argument they are
+named after was not forwarded.* Hard-coding `bs.arg` or `cyclic.vars` inside
+`full_subsets_gam()`'s call to `generate_model_set()` left the whole suite
+passing. Neither argument leaves any trace in the candidate names, which is all
+those tests were comparing; both are visible only in the basis each smooth is
+given, so both are now asserted on the fitted formulas. Each mutation now fails
+two expectations. This mattered because the pull request itself raised
+FSSgam_package#7 for a forwarding omission, and `NEWS.md` claims coverage of
+every non-default argument.
+
+*Line endings.* Cycle 5 silently converted `R/functions_supporting.R` from CRLF
+to LF, inflating an eight-line comment change to a 430-line diff while four
+other files in `R/` stayed CRLF. Restored, as a forward commit rather than an
+amend, since the review rounds cite the commit by hash.
+
+*Records.* `NEWS.md` and `CLAUDE.md` still carried a superseded expectation
+count -- the fourth round in which the figures in the shipped records lagged
+the ones in the pull request body, which is the argument for quoting a measured
+figure in one place and referring to it everywhere else. The issue-numbering
+rule in `CLAUDE.md` said "never a bare number" immediately above a list of bare
+numbers; it now distinguishes references that must survive on their own from
+prose that has already named the repository. A sentence asserting that folding
+two bug fixes into one commit caused the commit messages to grow was replaced
+with the consequence that actually follows: those fixes are harder to revert or
+cite individually.
+
+---

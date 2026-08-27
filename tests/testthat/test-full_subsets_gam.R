@@ -163,6 +163,16 @@ test_that("full_subsets_gam forwards its model-set arguments unchanged", {
   expect_equal(combined$mod.data.out$modname, names(model.set$mod.formula))
   expect_equal(combined$predictor.correlations, model.set$predictor.correlations)
   expect_equal(dim(combined$used.data), dim(model.set$used.data))
+  # bs.arg has to be asserted on the fitted formulas: comparing the two calls'
+  # model sets to each other only shows they agree, not that either used the
+  # value supplied. The candidate names carry no basis information at all.
+  smooths <- Filter(
+    function(x) grepl("s(complexity", x, fixed = TRUE) || grepl("s(depth", x, fixed = TRUE),
+    combined$mod.data.out$formula
+  )
+  expect_true(length(smooths) > 0)
+  expect_true(all(grepl("bs = \"ts\"", smooths, fixed = TRUE)))
+  expect_false(any(grepl("bs = \"cr\"", smooths, fixed = TRUE)))
 })
 
 test_that("full_subsets_gam forwards its fitting arguments unchanged", {
@@ -217,6 +227,17 @@ test_that("full_subsets_gam forwards cyclic.vars and smooth.smooth.interactions"
   expect_true("lunar.date.te.month" %in% out$mod.data.out$modname)
   expect_length(out$failed.models, 0)
   expect_true(all(is.finite(out$mod.data.out$AICc)))
+  # as with bs.arg above, cyclic.vars leaves no trace in the candidate names --
+  # only in the basis each smooth was given, so that is what has to be asserted
+  main.effects <- out$mod.data.out$formula[
+    out$mod.data.out$modname %in% c("lunar.date", "month")
+  ]
+  expect_length(main.effects, 2)
+  expect_true(all(grepl("bs = \"cc\"", main.effects, fixed = TRUE)))
+  expect_equal(
+    out$mod.data.out$formula[out$mod.data.out$modname == "lunar.date.te.month"],
+    "te(lunar.date, month, k = 5, bs = c(\"cc\", \"cc\"))"
+  )
 })
 
 test_that("full_subsets_gam forwards a user-supplied cor.matrix and non.linear.correlations", {

@@ -69,7 +69,7 @@
   `.t.` term came from the list form of `factor.smooth.interactions` naming a
   linear predictor absent from `linear.vars`. The model table then reported two
   identical fits under different names.
-* Substantially expanded the `testthat` suite, from 105 expectations to 432 and
+* Substantially expanded the `testthat` suite, from 105 expectations to 433 and
   from 71.33% to 94.27% line coverage (FSSgam_package#5). New coverage includes:
   every non-default argument of `generate_model_set()`, `fit_model_set()` and
   `full_subsets_gam()`; the `save.model.fits = FALSE` fitting path; `gamm4`,

@@ -588,7 +588,7 @@ in the `family.vec[[2]]` reprex, versus 0/8 before this fix.
 
 ### Phase 13 — Comprehensive test suite (FSSgam_package#5) — Completed
 
-Done. The suite went from 105 expectations / 71.33% line coverage to 432 /
+Done. The suite went from 105 expectations / 71.33% line coverage to 433 /
 94.27%, with `tests/testthat/helper-fixtures.R` added so the eight-line
 `use.dat`/`test.fit`/`model.set` preamble is written once. Runtime went
 from 4.8 s to about 15.5 s (this WSL host, R 4.6.1; it is machine
@@ -687,7 +687,10 @@ in this one. This package repository now has its own `#10` *and* its own
 `#12`, both filed during Phase 13, and both about something else entirely --
 so a bare `#10` here resolves to the wrong issue. Every reference in `R/`
 and `tests/` was qualified during Phase 13 for that reason. Write
-`beckyfisher/FSSgam#10` or `FSSgam_package#6`; never a bare number.
+`beckyfisher/FSSgam#10` or `FSSgam_package#6` anywhere the reference has to
+survive on its own -- in `R/`, in `tests/`, in `NEWS.md`. Bare numbers are
+fine only in prose that has already named the repository, as the paragraph
+below does.
 
 Six bugs were fixed: single-predictor model sets failing in
 `check_correlations()`; phantom `NA.by.<factor>` terms when
@@ -699,13 +702,15 @@ form of `factor.smooth.interactions`.
 
 The Phase 7 precedent of one commit per bug was followed only partly, which
 is a deviation worth recording rather than repeating: `f599a2b` carries two
-fixes and `a47d114` carries two more folded in with a round of review
-responses. The two pairs were each found together and are each two
-instances of one theme, but separate commits would have been better and the
-commit messages carry the whole description as a result. Six further findings were raised as
-issues rather than resolved here, being behaviour decisions rather than
-defects: FSSgam_package#6 (`extract_mod_dat()` returns NA r2 for `gamm`
-fits under the default `r2.type`), #7 (`full_subsets_gam()` does not
+fixes and `a47d114` carries two more, folded in with a round of review
+responses. Each pair was found together and each is two instances of one
+theme, which is the reason but not a justification -- separate commits would
+have been easier to revert or cite individually.
+
+Six further findings were raised as issues in this repository rather than
+resolved here, being behaviour decisions rather than defects:
+FSSgam_package#6 (`extract_mod_dat()` returns NA r2 for `gamm` fits under
+the default `r2.type`), #7 (`full_subsets_gam()` does not
 forward `VI.mods`), #8 (locale-dependent model names), #9 (progress bar
 cannot be suppressed), #10 (spurious "NaNs produced" warnings out of
 `nnet`), and #12 (the factor-factor correlation diagonal is not exactly 1).
