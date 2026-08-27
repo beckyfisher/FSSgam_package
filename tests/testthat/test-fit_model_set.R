@@ -1,23 +1,7 @@
 test_that("fit_model_set fits and ranks a small Gaussian candidate set", {
-  data(case_study1)
-  use.dat <- case_study1
-  use.dat$site <- as.factor(use.dat$site)
-  test.fit <- mgcv::gam(
-    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
-    data = use.dat
-  )
+  model.set <- fixture_cs1_model_set()
 
-  model.set <- generate_model_set(
-    use.dat = use.dat,
-    test.fit = test.fit,
-    pred.vars.cont = c("complexity", "depth"),
-    pred.vars.fact = "ZONE",
-    null.terms = "s(site,bs='re')",
-    max.predictors = 2,
-    k = 3
-  )
-
-  out <- fit_model_set(model.set, parallel = FALSE)
+  out <- fit_quietly(model.set, parallel = FALSE)
 
   expect_named(out, c("mod.data.out", "failed.models", "success.models", "variable.importance"))
   expect_equal(nrow(out$mod.data.out), model.set$n.mods)
@@ -29,27 +13,10 @@ test_that("fit_model_set fits and ranks a small Gaussian candidate set", {
 })
 
 test_that("fit_model_set works with a Tweedie family (non-Gaussian)", {
-  library(mgcv)
-  data(case_study1)
-  use.dat <- case_study1
-  use.dat$site <- as.factor(use.dat$site)
-  test.fit <- gam(
-    Herbivore.abundance ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
-    family = tw(),
-    data = use.dat
-  )
+  fit <- fixture_cs1_tweedie()
+  model.set <- fixture_cs1_model_set(fit = fit)
 
-  model.set <- generate_model_set(
-    use.dat = use.dat,
-    test.fit = test.fit,
-    pred.vars.cont = c("complexity", "depth"),
-    pred.vars.fact = "ZONE",
-    null.terms = "s(site,bs='re')",
-    max.predictors = 2,
-    k = 3
-  )
-
-  out <- fit_model_set(model.set, parallel = FALSE)
+  out <- fit_quietly(model.set, parallel = FALSE)
 
   expect_equal(nrow(out$mod.data.out), model.set$n.mods)
   expect_length(out$failed.models, 0)
@@ -133,4 +100,74 @@ test_that("fit_model_set works with a negative binomial family (extended family 
   expect_equal(nrow(out$mod.data.out), model.set$n.mods)
   expect_length(out$failed.models, 0)
   expect_true(all(is.finite(out$mod.data.out$AICc)))
+})
+
+test_that("fit_model_set fits a gamm4/uGamm model set with a random effect", {
+  fit <- fixture_coral_ugamm()
+
+  model.set <- generate_model_set(
+    use.dat = fit$use.dat,
+    test.fit = fit$test.fit,
+    pred.vars.cont = c("av.wave", "Depth"),
+    pred.vars.fact = "bleach.pres",
+    max.predictors = 2,
+    k = 4
+  )
+  out <- fit_quietly(model.set, parallel = FALSE)
+
+  expect_equal(nrow(out$mod.data.out), model.set$n.mods)
+  expect_length(out$failed.models, 0)
+  expect_true(all(is.finite(out$mod.data.out$AICc)))
+  expect_s3_class(out$success.models[[1]], "gamm4")
+  # the random effect is supplied outside the formula in a uGamm call, so it is
+  # carried into every candidate without appearing in null.terms
+  expect_true(all(vapply(
+    out$success.models, function(x) "Site" %in% names(lme4::ranef(x$mer)), logical(1)
+  )))
+})
+
+test_that("fit_model_set fits a factor-heavy case_study2 model set with nested random effects", {
+  fit <- fixture_cs2_tweedie()
+
+  model.set <- generate_model_set(
+    use.dat = fit$use.dat,
+    test.fit = fit$test.fit,
+    pred.vars.cont = c("lobster", "snapper"),
+    pred.vars.fact = "Status",
+    linear.vars = "Distance",
+    null.terms = "s(Location,Site,bs='re')",
+    max.predictors = 2,
+    k = 3
+  )
+  out <- fit_quietly(model.set, parallel = FALSE)
+
+  expect_length(out$failed.models, 0)
+  expect_equal(nrow(out$mod.data.out), model.set$n.mods)
+  expect_setequal(model.set$included.vars, c("lobster", "snapper", "Status", "Distance"))
+  expect_true(all(is.finite(out$mod.data.out$AICc)))
+})
+
+test_that("fit_model_set orders mod.data.out to match the candidate set, not by AICc", {
+  # mod.data.out is returned in candidate order; callers sort it themselves
+  model.set <- fixture_cs1_model_set()
+  out <- fit_quietly(model.set, parallel = FALSE)
+
+  expect_equal(out$mod.data.out$modname, names(model.set$mod.formula))
+  expect_equal(out$mod.data.out$modname[1], "null")
+})
+
+test_that("fit_model_set's inclusion columns mark exactly the predictors in each model", {
+  model.set <- fixture_cs1_model_set()
+  out <- fit_quietly(model.set, parallel = FALSE)
+  mdo <- out$mod.data.out
+
+  expect_equal(unname(unlist(mdo[mdo$modname == "null", model.set$included.vars])),
+                c(0, 0, 0))
+  expect_equal(unname(unlist(mdo[mdo$modname == "ZONE+depth", model.set$included.vars])),
+                c(0, 1, 1))
+  # a by-term counts as including both of its predictors
+  expect_equal(
+    unname(unlist(mdo[mdo$modname == "ZONE+depth.by.ZONE", model.set$included.vars])),
+    c(0, 1, 1)
+  )
 })

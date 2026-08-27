@@ -33,3 +33,53 @@ Findings established by experiment before any test was written are recorded in
 the entries below.
 
 ---
+
+**Claude (work log, cycle 1):**
+
+Branch `tests/comprehensive-suite`, off `origin/master`.
+
+*Test infrastructure.* Added `tests/testthat/helper-fixtures.R` with data
+constructors (`fixture_cs1_data()`, `fixture_cs2_data()`, `fixture_cs3_data()`,
+`fixture_coral_data()`), test.fit constructors (Gaussian/Tweedie/negative
+binomial `gam`, a case_study2 Tweedie fit with nested random effects, a cyclic
+Gamma fit, a `uGamm(lme4 = TRUE)` gamm4 fit, a `uGamm(lme4 = FALSE)` gamm fit),
+an overridable model-set constructor, `fit_quietly()`/`full_subsets_quietly()`
+wrappers that keep `fit_model_set()`'s progress bar out of the reporter output,
+`break_one_candidate()` for the partial-failure paths, and
+`skip_if_dev_loaded()`.
+
+*New test files.* `test-generate_model_set_formulas.R`,
+`test-fit_model_set_options.R`, `test-fit_model_set_parallel.R`,
+`test-utils.R`, `test-data.R`, `test-numerical-regression.R`. Existing files
+extended and refactored onto the fixtures, with the three behavioural
+regression tests (issues #10/#12 and the `full_subsets_gam()` `size=`/
+`used.data` tests) left verbatim as the issue required.
+
+*Measured outcome.* 93 tests to 392, 0 failures; `covr::package_coverage()`
+71.33% to 93.32%; runtime 4.83 s to 20.74 s.
+
+*Findings established by experiment before writing tests.*
+
+- gamm4 fixtures require `k >= 4`: gamm4 gives each smooth a grouping factor
+  with (number of basis columns) levels, which is 1 at `k = 3`, and lme4's
+  `checkNlevels()` rejects that outright.
+- mgcv must be attached, not merely imported: `tw()`/`nb()` build their
+  component closures with `.GlobalEnv` as parent, so `ldTweedie()` is
+  unresolvable when mgcv is only namespaced.
+- testthat forces `LC_COLLATE=C`, and candidate model names are built with
+  `sort()`, so assertions on `modname` had to be written against C collation.
+- doSNOW cluster startup stalls intermittently on this machine whenever another
+  R process is doing heavy work, including for a trivial `foreach()` containing
+  no FSSgam code. The `parallel = TRUE` paths themselves were verified by
+  direct execution against the installed package (six consecutive fits, both
+  fitting paths, agreeing with the sequential result).
+
+*Bugs found and fixed in their own commits* (Phase 7 precedent): single-predictor
+model sets failing in `check_correlations()`; phantom `NA.by.<factor>` terms
+when `pred.vars.cont = NA`; interaction terms silently dropped for every
+`linear.vars` entry after the first; `case_study1` documented as 28 variables
+when it has 27.
+
+*Genuine issues outside this scope, raised on GitHub*: #6, #7, #8, #9, #10.
+
+---

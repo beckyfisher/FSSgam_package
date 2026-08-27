@@ -14,6 +14,14 @@
 # because data()'s default envir is .GlobalEnv and CRAN checks require tests to
 # leave nothing behind there.
 
+# mgcv is attached, not just imported. Its extended-family constructors (tw(),
+# nb(), ...) build their component closures in an environment whose parent is
+# .GlobalEnv rather than the mgcv namespace, so functions such as ldTweedie()
+# are only resolvable when mgcv is on the search path. Any fixture using tw() or
+# nb() fails with "could not find function ldTweedie" otherwise. The package's
+# own @examples attach mgcv for the same reason.
+library(mgcv)
+
 # ---- data preparation -------------------------------------------------------
 
 # case_study1 with the columns the fixtures model as factors.
@@ -213,4 +221,15 @@ skip_if_dev_loaded <- function() {
       "FSSgam is loaded via pkgload; parallel tests need an installed package"
     )
   }
+}
+
+# Replaces one candidate's formula with one that cannot be fitted, keeping its
+# name. Used to exercise the partial-failure paths: injecting the failure into
+# the model set is more reliable than trying to find real data that makes some
+# candidates fail and not others.
+break_one_candidate <- function(model.set, modname = "ZONE+depth") {
+  stopifnot(modname %in% names(model.set$mod.formula))
+  model.set$mod.formula[[modname]] <-
+    stats::as.formula("~ s(not_a_column, k = 3, bs = 'cr') + s(site, bs = 're')")
+  model.set
 }

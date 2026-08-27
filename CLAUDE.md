@@ -586,6 +586,80 @@ Phase 6b for the same reason: CRAN check overhead/flakiness from spinning
 up a cluster in tests) -- 8/8 candidates now fit under `parallel = TRUE`
 in the `family.vec[[2]]` reprex, versus 0/8 before this fix.
 
+### Phase 13 — Comprehensive test suite (issue #5) — Completed
+
+Done. The suite went from 93 tests / 71.33% line coverage to 392 tests /
+93.32%, with `tests/testthat/helper-fixtures.R` added so the eight-line
+`use.dat`/`test.fit`/`model.set` preamble is written once. Runtime went
+from 4.8 s to about 21 s.
+
+New files: `helper-fixtures.R`, `test-generate_model_set_formulas.R`
+(cyclic.vars, linear.vars, bs.arg, the gamm4 `t2()` branch),
+`test-fit_model_set_options.R` (save.model.fits, max.models, r2.type,
+report.unique.r2, VI.mods), `test-fit_model_set_parallel.R`,
+`test-utils.R`, `test-data.R`, and `test-numerical-regression.R`
+(`expect_snapshot_value()` snapshots of the model table, variable
+importance and candidate formulas for five end-to-end scenarios).
+
+Things worth knowing before touching the suite again:
+
+- **testthat forces `LC_COLLATE=C`.** Candidate model names are built by
+  `sort()`ing term names, so under testthat a factor named `ZONE` sorts
+  ahead of a lowercase continuous predictor -- `"ZONE+complexity"`, not
+  the `"complexity+ZONE"` you get interactively in `en_US.UTF-8`. Any
+  test asserting on a `modname` must be written against C collation.
+  Raised as issue #8, since it also means a saved analysis is not
+  reproducible across machines with different locales.
+- **`library(mgcv)` is called in `helper-fixtures.R`, deliberately.**
+  mgcv's extended-family constructors (`tw()`, `nb()`) build their
+  component closures in an environment whose parent is `.GlobalEnv`, not
+  the mgcv namespace, so `ldTweedie()` and friends only resolve when mgcv
+  is attached. Any fixture using `tw()` fails with "could not find
+  function ldTweedie" otherwise.
+- **gamm4 fixtures need `k >= 4`.** gamm4 represents each smooth as a
+  random effect whose grouping factor has (number of basis columns)
+  levels; at `k = 3` that is one level, which lme4's `checkNlevels()`
+  rejects outright ("grouping factors must have > 1 sampled level"). This
+  is not FSSgam's doing, but it does mean the `k = 3` used everywhere else
+  in the suite cannot be used for a `uGamm(lme4 = TRUE)` test.fit.
+- **`fit_quietly()`/`full_subsets_quietly()`** wrap the fitting calls in
+  `capture.output()` purely to keep `fit_model_set()`'s unconditional
+  `txtProgressBar` out of the reporter's output (issue #9). Warnings and
+  errors pass through, so `expect_warning()`/`expect_error()` still work.
+- **`break_one_candidate()`** injects an unfittable formula into a model
+  set to exercise the partial-failure paths. That is more reliable than
+  hunting for real data on which some candidates fail and others do not.
+- **The parallel tests carry three guards**: `skip_on_cran()`,
+  `skip_on_ci()` and `skip_if_dev_loaded()`. The last checks for
+  `.__DEVTOOLS__` in the FSSgam namespace, because a doSNOW worker always
+  loads the *installed* package (Phase 12), so running these against a
+  `load_all()` copy tests nothing. `skip_on_cran()` also means `covr` does
+  not execute them, which is why `check-correlations.R` (79.73%) and
+  `fit-model-set.R` (80.49%) sit below the rest -- every uncovered line in
+  both is inside a `parallel == TRUE` branch. Run them deliberately with
+  `R CMD INSTALL . && NOT_CRAN=true Rscript -e 'testthat::test_local()'`.
+
+Five bugs were found while writing these tests. Three were fixed in their
+own commits, following the Phase 7 precedent (single-predictor model sets
+failing in `check_correlations()`; phantom `NA.by.<factor>` terms when
+`pred.vars.cont = NA`; interaction terms silently dropped for every
+`linear.vars` entry after the first), plus the `case_study1` `@format`
+count. The remainder were raised as issues rather than fixed here, being
+behaviour decisions rather than defects: #6 (`extract_mod_dat()` returns
+NA r2 for `gamm` fits under the default `r2.type`), #7
+(`full_subsets_gam()` does not forward `VI.mods`), #8 (locale-dependent
+model names), #9 (progress bar cannot be suppressed), #10 (spurious
+"NaNs produced" warnings out of `nnet`). Tests pin the current behaviour
+in each case, with a comment naming the issue, so fixing one shows up as a
+visible test change.
+
+**Caution for next time:** doSNOW cluster startup stalled repeatedly while
+this work was done, including for a trivial `foreach()` with no FSSgam
+code in it, whenever another R process was doing heavy work on the same
+machine. This is the same symptom recorded in the Phase 6b caution. Before
+concluding that a `parallel = TRUE` path is broken, check `ps` for other R
+processes and re-run in isolation.
+
 ---
 
 ## 7. Prompt Log

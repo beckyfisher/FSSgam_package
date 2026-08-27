@@ -287,29 +287,3 @@ test_that("smooth.smooth.interactions errors when TRUE with fewer than two conti
     "less than 2 continuous predictors"
   )
 })
-
-test_that("every linear.vars entry gets its own factor interaction term", {
-  # Regression test: the pattern used to find .t. terms was built as
-  # paste(linear.vars, ".t."), a vector whenever more than one linear predictor
-  # was supplied. grep() then used only its first element, so the second and
-  # later linear predictors' interaction terms were silently dropped from the
-  # fitted formula -- "SCORE2.t.ZONE+ZONE" was named as an interaction but
-  # fitted as the plain ZONE main-effect model.
-  expect_no_warning(
-    model.set <- fixture_cs1_model_set(
-      pred.vars.cont = NA,
-      pred.vars.fact = "ZONE",
-      linear.vars = c("complexity", "SCORE2"),
-      max.predictors = 2
-    )
-  )
-
-  expect_equal(
-    deparse1(model.set$mod.formula[["ZONE+complexity.t.ZONE"]]),
-    "~complexity * ZONE + ZONE + s(site, bs = \"re\")"
-  )
-  expect_equal(
-    deparse1(model.set$mod.formula[["SCORE2.t.ZONE+ZONE"]]),
-    "~SCORE2 * ZONE + ZONE + s(site, bs = \"re\")"
-  )
-})
