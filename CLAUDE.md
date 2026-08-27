@@ -588,10 +588,11 @@ in the `family.vec[[2]]` reprex, versus 0/8 before this fix.
 
 ### Phase 13 — Comprehensive test suite (issue #5) — Completed
 
-Done. The suite went from 93 tests / 71.33% line coverage to 392 tests /
-93.32%, with `tests/testthat/helper-fixtures.R` added so the eight-line
+Done. The suite went from 93 tests / 71.33% line coverage to 420 tests /
+94.29%, with `tests/testthat/helper-fixtures.R` added so the eight-line
 `use.dat`/`test.fit`/`model.set` preamble is written once. Runtime went
-from 4.8 s to about 21 s.
+from 4.8 s to about 17 s (this WSL host, R 4.6.1; it is machine dependent,
+so re-measure before and after rather than comparing against these).
 
 New files: `helper-fixtures.R`, `test-generate_model_set_formulas.R`
 (cyclic.vars, linear.vars, bs.arg, the gamm4 `t2()` branch),
@@ -632,6 +633,17 @@ Points to note before extending the suite again:
   as they stand: the two beckyfisher/FSSgam#10/#12 family resolution tests,
   the two `full_subsets_gam()` Phase 7 regression tests, and everything in
   `test-deprecated.R`.
+- **The numerical snapshots run everywhere, with one exclusion.** The
+  binomial `gamm4`/`uGamm` scenario omits `edf` from its numeric snapshot,
+  because gamm4 reports a smooth's edf through lme4's random-effect
+  machinery and that column therefore tracks the lme4 version: measured
+  4.000/5.000/8.000 here against 4.260/5.050/8.350 on `ubuntu-latest`. It
+  is asserted structurally in that scenario instead. Everything else is
+  compared wherever the suite runs. The comparison is split into a group
+  compared exactly (the columns `compute_model_weights()` rounds to three
+  decimal places) and a group compared at 1e-6 relative (the unrounded fit
+  statistics), because `expect_snapshot_value()` applies its tolerance
+  element-wise and relatively, and one setting cannot serve both.
 - **`break_one_candidate()`** injects an unfittable formula into a model
   set to exercise the partial-failure paths. This is more reliable than
   locating real data on which some candidates fail and others do not.
@@ -645,8 +657,7 @@ Points to note before extending the suite again:
   `devtools::check()` sets `NOT_CRAN=true`, so `skip_on_cran()` alone does
   not protect it. Consequence: `covr` never executes those branches, which
   is why `check-correlations.R` and `fit-model-set.R` sit below the rest on
-  line coverage -- every uncovered line in both, bar
-  `check-correlations.R`'s equal-deviance branch, is inside a
+  line coverage -- every uncovered line in both is inside a
   `parallel == TRUE` branch. `.github/workflows/parallel-tests.yaml` is the
   one place they run automatically; it installs the package, sets the
   variable, and carries its own `timeout-minutes` so a stalled cluster

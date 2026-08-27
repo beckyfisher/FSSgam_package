@@ -7,12 +7,12 @@ test_that("generate_model_set builds factor-factor interaction terms when reques
     data = use.dat
   )
 
-  # suppressWarnings: check_correlations() surfaces an "NaNs produced" warning
+  # suppress_nnet_nans: check_correlations() surfaces an "NaNs produced" warning
   # out of nnet whenever a pasted interaction column is perfectly predicted by
   # its own components, which is by construction (FSSgam_package#10). Whether
   # the optimiser reaches that state depends on the nnet version, so it warns on
   # some platforms and not others.
-  model.set <- suppressWarnings(generate_model_set(
+  model.set <- suppress_nnet_nans(generate_model_set(
     use.dat = use.dat,
     test.fit = test.fit,
     pred.vars.cont = c("complexity", "depth"),
@@ -137,13 +137,13 @@ test_that("factor.factor.interactions as a character vector selects which factor
     ifelse(fit$use.dat$complexity > stats::median(fit$use.dat$complexity), "hi", "lo")
   )
 
-  # suppressWarnings for the same reason as the three-factor test below: a
+  # suppress_nnet_nans for the same reason as the three-factor test below: a
   # pasted interaction column is perfectly predicted by its own components, and
   # the multinom() summary check_correlations() takes its deviance from warns
   # "NaNs produced" while computing standard errors it discards
   # (FSSgam_package#10). Whether the optimiser reaches that state depends on the
   # nnet version, so this warns on some platforms and not others.
-  model.set <- suppressWarnings(fixture_cs1_model_set(
+  model.set <- suppress_nnet_nans(fixture_cs1_model_set(
     fit = fit,
     pred.vars.cont = "depth",
     pred.vars.fact = c("ZONE", "ZONE2", "ZONE3"),
@@ -169,11 +169,11 @@ test_that("factor.factor.interactions respects max.predictors when building comb
     ifelse(fit$use.dat$complexity > stats::median(fit$use.dat$complexity), "hi", "lo")
   )
 
-  # suppressWarnings: a pasted interaction column is perfectly predicted by its
+  # suppress_nnet_nans: a pasted interaction column is perfectly predicted by its
   # own components, and the multinom() summary that check_correlations() takes
   # the deviance from warns "NaNs produced" while computing standard errors it
   # then discards (FSSgam_package#10). The correlations themselves are correct.
-  model.set <- suppressWarnings(fixture_cs1_model_set(
+  model.set <- suppress_nnet_nans(fixture_cs1_model_set(
     fit = fit,
     pred.vars.cont = "depth",
     pred.vars.fact = c("ZONE", "ZONE2", "ZONE3"),
@@ -241,7 +241,7 @@ test_that("named factor.factor.interactions are still screened against cov.cutof
   )
   fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
 
-  model.set <- suppressWarnings(fixture_cs1_model_set(
+  model.set <- suppress_nnet_nans(fixture_cs1_model_set(
     fit = fit,
     pred.vars.cont = "depth",
     pred.vars.fact = c("ZONE", "ZONE2", "ZONE.copy"),
@@ -293,7 +293,7 @@ test_that("interaction enumeration is capped by the number of predictors, not ma
     ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
   )
 
-  factors <- suppressWarnings(fixture_cs1_model_set(
+  factors <- suppress_nnet_nans(fixture_cs1_model_set(
     fit = fit,
     pred.vars.cont = c("complexity", "depth"),
     pred.vars.fact = c("ZONE", "ZONE2"),
@@ -306,7 +306,7 @@ test_that("interaction enumeration is capped by the number of predictors, not ma
 
   # the character-vector form clamps against the number of factors it was given,
   # not against the whole of pred.vars.fact
-  named <- suppressWarnings(fixture_cs1_model_set(
+  named <- suppress_nnet_nans(fixture_cs1_model_set(
     fit = fit,
     pred.vars.cont = c("complexity", "depth"),
     pred.vars.fact = c("ZONE", "ZONE2"),

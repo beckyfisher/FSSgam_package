@@ -128,3 +128,47 @@ where a reader could otherwise remove the load-bearing assertion.
 diagonal not being exactly 1.
 
 ---
+
+**Claude (work log, cycle 3 -- addressing a second independent review):**
+
+A second fresh session reviewed the branch, re-verified each cycle-1 finding
+rather than taking it as addressed, and returned two blocking findings, seven
+"should fix" and five "consider".
+
+*Blocking 1 -- `parallel-tests.yaml` had never passed.* The job asserted that no
+test was skipped, over the whole suite, so the `skip_on_ci()` added to the
+snapshots in the same commit made it fail with a message that was false: the
+parallel tests had in fact run and passed, 14 expectations. The assertion is now
+scoped with `filter =` to the two files that carry parallel tests, which also
+stops the job re-running the whole suite.
+
+*Blocking 2 -- `skip_on_ci()` was applied to five tests on evidence supporting
+one.* The CI run that prompted it had executed all five scenarios with the split
+tolerances already in place: four passed in full, and the fifth differed only in
+`edf`. That column comes to gamm4 through lme4's random-effect machinery, so it
+tracks the lme4 version rather than anything this package does. The blanket skip
+was removed; the binomial `gamm4` scenario now omits `edf` from its numeric
+snapshot and asserts it structurally, and every other comparison runs wherever
+the suite runs.
+
+*Should fix.* Two `@return` blocks did not match what the functions return --
+`generate_model_set()` documented a `generated.models` element that has never
+existed and omitted three that do, and `fit_model_set()` claimed a `used.data`
+it has never returned. Both reconciled, with `expect_named()` regression tests,
+following the Phase 7 precedent. The `.t.` match is now made against the term
+names `resolve_factor_interactions()` actually generated rather than re-derived
+from `linear.vars`, which closes a second route to the same silent-drop defect
+via a list-form `factor.smooth.interactions`. The six blanket
+`suppressWarnings()` calls were replaced with `suppress_nnet_nans()`, which
+filters on the message, because a blanket suppression would also hide the
+"no non-missing arguments to max" warning that one of this branch's own
+regression tests depends on. Test counts and coverage figures were brought into
+line across the PR body, `NEWS.md` and `CLAUDE.md`; a stale sentence in
+`CLAUDE.md` and an unqualified `(#7)` in `NEWS.md` were corrected.
+
+*Consider.* The `.t.` comment's rationale was rewritten to describe the code it
+actually replaced. Two superseded `r2.lm.est` assertions were replaced with ones
+that constrain something. The relative platform fragility of the two snapshot
+groups is now recorded in the file header.
+
+---

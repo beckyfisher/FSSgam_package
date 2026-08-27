@@ -12,6 +12,25 @@ test_that("generate_model_set builds a model set for a Gaussian response", {
   expect_equal(model.set$included.vars, c("complexity", "depth", "ZONE"))
 })
 
+test_that("generate_model_set returns exactly the elements it documents", {
+  # Regression test: the @return block listed used.data, predictor.correlations
+  # and a "generated.models" element that has never existed, and omitted three
+  # that do. The same class of defect as the Phase 7 full_subsets_gam() one.
+  model.set <- fixture_cs1_model_set()
+
+  expect_named(
+    model.set,
+    c("n.mods", "predictor.correlations", "mod.formula", "used.data",
+      "test.fit", "included.vars")
+  )
+  expect_type(model.set$n.mods, "integer")
+  expect_true(is.matrix(model.set$predictor.correlations))
+  expect_type(model.set$mod.formula, "list")
+  expect_s3_class(model.set$used.data, "data.frame")
+  expect_s3_class(model.set$test.fit, "gam")
+  expect_type(model.set$included.vars, "character")
+})
+
 test_that("generate_model_set errors when use.dat is not a data.frame", {
   expect_error(
     generate_model_set(use.dat = list(a = 1), test.fit = NULL, pred.vars.cont = "a"),

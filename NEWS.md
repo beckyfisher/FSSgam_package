@@ -33,7 +33,7 @@
   type-dependent low-level error -- or, for a bare numeric/logical value,
   was silently accepted and spliced into a nonsense model formula instead of
   failing. `null.terms` is now validated up front with a clear error message
-  (#7).
+  (beckyfisher/FSSgam#7).
 * Bug fix: `generate_model_set()` (and `full_subsets_gam()`, which calls it)
   failed on model sets with exactly one predictor. `use.dat[, all.predictors]`
   dropped to a bare vector before being passed to `check_correlations()` /
@@ -58,8 +58,8 @@
   was being constructed from the `NA` itself; it was discarded again before
   the model set was returned, so only the warnings were visible.
 * Bug fix: `case_study1` was documented as having 28 variables; it has 27.
-* Substantially expanded the `testthat` suite, from 93 tests to 400 and from
-  71% to 93% line coverage (FSSgam_package#5). New coverage includes: every
+* Substantially expanded the `testthat` suite, from 93 tests to 420 and from
+  71.33% to 94.29% line coverage (FSSgam_package#5). New coverage includes: every
   non-default argument of `generate_model_set()`, `fit_model_set()` and
   `full_subsets_gam()`; the `save.model.fits = FALSE` fitting path; `gamm4`,
   `uGamm` and `gamm` test.fits; the `cyclic.vars`, `linear.vars` and `bs.arg`

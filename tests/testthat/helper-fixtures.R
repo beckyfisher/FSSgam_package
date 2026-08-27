@@ -232,6 +232,29 @@ break_one_candidate <- function(model.set, modname = "ZONE+depth") {
   model.set
 }
 
+# Muffles only nnet's "NaNs produced" warning, leaving every other warning to
+# reach the test.
+#
+# check_correlations() takes its factor-factor estimate from a summary() of a
+# multinom() fit, and that summary computes standard errors it then discards. On
+# a perfectly separated fit -- which factor.factor.interactions guarantees, since
+# a pasted interaction column is by construction perfectly predicted by its own
+# components -- the variance-covariance matrix has negative diagonal entries and
+# sqrt() warns (FSSgam_package#10). Whether nnet's optimiser reaches that state
+# is version dependent: it does on the CI runners and does not on nnet 7.3-20
+# here.
+#
+# A blanket suppressWarnings() would also hide the "no non-missing arguments to
+# max" warnings that this package's own regression tests rely on, so the filter
+# is on the message.
+suppress_nnet_nans <- function(expr) {
+  withCallingHandlers(expr, warning = function(w) {
+    if (grepl("NaNs produced", conditionMessage(w), fixed = TRUE)) {
+      invokeRestart("muffleWarning")
+    }
+  })
+}
+
 # Guard for every test that starts a real doSNOW cluster.
 #
 # Two conditions must hold before such a test is meaningful, and one before it
@@ -244,8 +267,8 @@ break_one_candidate <- function(model.set, modname = "ZONE+depth") {
 #  - The run must have opted in explicitly. doSNOW cluster startup has been
 #    observed to stall indefinitely whenever another process is working the
 #    machine hard -- including for a trivial foreach() containing no FSSgam code
-#    -- and an unattended hang in R CMD check, covr or CI costs the whole job
-#    where a skip costs nothing.
+#    -- so an unattended stall consumes the entire runtime of an R CMD check,
+#    covr or CI job.
 #
 # To run them:
 #

@@ -48,15 +48,19 @@ jobs:
         timeout-minutes: 10
         run: |
           library(FSSgam)
+          # Scoped to the two files carrying parallel tests. Running the whole
+          # directory would execute the suite a second time per push, and would
+          # count skips from unrelated files against the assertion below.
           res <- testthat::test_dir(
             "tests/testthat",
             package = "FSSgam",
+            filter = "fit_model_set_parallel|check_correlations",
             reporter = "summary",
             stop_on_failure = TRUE
           )
           df <- as.data.frame(res)
           cat("skipped:", sum(df$skipped), "\n")
           if (sum(df$skipped) > 0) {
-            stop("the parallel tests were skipped; the opt-in guard did not take effect")
+            stop("a parallel test was skipped; the opt-in guard did not take effect")
           }
         shell: Rscript {0}

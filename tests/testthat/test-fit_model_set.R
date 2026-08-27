@@ -3,7 +3,10 @@ test_that("fit_model_set fits and ranks a small Gaussian candidate set", {
 
   out <- fit_quietly(model.set, parallel = FALSE)
 
+  # Regression test: the @return block also listed used.data, which
+  # fit_model_set() has never returned -- full_subsets_gam() is what carries it
   expect_named(out, c("mod.data.out", "failed.models", "success.models", "variable.importance"))
+  expect_false("used.data" %in% names(out))
   expect_equal(nrow(out$mod.data.out), model.set$n.mods)
   expect_true(all(c("AICc", "BIC", "wi.AICc", "wi.BIC") %in% colnames(out$mod.data.out)))
   expect_length(out$failed.models, 0)

@@ -75,16 +75,27 @@ test_that("a model set at or below max.models keeps its fitted models", {
 
 # ---- r2.type ----------------------------------------------------------------
 
-test_that("r2.type = 'r2.lm.est' (the default) reports the observed-vs-fitted R squared", {
+test_that("r2.type = 'r2.lm.est' is the default and reaches the model table", {
+  # What r2.lm.est actually is -- the R squared of the response against the
+  # link-scale prediction, which is neither of the quantities mgcv reports -- is
+  # pinned in test-functions_supporting.R against an independently derived
+  # value. This checks only that fit_model_set() defaults to it and puts it in
+  # the table, which is the part that belongs here.
   model.set <- fixture_cs1_model_set()
   out <- fit_quietly(model.set, parallel = FALSE)
-  expect_equal(out$mod.data.out$r2.vals, fit_quietly(model.set, parallel = FALSE,
-                                                      r2.type = "r2.lm.est")$mod.data.out$r2.vals)
+  named <- fit_quietly(model.set, parallel = FALSE, r2.type = "r2.lm.est")
 
-  # recompute one row directly from the corresponding fitted model
-  fit.null <- out$success.models[["null"]]
-  expected <- round(summary(stats::lm(fit.null$y ~ stats::predict(fit.null)))$r.sq, 5)
-  expect_equal(out$mod.data.out$r2.vals[out$mod.data.out$modname == "null"], expected)
+  expect_equal(out$mod.data.out$r2.vals, named$mod.data.out$r2.vals)
+  expect_false(anyNA(out$mod.data.out$r2.vals))
+  # and it is not either of the values the other two r2.type settings give
+  expect_false(isTRUE(all.equal(
+    out$mod.data.out$r2.vals,
+    fit_quietly(model.set, parallel = FALSE, r2.type = "r2")$mod.data.out$r2.vals
+  )))
+  expect_false(isTRUE(all.equal(
+    out$mod.data.out$r2.vals,
+    fit_quietly(model.set, parallel = FALSE, r2.type = "dev")$mod.data.out$r2.vals
+  )))
 })
 
 test_that("r2.type = 'r2' reports mgcv's adjusted R squared", {

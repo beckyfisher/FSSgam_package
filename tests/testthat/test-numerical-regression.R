@@ -25,18 +25,26 @@
 #    absolute -- far tighter than anything that could reorder two models, and
 #    far looser than the 1e-8 scale on which BLAS differences appear.
 #
-# Every test here is also skipped on CI, deliberately. These snapshots pin what
-# the current mgcv/lme4/gamm4 versions produce on the machine that recorded
-# them; their purpose is to show that a refactor changes nothing when the suite
-# is run before and after it on the same machine. A CI runner with different
-# dependency versions produces genuinely different numbers, not noise around the
-# same ones. Measured on the first CI run of this file: the binomial gamm4 model
-# set reported edf of 4.000/5.000/8.000 locally and 4.260/5.050/8.350 on
-# ubuntu-latest -- a 6.5% difference on one value, which no tolerance intended
-# to absorb BLAS differences could or should accommodate.
+# One quantity is excluded from the comparison rather than tolerated: the edf of
+# the binomial gamm4/uGamm scenario. Measured on this branch's CI run at
+# 7ec2b61, which ran all five scenarios with these tolerances in place, four
+# passed in full and the fifth differed only there -- 4.000/5.000/8.000 locally
+# against 4.260/5.050/8.350 on ubuntu-latest. gamm4 reports a smooth's edf
+# through lme4's random-effect machinery, so that column tracks the lme4 version
+# rather than anything this package does; it is asserted structurally in that
+# scenario instead. Everything else, in all five scenarios, is compared
+# everywhere the suite runs.
 #
-# expect_snapshot_value() also defaults to cran = FALSE. Nothing snapshotted
-# here embeds a path, a timestamp or an environment address.
+# Note that the exactly-compared group is the more platform-fragile of the two
+# despite its name: delta.AICc and delta.BIC are quantised at three decimal
+# places, so an AICc drift of 2e-4 -- which snapshot_numeric()'s tolerance
+# permits -- can move one across a rounding boundary. That has not been observed
+# on CI, but it is where a future failure is most likely to come from, and such
+# a failure would be a platform difference rather than a defect.
+#
+# expect_snapshot_value() defaults to cran = FALSE, so none of this runs on
+# CRAN. Nothing snapshotted here embeds a path, a timestamp or an environment
+# address.
 
 # The columns the package rounds to three decimal places, plus the candidate
 # names and formulas. Compared exactly.
@@ -56,19 +64,21 @@ snapshot_exact <- function(model.set, out) {
   )
 }
 
-# The unrounded fit statistics. Compared at 1e-6 relative.
-snapshot_numeric <- function(out) {
+# The unrounded fit statistics. Compared at 1e-6 relative. edf is dropped for
+# the gamm4 scenario -- see the header.
+snapshot_numeric <- function(out, include.edf = TRUE) {
   mdo <- out$mod.data.out[order(out$mod.data.out$modname), ]
-  list(
+  values <- list(
     AICc = mdo$AICc,
     BIC = mdo$BIC,
     r2.vals = mdo$r2.vals,
     edf = mdo$edf
   )
+  if (!include.edf) values$edf <- NULL
+  values
 }
 
 test_that("the Gaussian case_study1 model set is numerically unchanged", {
-  skip_on_ci()
   model.set <- fixture_cs1_model_set()
   out <- fit_quietly(model.set, parallel = FALSE, report.unique.r2 = TRUE)
 
@@ -77,7 +87,6 @@ test_that("the Gaussian case_study1 model set is numerically unchanged", {
 })
 
 test_that("variable importance under VI.mods = 'all' is numerically unchanged", {
-  skip_on_ci()
   model.set <- fixture_cs1_model_set()
   out <- fit_quietly(model.set, parallel = FALSE, VI.mods = "all")
 
@@ -94,7 +103,6 @@ test_that("the negative binomial case_study1 model set is numerically unchanged"
   # an extended family, so this also pins the behaviour of the per-candidate
   # family resolution that the two conflicting upstream issues
   # (beckyfisher/FSSgam#10 and #12) turned on
-  skip_on_ci()
   fit <- fixture_cs1_nb()
   model.set <- fixture_cs1_model_set(fit = fit)
   out <- fit_quietly(model.set, parallel = FALSE)
@@ -104,7 +112,6 @@ test_that("the negative binomial case_study1 model set is numerically unchanged"
 })
 
 test_that("the binomial gamm4/uGamm model set is numerically unchanged", {
-  skip_on_ci()
   fit <- fixture_coral_ugamm()
   model.set <- generate_model_set(
     use.dat = fit$use.dat,
@@ -117,11 +124,16 @@ test_that("the binomial gamm4/uGamm model set is numerically unchanged", {
   out <- fit_quietly(model.set, parallel = FALSE)
 
   expect_snapshot_value(snapshot_exact(model.set, out), style = "json2")
-  expect_snapshot_value(snapshot_numeric(out), style = "json2", tolerance = 1e-6)
+  expect_snapshot_value(
+    snapshot_numeric(out, include.edf = FALSE), style = "json2", tolerance = 1e-6
+  )
+  # edf is version dependent here (see the header), so it is only checked for
+  # shape: one parameter per smooth at minimum, and no model without parameters
+  expect_true(all(is.finite(out$mod.data.out$edf)))
+  expect_true(all(out$mod.data.out$edf >= 1))
 })
 
 test_that("the cyclic case_study3 model set is numerically unchanged", {
-  skip_on_ci()
   fit <- fixture_cs3_cyclic()
   model.set <- generate_model_set(
     use.dat = fit$use.dat,

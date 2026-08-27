@@ -332,7 +332,7 @@
         "names": {
           "type": "character",
           "attributes": {},
-          "value": ["AICc", "BIC", "r2.vals", "edf"]
+          "value": ["AICc", "BIC", "r2.vals"]
         }
       },
       "value": [
@@ -350,11 +350,6 @@
           "type": "double",
           "attributes": {},
           "value": [0.08436, 0.09093, 0.09335, 0.00781, 0.00171, 0.00663, 0.01085, 0]
-        },
-        {
-          "type": "double",
-          "attributes": {},
-          "value": [4, 5, 8, 4, 5, 8, 2, 1]
         }
       ]
     }
