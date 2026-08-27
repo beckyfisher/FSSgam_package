@@ -95,7 +95,7 @@ fixture_cs1_tweedie <- function() {
 }
 
 # Negative binomial, on a rounded count response. This is the family from the
-# issue #12 regression.
+# beckyfisher/FSSgam#12 regression.
 fixture_cs1_nb <- function() {
   use.dat <- fixture_cs1_data()
   use.dat$Herbivore.abundance <- round(use.dat$Herbivore.abundance)
@@ -195,13 +195,14 @@ fixture_cs1_model_set <- function(fit = fixture_cs1_gaussian(), ...) {
 # capture.output() only redirects stdout -- so expect_warning()/expect_error()
 # still work through this wrapper.
 #
-# Four tests call fit_model_set()/full_subsets_gam() directly rather than through
-# these wrappers, deliberately: the two issue #10/#12 family resolution tests in
-# test-fit_model_set.R, the used.data/predictor.correlations regression at the
-# top of test-full_subsets_gam.R and the size= regression at the bottom of it,
-# plus everything in test-deprecated.R. Issue FSSgam_package#5 asks for those to
-# be preserved as they stand, so they keep their original call form and their
-# progress output.
+# Four groups of tests call fit_model_set()/full_subsets_gam() directly rather
+# than through these wrappers, deliberately: the two beckyfisher/FSSgam#10/#12
+# family resolution tests in test-fit_model_set.R, the
+# used.data/predictor.correlations regression at the top of
+# test-full_subsets_gam.R, the size= regression at the bottom of it, and
+# everything in test-deprecated.R. FSSgam_package#5 asks for those to be
+# preserved as they stand, so they keep their original call form, and with it
+# their progress output.
 fit_quietly <- function(...) {
   out <- NULL
   utils::capture.output(out <- fit_model_set(...))
@@ -231,6 +232,13 @@ break_one_candidate <- function(model.set, modname = "ZONE+depth") {
     stats::as.formula("~ s(not_a_column, k = 3, bs = 'cr') + s(site, bs = 're')")
   model.set
 }
+
+# One-line deparse of a formula or call, with the same joining behaviour as
+# deparse1(): width.cutoff = 500L, and a space between any lines that still wrap.
+#
+# deparse1() would do this, but it was added in R 4.0.0 and DESCRIPTION declares
+# R (>= 3.5). The tests must run on the declared minimum, so they cannot use it.
+deparse_one <- function(x) paste(deparse(x, width.cutoff = 500L), collapse = " ")
 
 # Muffles only nnet's "NaNs produced" warning, leaving every other warning to
 # reach the test.

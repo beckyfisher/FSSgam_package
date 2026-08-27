@@ -50,17 +50,28 @@
   its first element (with a warning). Affected candidates were still named as
   interactions but fitted as the corresponding factor main-effect model, so
   the model table reported duplicate fits under distinct names.
-
-* Bug fix: `generate_model_set()` emitted two spurious
-  "no non-missing arguments to max; returning -Inf" warnings whenever factor
-  predictors were supplied with `pred.vars.cont = NA` (the documented way to
-  run without smooth predictors). A phantom `NA.by.<factor>` interaction term
-  was being constructed from the `NA` itself; it was discarded again before
-  the model set was returned, so only the warnings were visible.
+* Bug fix: supplying factor predictors with `pred.vars.cont = NA` -- the
+  documented way to run without smooth predictors -- made
+  `generate_model_set()` construct a phantom `NA.by.<factor>` interaction term
+  out of the `NA` itself. With `max.predictors = 1` the term was discarded
+  again before the model set was returned and the only symptom was two spurious
+  "no non-missing arguments to max; returning -Inf" warnings, but from
+  `max.predictors = 2` it survived into the candidate set as a model whose
+  formula smoothed the literal `NA`.
 * Bug fix: `case_study1` was documented as having 28 variables; it has 27.
-* Substantially expanded the `testthat` suite, from 93 tests to 420 and from
-  71.33% to 94.29% line coverage (FSSgam_package#5). New coverage includes: every
-  non-default argument of `generate_model_set()`, `fit_model_set()` and
+* Bug fix: `generate_model_set()`'s `@return` documented a `generated.models`
+  element that it has never returned, and omitted `n.mods`, `mod.formula`,
+  `test.fit` and `included.vars`, which it does. `fit_model_set()`'s documented
+  a `used.data` element that it has never returned -- `full_subsets_gam()` is
+  what carries that.
+* Bug fix: a candidate model named as an interaction between a factor and a
+  linear predictor was fitted as the factor main effect alone, whenever the
+  `.t.` term came from the list form of `factor.smooth.interactions` naming a
+  linear predictor absent from `linear.vars`. The model table then reported two
+  identical fits under different names.
+* Substantially expanded the `testthat` suite, from 105 expectations to 432 and
+  from 71.33% to 94.27% line coverage (FSSgam_package#5). New coverage includes:
+  every non-default argument of `generate_model_set()`, `fit_model_set()` and
   `full_subsets_gam()`; the `save.model.fits = FALSE` fitting path; `gamm4`,
   `uGamm` and `gamm` test.fits; the `cyclic.vars`, `linear.vars` and `bs.arg`
   formula construction; the bundled datasets; every documented error and

@@ -172,3 +172,37 @@ that constrain something. The relative platform fragility of the two snapshot
 groups is now recorded in the file header.
 
 ---
+
+**Claude (work log, cycle 4 -- addressing a third independent review):**
+
+The third review found no blocking issues and judged the branch mergeable. Its
+five "should fix" items were landed rather than deferred.
+
+*`deparse1()` against a declared `R (>= 3.5)`.* 25 test calls to a function
+added in R 4.0.0. Replaced with `deparse_one()` in `helper-fixtures.R`, which
+matches `deparse1()`'s `width.cutoff = 500L` -- `deparse()`'s own default of 60
+wraps most of these formulas and changes the string, which three snapshot
+comparisons caught immediately. `DESCRIPTION` is unchanged: `deparse1()` was
+only ever used in tests, so raising the package's declared R dependency to buy a
+test convenience was not warranted.
+
+*The phantom `NA.by.` bug was recorded as less serious than it is.* The claim
+that the term "was discarded again before the model set was returned" holds only
+at `max.predictors = 1`, which is what the regression test used. From
+`max.predictors = 2` the term survives into the returned set as a candidate
+whose formula smooths the literal `NA`. Added a `max.predictors = 2` block and
+corrected the `NEWS.md` entry.
+
+*Test counts.* The "93 tests" baseline does not reproduce: `master` and
+`fix_issues` both report 105 expectations across 36 `test_that()` blocks. All
+three records now carry the measured figures -- 105 expectations to 432, 71.33%
+to 94.27% -- and `CLAUDE.md` records that the Phase 12 figure is not
+reproducible, so the next person does not re-derive it.
+
+*Two untested behaviours.* `enumerate_candidate_models()`'s `unique()` could be
+deleted without a single test failing; `extract_mod_dat()`'s `edf.less.1`
+threshold could be changed from 0.25 to 0.5 the same way. Both now have
+assertions, the second using a simulated shrinkage fit whose edf straddle 0.25,
+because no bundled dataset produces one.
+
+---

@@ -17,11 +17,11 @@ test_that("cyclic.vars substitutes bs='cc' into main-effect smooths", {
   )
 
   expect_equal(
-    deparse1(model.set$mod.formula[["lunar.date"]]),
+    deparse_one(model.set$mod.formula[["lunar.date"]]),
     "~s(lunar.date, k = 5, bs = \"cc\")"
   )
   expect_equal(
-    deparse1(model.set$mod.formula[["month"]]),
+    deparse_one(model.set$mod.formula[["month"]]),
     "~s(month, k = 5, bs = \"cc\")"
   )
 })
@@ -38,8 +38,8 @@ test_that("cyclic.vars leaves non-cyclic continuous predictors on bs.arg", {
     k = 5
   )
 
-  expect_match(deparse1(model.set$mod.formula[["lunar.date"]]), "bs = \"cc\"", fixed = TRUE)
-  expect_match(deparse1(model.set$mod.formula[["gwt"]]), "bs = \"cr\"", fixed = TRUE)
+  expect_match(deparse_one(model.set$mod.formula[["lunar.date"]]), "bs = \"cc\"", fixed = TRUE)
+  expect_match(deparse_one(model.set$mod.formula[["gwt"]]), "bs = \"cr\"", fixed = TRUE)
 })
 
 test_that("cyclic.vars substitutes bs='cc' into factor-smooth (by) terms", {
@@ -58,7 +58,7 @@ test_that("cyclic.vars substitutes bs='cc' into factor-smooth (by) terms", {
   by.name <- grep(".by.", names(model.set$mod.formula), fixed = TRUE, value = TRUE)
   expect_length(by.name, 1)
   expect_match(
-    deparse1(model.set$mod.formula[[by.name]]),
+    deparse_one(model.set$mod.formula[[by.name]]),
     "s(lunar.date, by = Sex, k = 5, bs = \"cc\")",
     fixed = TRUE
   )
@@ -78,7 +78,7 @@ test_that("a te() of two cyclic predictors gets bs=c('cc','cc')", {
   )
 
   expect_equal(
-    deparse1(model.set$mod.formula[["lunar.date.te.month"]]),
+    deparse_one(model.set$mod.formula[["lunar.date.te.month"]]),
     "~te(lunar.date, month, k = 5, bs = c(\"cc\", \"cc\"))"
   )
 })
@@ -98,7 +98,7 @@ test_that("a te() mixing a cyclic and a non-cyclic predictor gets bs=c('cc','cr'
 
   # the te() marginal bases follow the order the predictors appear in the term
   expect_equal(
-    deparse1(model.set$mod.formula[["lunar.date.te.gwt"]]),
+    deparse_one(model.set$mod.formula[["lunar.date.te.gwt"]]),
     "~te(lunar.date, gwt, k = 5, bs = c(\"cc\", \"cr\"))"
   )
 })
@@ -135,10 +135,10 @@ test_that("linear.vars appear as bare linear terms, not smooths", {
   )
 
   expect_equal(
-    deparse1(model.set$mod.formula[["SCORE2"]]),
+    deparse_one(model.set$mod.formula[["SCORE2"]]),
     "~SCORE2 + s(site, bs = \"re\")"
   )
-  expect_false(grepl("s(SCORE2", deparse1(model.set$mod.formula[["SCORE2"]]), fixed = TRUE))
+  expect_false(grepl("s(SCORE2", deparse_one(model.set$mod.formula[["SCORE2"]]), fixed = TRUE))
 })
 
 test_that("linear.vars interact with factors as a product term", {
@@ -151,7 +151,7 @@ test_that("linear.vars interact with factors as a product term", {
 
   expect_true("SCORE2.t.ZONE+ZONE" %in% names(model.set$mod.formula))
   expect_equal(
-    deparse1(model.set$mod.formula[["SCORE2.t.ZONE+ZONE"]]),
+    deparse_one(model.set$mod.formula[["SCORE2.t.ZONE+ZONE"]]),
     "~SCORE2 * ZONE + ZONE + s(site, bs = \"re\")"
   )
 })
@@ -167,11 +167,11 @@ test_that("a continuous predictor named in both pred.vars.cont and linear.vars i
   )
 
   expect_equal(
-    deparse1(model.set$mod.formula[["depth"]]),
+    deparse_one(model.set$mod.formula[["depth"]]),
     "~depth + s(site, bs = \"re\")"
   )
   expect_match(
-    deparse1(model.set$mod.formula[["complexity"]]), "s(complexity", fixed = TRUE
+    deparse_one(model.set$mod.formula[["complexity"]]), "s(complexity", fixed = TRUE
   )
 })
 
@@ -184,7 +184,7 @@ test_that("a model set can be built from linear.vars alone", {
   )
   out <- fit_quietly(model.set, parallel = FALSE)
 
-  expect_false(any(grepl("s(complexity", unlist(lapply(model.set$mod.formula, deparse1)),
+  expect_false(any(grepl("s(complexity", unlist(lapply(model.set$mod.formula, deparse_one)),
                           fixed = TRUE)))
   expect_length(out$failed.models, 0)
 })
@@ -206,11 +206,11 @@ test_that("every linear.vars entry gets its own factor interaction term", {
   )
 
   expect_equal(
-    deparse1(model.set$mod.formula[["ZONE+complexity.t.ZONE"]]),
+    deparse_one(model.set$mod.formula[["ZONE+complexity.t.ZONE"]]),
     "~complexity * ZONE + ZONE + s(site, bs = \"re\")"
   )
   expect_equal(
-    deparse1(model.set$mod.formula[["SCORE2.t.ZONE+ZONE"]]),
+    deparse_one(model.set$mod.formula[["SCORE2.t.ZONE+ZONE"]]),
     "~SCORE2 * ZONE + ZONE + s(site, bs = \"re\")"
   )
 })
@@ -233,7 +233,7 @@ test_that("a list-form factor.smooth.interactions still fits its linear interact
 
   expect_true("ZONE+depth.t.ZONE" %in% names(model.set$mod.formula))
   expect_equal(
-    deparse1(model.set$mod.formula[["ZONE+depth.t.ZONE"]]),
+    deparse_one(model.set$mod.formula[["ZONE+depth.t.ZONE"]]),
     "~depth * ZONE + ZONE + s(site, bs = \"re\")"
   )
 })
@@ -242,7 +242,7 @@ test_that("a list-form factor.smooth.interactions still fits its linear interact
 
 test_that("bs.arg controls the basis of every smooth term", {
   model.set <- fixture_cs1_model_set(bs.arg = "'ts'")
-  formulas <- unlist(lapply(model.set$mod.formula, deparse1))
+  formulas <- unlist(lapply(model.set$mod.formula, deparse_one))
 
   smooths <- formulas[grepl("s(complexity", formulas, fixed = TRUE) |
                              grepl("s(depth", formulas, fixed = TRUE)]
@@ -264,14 +264,14 @@ test_that("a non-default bs.arg still produces a fittable model set", {
 test_that("null.terms = '' gives an intercept-only null and no appended term", {
   model.set <- fixture_cs1_model_set(null.terms = "")
 
-  expect_equal(deparse1(model.set$mod.formula[["null"]]), "~1")
-  expect_false(any(grepl("bs = \"re\"", unlist(lapply(model.set$mod.formula, deparse1)),
+  expect_equal(deparse_one(model.set$mod.formula[["null"]]), "~1")
+  expect_false(any(grepl("bs = \"re\"", unlist(lapply(model.set$mod.formula, deparse_one)),
                           fixed = TRUE)))
 })
 
 test_that("null.terms is appended to every candidate formula", {
   model.set <- fixture_cs1_model_set()
-  formulas <- unlist(lapply(model.set$mod.formula, deparse1))
+  formulas <- unlist(lapply(model.set$mod.formula, deparse_one))
 
   expect_true(all(grepl("s(site, bs = \"re\")", formulas, fixed = TRUE)))
 })
@@ -298,6 +298,6 @@ test_that("a gamm4 test.fit produces t2() rather than te() smooth-smooth interac
 
   te.name <- grep(".te.", names(model.set$mod.formula), fixed = TRUE, value = TRUE)
   expect_length(te.name, 1)
-  expect_match(deparse1(model.set$mod.formula[[te.name]]), "^~t2\\(")
-  expect_false(grepl("te(", deparse1(model.set$mod.formula[[te.name]]), fixed = TRUE))
+  expect_match(deparse_one(model.set$mod.formula[[te.name]]), "^~t2\\(")
+  expect_false(grepl("te(", deparse_one(model.set$mod.formula[[te.name]]), fixed = TRUE))
 })

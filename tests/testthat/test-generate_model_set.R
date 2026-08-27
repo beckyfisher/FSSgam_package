@@ -16,19 +16,33 @@ test_that("generate_model_set returns exactly the elements it documents", {
   # Regression test: the @return block listed used.data, predictor.correlations
   # and a "generated.models" element that has never existed, and omitted three
   # that do. The same class of defect as the Phase 7 full_subsets_gam() one.
+  # The element names are asserted in the block above; this one pins their types.
   model.set <- fixture_cs1_model_set()
 
-  expect_named(
-    model.set,
-    c("n.mods", "predictor.correlations", "mod.formula", "used.data",
-      "test.fit", "included.vars")
-  )
   expect_type(model.set$n.mods, "integer")
   expect_true(is.matrix(model.set$predictor.correlations))
   expect_type(model.set$mod.formula, "list")
   expect_s3_class(model.set$used.data, "data.frame")
   expect_s3_class(model.set$test.fit, "gam")
   expect_type(model.set$included.vars, "character")
+})
+
+test_that("generate_model_set returns no duplicate candidates", {
+  # enumerate_candidate_models() sorts each term combination and then dedupes,
+  # so that e.g. c("depth","ZONE") and c("ZONE","depth") do not both survive as
+  # separate candidates. Without the dedupe the set would carry repeated fits
+  # under repeated names, which fit_model_set() would then weight twice.
+  model.set <- fixture_cs1_model_set(
+    pred.vars.cont = c("complexity", "depth"),
+    pred.vars.fact = "ZONE",
+    linear.vars = "SCORE2",
+    max.predictors = 3
+  )
+
+  expect_equal(anyDuplicated(names(model.set$mod.formula)), 0L)
+  expect_equal(
+    anyDuplicated(vapply(model.set$mod.formula, deparse_one, character(1))), 0L
+  )
 })
 
 test_that("generate_model_set errors when use.dat is not a data.frame", {
@@ -135,10 +149,15 @@ test_that("generate_model_set builds a single-predictor set with non.linear.corr
 test_that("generate_model_set builds no phantom by-terms when pred.vars.cont is NA", {
   # Regression test: pred.vars.cont = NA is the documented way to run without
   # smooth predictors, but expand.grid(NA, factors) paired the NA itself with
-  # each factor, producing a phantom "NA.by.<factor>" candidate term. It was
-  # discarded again before the model set was returned, but only after
-  # enumerate_candidate_models() had taken max() of an empty correlation
-  # sub-matrix and warned twice.
+  # each factor, producing a phantom "NA.by.<factor>" candidate term.
+  #
+  # At max.predictors = 1 the term was discarded again before the model set was
+  # returned, so the only visible symptom was enumerate_candidate_models()
+  # taking max() of an empty correlation sub-matrix and warning twice -- which
+  # is why expect_no_warning() below is the load-bearing assertion in that case.
+  # From max.predictors = 2 the term survived into the returned set, giving a
+  # candidate whose formula smoothed the literal NA. The second block covers
+  # that.
   fit <- fixture_cs1_gaussian()
 
   # expect_no_warning() is the load-bearing assertion here: the phantom term was
@@ -150,6 +169,28 @@ test_that("generate_model_set builds no phantom by-terms when pred.vars.cont is 
     )
   )
   expect_false(any(grepl("NA.by.", names(model.set$mod.formula), fixed = TRUE)))
+})
+
+test_that("no phantom by-term survives into the model set at higher max.predictors", {
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  expect_no_warning(
+    model.set <- fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = NA, pred.vars.fact = c("ZONE", "ZONE2"),
+      max.predictors = 2
+    )
+  )
+
+  expect_false(any(grepl("NA.by.", names(model.set$mod.formula), fixed = TRUE)))
+  formulas <- vapply(model.set$mod.formula, deparse_one, character(1))
+  expect_false(any(grepl("s(NA", formulas, fixed = TRUE)))
+  expect_setequal(
+    names(model.set$mod.formula),
+    c("null", "ZONE", "ZONE2", "ZONE+ZONE2")
+  )
 })
 
 # ---- cor.matrix -------------------------------------------------------------
@@ -236,7 +277,7 @@ test_that("factor.smooth.interactions as a list gives per-predictor-type control
   # SCORE2 was named as a linear.var, so it gets a .t. (product) interaction
   expect_true("SCORE2.t.ZONE+ZONE" %in% mod.names)
   expect_match(
-    deparse1(model.set$mod.formula[["SCORE2.t.ZONE+ZONE"]]), "SCORE2 * ZONE",
+    deparse_one(model.set$mod.formula[["SCORE2.t.ZONE+ZONE"]]), "SCORE2 * ZONE",
     fixed = TRUE
   )
 })

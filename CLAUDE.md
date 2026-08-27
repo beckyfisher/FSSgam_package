@@ -588,11 +588,14 @@ in the `family.vec[[2]]` reprex, versus 0/8 before this fix.
 
 ### Phase 13 — Comprehensive test suite (issue #5) — Completed
 
-Done. The suite went from 93 tests / 71.33% line coverage to 420 tests /
-94.29%, with `tests/testthat/helper-fixtures.R` added so the eight-line
+Done. The suite went from 105 expectations / 71.33% line coverage to 432 /
+94.27%, with `tests/testthat/helper-fixtures.R` added so the eight-line
 `use.dat`/`test.fit`/`model.set` preamble is written once. Runtime went
-from 4.8 s to about 17 s (this WSL host, R 4.6.1; it is machine dependent,
-so re-measure before and after rather than comparing against these).
+from 4.8 s to about 15.5 s (this WSL host, R 4.6.1; it is machine
+dependent, so re-measure before and after rather than comparing against
+these). Note the "93 tests" figure carried in the Phase 12 entry does not
+reproduce: `master` and `fix_issues` both report 105 expectations across 36
+`test_that()` blocks. Count expectations, and say which you mean.
 
 New files: `helper-fixtures.R`, `test-generate_model_set_formulas.R`
 (cyclic.vars, linear.vars, bs.arg, the gamm4 `t2()` branch),
@@ -633,6 +636,11 @@ Points to note before extending the suite again:
   as they stand: the two beckyfisher/FSSgam#10/#12 family resolution tests,
   the two `full_subsets_gam()` Phase 7 regression tests, and everything in
   `test-deprecated.R`.
+- **The tests may not use `deparse1()`.** It arrived in R 4.0.0 and
+  `DESCRIPTION` declares `R (>= 3.5)`, so the suite has to run without it.
+  `deparse_one()` in `helper-fixtures.R` is the replacement, and matches
+  `deparse1()`'s `width.cutoff = 500L` -- `deparse()`'s own default of 60
+  wraps most of these formulas and changes the string.
 - **The numerical snapshots run everywhere, with one exclusion.** The
   binomial `gamm4`/`uGamm` scenario omits `edf` from its numeric snapshot,
   because gamm4 reports a smooth's edf through lme4's random-effect

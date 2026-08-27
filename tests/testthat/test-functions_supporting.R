@@ -249,7 +249,7 @@ test_that("fit_mod_l refits a gamm4 test.fit", {
   )
 
   expect_s3_class(updated, "gamm4")
-  expect_match(deparse1(stats::formula(updated$gam)), "av.wave", fixed = TRUE)
+  expect_match(deparse_one(stats::formula(updated$gam)), "av.wave", fixed = TRUE)
 })
 
 test_that("fit_mod_l accepts an explicitly supplied family", {
@@ -307,4 +307,32 @@ test_that("extract_mod_dat computes r2.lm.est for a non-binomial gamm4 fit", {
 
   expect_equal(out$r2.vals, expected)
   expect_false(is.na(out$r2.vals))
+})
+
+test_that("extract_mod_dat counts only severely shrunk smooth terms in edf.less.1", {
+  # edf.less.1 counts smooth terms whose edf is below 0.25, not below 1. The two
+  # thresholds are easy to confuse: edf < 1 is where edf is reset before being
+  # summed, a few lines earlier and for a different purpose. A fixture whose edf
+  # all fall on the same side of both thresholds cannot tell them apart, so this
+  # uses a shrinkage basis on simulated data with one real and two irrelevant
+  # predictors, giving edf that straddle 0.25.
+  set.seed(2)
+  n <- 200
+  sim.dat <- data.frame(x1 = runif(n), x2 = runif(n), x3 = runif(n))
+  sim.dat$y <- 2 * sim.dat$x1 + rnorm(n, sd = 0.5)
+  fit <- mgcv::gam(
+    y ~ s(x1, k = 5, bs = "ts") + s(x2, k = 5, bs = "ts") + s(x3, k = 5, bs = "ts"),
+    data = sim.dat
+  )
+  edf.m <- summary(fit)$edf
+  # the fixture must straddle both thresholds, or the assertions below pin nothing
+  expect_true(sum(edf.m < 0.25) > 0)
+  expect_true(sum(edf.m < 1) > sum(edf.m < 0.25))
+
+  out <- extract_mod_dat(fit, r2.type. = "r2")
+
+  expect_equal(out$edf.less.1, sum(edf.m < 0.25))
+  expect_false(isTRUE(all.equal(out$edf.less.1, sum(edf.m < 1))))
+  # and the summed edf resets the shrunk terms to 1 rather than dropping them
+  expect_equal(out$edf, round(sum(c(pmax(edf.m, 1), length(summary(fit)$p.coeff))), 2))
 })
