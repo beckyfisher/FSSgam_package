@@ -79,7 +79,7 @@ test_that("check_correlations handles a single factor predictor", {
 
 test_that("check_correlations parallel = TRUE matches the sequential result", {
   skip_on_cran()
-  skip_if_dev_loaded()
+  skip_unless_parallel_opt_in()
 
   dat <- fixture_cs1_data()
   dat$ZONE2 <- factor(

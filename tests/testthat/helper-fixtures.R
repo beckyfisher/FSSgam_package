@@ -207,29 +207,33 @@ full_subsets_quietly <- function(...) {
   out
 }
 
-# Skips a test when FSSgam has been loaded by pkgload (devtools::load_all(),
-# devtools::test()) rather than installed.
+# Guard for every test that starts a real doSNOW cluster.
 #
-# doSNOW workers are fresh R processes that load FSSgam with library() from the
-# installed library path; they never see pkgload's in-memory copy. Tests of the
-# parallel paths are therefore only meaningful against an installed package --
-# which is what R CMD check runs, and is where these tests are intended to
-# execute. See CLAUDE.md Section 6, Phase 12.
-skip_if_dev_loaded <- function() {
+# Two conditions must hold before such a test is meaningful, and one before it
+# is safe:
+#
+#  - FSSgam must be installed, not loaded by pkgload. A doSNOW worker is a fresh
+#    R process that loads FSSgam with library() from the installed library path;
+#    it never sees pkgload's in-memory copy, so running these against a
+#    devtools::load_all() copy tests nothing (CLAUDE.md Section 6, Phase 12).
+#  - The run must have opted in explicitly. doSNOW cluster startup has been
+#    observed to stall indefinitely whenever another process is working the
+#    machine hard -- including for a trivial foreach() containing no FSSgam code
+#    -- and an unattended hang in R CMD check, covr or CI costs the whole job
+#    where a skip costs nothing.
+#
+# To run them:
+#
+#   R CMD INSTALL .
+#   FSSGAM_TEST_PARALLEL=true NOT_CRAN=true Rscript -e \
+#     'library(FSSgam); testthat::test_dir("tests/testthat", package = "FSSgam")'
+skip_unless_parallel_opt_in <- function() {
+  if (!identical(tolower(Sys.getenv("FSSGAM_TEST_PARALLEL")), "true")) {
+    testthat::skip("set FSSGAM_TEST_PARALLEL=true to run the parallel tests")
+  }
   if (exists(".__DEVTOOLS__", envir = asNamespace("FSSgam"), inherits = FALSE)) {
     testthat::skip(
       "FSSgam is loaded via pkgload; parallel tests need an installed package"
     )
   }
-}
-
-# Replaces one candidate's formula with one that cannot be fitted, keeping its
-# name. Used to exercise the partial-failure paths: injecting the failure into
-# the model set is more reliable than trying to find real data that makes some
-# candidates fail and not others.
-break_one_candidate <- function(model.set, modname = "ZONE+depth") {
-  stopifnot(modname %in% names(model.set$mod.formula))
-  model.set$mod.formula[[modname]] <-
-    stats::as.formula("~ s(not_a_column, k = 3, bs = 'cr') + s(site, bs = 're')")
-  model.set
 }

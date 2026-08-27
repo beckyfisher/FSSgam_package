@@ -1,26 +1,20 @@
 # parallel = TRUE for both fitting paths.
 #
-# The suite has deliberately avoided spinning up a real doSNOW cluster because
-# of CRAN check time and flakiness, so everything here is skipped on CRAN. It is
-# also skipped whenever FSSgam has been loaded by pkgload rather than installed:
-# a doSNOW worker is a fresh R process that loads FSSgam with library() from the
-# installed library path, so testing this path against a pkgload copy tests
-# nothing (see CLAUDE.md Section 6, Phase 12). R CMD check installs the package
-# first, which is where these tests are meant to run.
+# Every test here is guarded by skip_unless_parallel_opt_in()
+# (tests/testthat/helper-fixtures.R), which requires an installed package and an
+# explicit FSSGAM_TEST_PARALLEL=true. See that function for why. In short: these
+# mean nothing against a pkgload copy, and doSNOW cluster startup is unreliable
+# enough on a loaded machine that they must not run unattended.
 #
-# skip_on_ci() as well: doSNOW clusters have been observed to hang indefinitely
-# on a loaded machine (a trivial foreach() with .packages= hangs the same way, so
-# it is not specific to this package), and a hang in CI costs the whole job where
-# a skip costs nothing. Run these deliberately, against an installed package:
-#
-#   R CMD INSTALL . && NOT_CRAN=true Rscript -e 'testthat::test_local()'
+#   R CMD INSTALL .
+#   FSSGAM_TEST_PARALLEL=true NOT_CRAN=true Rscript -e \
+#     'library(FSSgam); testthat::test_dir("tests/testthat", package = "FSSgam")'
 #
 # n.cores = 2 throughout, per CRAN's limit on parallel workers in checks.
 
 test_that("parallel = TRUE reproduces the sequential fit with saved model fits", {
   skip_on_cran()
-  skip_on_ci()
-  skip_if_dev_loaded()
+  skip_unless_parallel_opt_in()
 
   model.set <- fixture_cs1_model_set()
 
@@ -38,8 +32,7 @@ test_that("parallel = TRUE reproduces the sequential fit with saved model fits",
 
 test_that("parallel = TRUE reproduces the sequential fit with save.model.fits = FALSE", {
   skip_on_cran()
-  skip_on_ci()
-  skip_if_dev_loaded()
+  skip_unless_parallel_opt_in()
 
   model.set <- fixture_cs1_model_set()
 
@@ -59,8 +52,7 @@ test_that("parallel = TRUE keeps each candidate's extended-family state independ
   # Tweedie test.fit exercises that: its estimated power parameter lives in the
   # family object's own mutable environment.
   skip_on_cran()
-  skip_on_ci()
-  skip_if_dev_loaded()
+  skip_unless_parallel_opt_in()
 
   fit <- fixture_cs1_tweedie()
   model.set <- fixture_cs1_model_set(fit = fit)
@@ -83,8 +75,7 @@ test_that("parallel = TRUE works when family was supplied as a list element", {
   # always resolves through the global environment. See the matching comment in
   # test-fit_model_set.R.
   skip_on_cran()
-  skip_on_ci()
-  skip_if_dev_loaded()
+  skip_unless_parallel_opt_in()
 
   use.dat <- fixture_cs1_data()
   family.opts <<- list(gaussian(), tw())
@@ -107,8 +98,7 @@ test_that("parallel = TRUE works when family was supplied as a list element", {
 
 test_that("full_subsets_gam forwards parallel and n.cores", {
   skip_on_cran()
-  skip_on_ci()
-  skip_if_dev_loaded()
+  skip_unless_parallel_opt_in()
 
   fit <- fixture_cs1_gaussian()
   args <- list(

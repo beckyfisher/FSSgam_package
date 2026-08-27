@@ -629,15 +629,24 @@ Things worth knowing before touching the suite again:
 - **`break_one_candidate()`** injects an unfittable formula into a model
   set to exercise the partial-failure paths. That is more reliable than
   hunting for real data on which some candidates fail and others do not.
-- **The parallel tests carry three guards**: `skip_on_cran()`,
-  `skip_on_ci()` and `skip_if_dev_loaded()`. The last checks for
-  `.__DEVTOOLS__` in the FSSgam namespace, because a doSNOW worker always
-  loads the *installed* package (Phase 12), so running these against a
-  `load_all()` copy tests nothing. `skip_on_cran()` also means `covr` does
-  not execute them, which is why `check-correlations.R` (79.73%) and
-  `fit-model-set.R` (80.49%) sit below the rest -- every uncovered line in
-  both is inside a `parallel == TRUE` branch. Run them deliberately with
-  `R CMD INSTALL . && NOT_CRAN=true Rscript -e 'testthat::test_local()'`.
+- **Every `parallel = TRUE` test is opt-in.** `skip_unless_parallel_opt_in()`
+  requires `FSSGAM_TEST_PARALLEL=true` *and* an installed (not pkgload)
+  copy -- a doSNOW worker always loads the installed package (Phase 12),
+  so running these against a `load_all()` copy tests nothing. The opt-in
+  exists because doSNOW cluster startup stalls indefinitely on a loaded
+  machine (see the caution below), and an unattended hang in
+  `devtools::check()`, `covr` or CI costs the whole run. Note
+  `devtools::check()` sets `NOT_CRAN=true`, so `skip_on_cran()` alone would
+  not have protected it. Consequence: `covr` never executes those branches,
+  which is why `check-correlations.R` (79.73%) and `fit-model-set.R`
+  (80.49%) sit below the rest -- every uncovered line in both is inside a
+  `parallel == TRUE` branch. Run them deliberately with
+
+  ```
+  R CMD INSTALL .
+  FSSGAM_TEST_PARALLEL=true NOT_CRAN=true Rscript -e \
+    'library(FSSgam); testthat::test_dir("tests/testthat", package = "FSSgam")'
+  ```
 
 Five bugs were found while writing these tests. Three were fixed in their
 own commits, following the Phase 7 precedent (single-predictor model sets
