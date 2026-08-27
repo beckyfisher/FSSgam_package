@@ -122,6 +122,9 @@ test_that("generate_model_set builds no phantom by-terms when pred.vars.cont is 
   # sub-matrix and warned twice.
   fit <- fixture_cs1_gaussian()
 
+  # expect_no_warning() is the load-bearing assertion here: the phantom term was
+  # always discarded before the model set was returned, so the expect_false()
+  # below passed with the defect present too. Do not remove the warning check.
   expect_no_warning(
     model.set <- fixture_cs1_model_set(
       fit = fit, pred.vars.cont = NA, pred.vars.fact = "ZONE", max.predictors = 1

@@ -20,10 +20,9 @@ test_that("wi propagates NA at its original position", {
 
 test_that("extract_mod_dat extracts AICc/BIC/r2 for a fitted gam model", {
   library(mgcv)
-  data(case_study1)
   fit <- gam(
     Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
-    family = tw(), data = case_study1
+    family = tw(), data = FSSgam::case_study1
   )
 
   out.r2 <- extract_mod_dat(fit, r2.type. = "r2")
@@ -69,16 +68,15 @@ test_that("build_inclusion_mat marks predictors present, regardless of interacti
 
 test_that("fit_mod_l updates a test.fit with a new formula on the supplied data", {
   library(mgcv)
-  data(case_study1)
   base.fit <- gam(
     Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
-    family = tw(), data = case_study1
+    family = tw(), data = FSSgam::case_study1
   )
 
   updated <- fit_mod_l(
     formula.l = ~ s(complexity, k = 3, bs = "cr"),
     test.fit. = base.fit,
-    use.dat = case_study1
+    use.dat = FSSgam::case_study1
   )
 
   expect_s3_class(updated, "gam")
@@ -86,7 +84,7 @@ test_that("fit_mod_l updates a test.fit with a new formula on the supplied data"
   # re-fitting the same spec independently should land at essentially the
   # same optimum (allow for Tweedie's iterative power-parameter estimation)
   manual <- update(base.fit, formula = ~ s(complexity, k = 3, bs = "cr"),
-                    data = case_study1, family = family(base.fit))
+                    data = FSSgam::case_study1, family = family(base.fit))
   expect_equal(unname(coef(updated)), unname(coef(manual)), tolerance = 1e-4)
 })
 
@@ -104,8 +102,7 @@ test_that("fit_mod_l keeps every refit's extended-family state independent, even
   # fix (mgcv::gam() normalises away the environment a formula was
   # originally written in).
   library(mgcv)
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$Herbivore.abundance <- round(use.dat$Herbivore.abundance)
   family.opts <<- list(gaussian(), nb())
   on.exit(rm("family.opts", envir = globalenv()), add = TRUE)
@@ -128,35 +125,47 @@ test_that("fit_mod_l keeps every refit's extended-family state independent, even
 
 test_that("fit_mod_l returns a try-error for a formula that cannot be fit", {
   library(mgcv)
-  data(case_study1)
   base.fit <- gam(
     Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
-    family = tw(), data = case_study1
+    family = tw(), data = FSSgam::case_study1
   )
 
   result <- fit_mod_l(
     formula.l = ~ s(not_a_column, k = 3, bs = "cr"),
     test.fit. = base.fit,
-    use.dat = case_study1
+    use.dat = FSSgam::case_study1
   )
   expect_s3_class(result, "try-error")
 })
 
 # ---- extract_mod_dat across model classes -----------------------------------
 
-test_that("extract_mod_dat computes r2.lm.est for a gam from observed against fitted", {
+test_that("extract_mod_dat's r2.lm.est regresses the response on the link-scale prediction", {
+  # predict.gam() defaults to type = "link", so for a family with a non-identity
+  # link -- tw() uses log -- r2.lm.est is the R squared of observed against the
+  # *linear predictor*, not against the fitted mean. The two differ materially
+  # here, so this distinguishes the quantity actually reported from the more
+  # obvious response-scale one, which recomputing the implementation cannot.
   fit <- mgcv::gam(
     Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
     family = tw(), data = FSSgam::case_study1
   )
+  expect_equal(stats::family(fit)$link, "log")
 
   out <- extract_mod_dat(fit, r2.type. = "r2.lm.est")
-  expected <- round(summary(stats::lm(fit$y ~ stats::predict(fit)))$r.sq, 5)
 
-  expect_equal(out$r2.vals, expected)
-  # r2.lm.est is computed on the link scale, so it is not the same quantity as
-  # either summary()$r.sq or the deviance explained
+  on.link <- round(summary(stats::lm(
+    fit$y ~ stats::predict(fit, type = "link")
+  ))$r.sq, 5)
+  on.response <- round(summary(stats::lm(
+    fit$y ~ stats::predict(fit, type = "response")
+  ))$r.sq, 5)
+
+  expect_equal(out$r2.vals, on.link)
+  expect_false(isTRUE(all.equal(on.link, on.response)))
+  # and it is neither of the two quantities mgcv reports itself
   expect_false(isTRUE(all.equal(out$r2.vals, round(summary(fit)$r.sq, 5))))
+  expect_false(isTRUE(all.equal(out$r2.vals, round(summary(fit)$dev.expl, 5))))
 })
 
 test_that("extract_mod_dat sums edf plus parametric coefficients", {
@@ -222,8 +231,8 @@ test_that("extract_mod_dat handles a gamm (nlme) fit", {
 
   # Documented current behaviour, not an endorsement: extract_mod_dat() has no
   # gamm branch for the package default r2.type = "r2.lm.est", nor for "dev",
-  # so both silently report NA for a uGamm(lme4 = FALSE) fit. Reported upstream
-  # as its own issue; this test exists so that fixing it is a visible change.
+  # so both silently report NA for a uGamm(lme4 = FALSE) fit. Raised as
+  # FSSgam_package#6; this test exists so that fixing it is a visible change.
   expect_true(is.na(extract_mod_dat(fit, r2.type. = "r2.lm.est")$r2.vals))
   expect_true(is.na(extract_mod_dat(fit, r2.type. = "dev")$r2.vals))
 })

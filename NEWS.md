@@ -57,20 +57,18 @@
   run without smooth predictors). A phantom `NA.by.<factor>` interaction term
   was being constructed from the `NA` itself; it was discarded again before
   the model set was returned, so only the warnings were visible.
-
 * Bug fix: `case_study1` was documented as having 28 variables; it has 27.
-* Substantially expanded the `testthat` suite (#5), from 93 tests to 392 and
-  from 71% to 93% line coverage. New coverage includes: every non-default
-  argument of `generate_model_set()`, `fit_model_set()` and
+* Substantially expanded the `testthat` suite, from 93 tests to 400 and from
+  71% to 93% line coverage (FSSgam_package#5). New coverage includes: every
+  non-default argument of `generate_model_set()`, `fit_model_set()` and
   `full_subsets_gam()`; the `save.model.fits = FALSE` fitting path; `gamm4`,
   `uGamm` and `gamm` test.fits; the `cyclic.vars`, `linear.vars` and `bs.arg`
   formula construction; the bundled datasets; every documented error and
   warning message; and numerical snapshot tests pinning fitted values for five
   end-to-end scenarios.
-
 * Added a test-coverage GitHub Actions workflow
   (`.github/workflows/test-coverage.yaml`, using `covr` + Codecov) and a
-  coverage badge to the README (#3).
+  coverage badge to the README (FSSgam_package#3).
 
 # FSSgam 1.0.0
 

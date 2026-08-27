@@ -194,6 +194,14 @@ fixture_cs1_model_set <- function(fit = fixture_cs1_gaussian(), ...) {
 # the testthat reporter's own output. Warnings and errors are unaffected --
 # capture.output() only redirects stdout -- so expect_warning()/expect_error()
 # still work through this wrapper.
+#
+# Four tests call fit_model_set()/full_subsets_gam() directly rather than through
+# these wrappers, deliberately: the two issue #10/#12 family resolution tests in
+# test-fit_model_set.R, the used.data/predictor.correlations regression at the
+# top of test-full_subsets_gam.R and the size= regression at the bottom of it,
+# plus everything in test-deprecated.R. Issue FSSgam_package#5 asks for those to
+# be preserved as they stand, so they keep their original call form and their
+# progress output.
 fit_quietly <- function(...) {
   out <- NULL
   utils::capture.output(out <- fit_model_set(...))
@@ -211,6 +219,12 @@ full_subsets_quietly <- function(...) {
 # name. Used to exercise the partial-failure paths: injecting the failure into
 # the model set is more reliable than trying to find real data that makes some
 # candidates fail and not others.
+#
+# The default modname is the C-collation spelling. Candidate names are built by
+# sorting term names (see FSSgam_package#8), so the same candidate is called
+# "depth+ZONE" in a UTF-8 locale. testthat forces LC_COLLATE=C, so the default
+# holds throughout the suite, but pass modname explicitly if calling this from
+# an interactive session.
 break_one_candidate <- function(model.set, modname = "ZONE+depth") {
   stopifnot(modname %in% names(model.set$mod.formula))
   model.set$mod.formula[[modname]] <-

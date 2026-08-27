@@ -3,35 +3,58 @@
 # Everything else in the suite asserts on structure, relationships between
 # outputs, or values recomputed from the same fitted object, so a refactor that
 # quietly changed a fitted value would pass. These tests pin the actual numbers
-# for three representative end-to-end scenarios so that any such change shows up
+# for five representative end-to-end scenarios so that any such change shows up
 # as a reviewable diff in tests/testthat/_snaps/.
 #
-# Tolerance: mgcv's smoothing-parameter optimisation is not bit-identical across
-# BLAS implementations, so the comparison is made at 1e-3 relative rather than
-# exactly. That is also loose enough to absorb a last-digit flip in the
-# delta/weight columns, which the package itself rounds to three decimal places.
-# expect_snapshot_value() defaults to cran = FALSE, so these do not run on CRAN.
+# The comparison is split in two, because expect_snapshot_value() passes its
+# tolerance to waldo::compare(), which applies it element-wise and *relatively*.
+# One tolerance cannot serve both kinds of column here:
 #
-# Nothing snapshotted here embeds a path, a timestamp or an environment address.
+#  - delta.AICc, delta.BIC, wi.AICc, wi.BIC and the variable importance scores
+#    are already rounded to three decimal places by compute_model_weights(), and
+#    the importance scores are sums of those. A relative tolerance is the wrong
+#    instrument for them: 1e-3 relative would reject a weight moving from 0.007
+#    to 0.0075 -- a single-digit change in the last place the package itself
+#    keeps -- while accepting a change of 0.5 in a weight of 0.9. They are
+#    compared at testthat's default tolerance, which for values on a 0.001 grid
+#    is exact.
+#  - AICc, BIC, r2.vals and edf are unrounded (or rounded finely enough not to
+#    matter) and do vary at the last bits between BLAS implementations, because
+#    mgcv's smoothing-parameter optimisation is not bit-identical across them.
+#    They are compared at 1e-6 relative, which on an AICc of about 200 is 2e-4
+#    absolute -- far tighter than anything that could reorder two models, and
+#    far looser than the 1e-8 scale on which BLAS differences appear.
+#
+# expect_snapshot_value() defaults to cran = FALSE, so none of this runs on
+# CRAN. Nothing snapshotted here embeds a path, a timestamp or an environment
+# address.
 
-# Reduces a fit_model_set() result to a stable, comparable summary.
-snapshot_summary <- function(model.set, out) {
+# The columns the package rounds to three decimal places, plus the candidate
+# names and formulas. Compared exactly.
+snapshot_exact <- function(model.set, out) {
   mdo <- out$mod.data.out[order(out$mod.data.out$modname), ]
   list(
     formulas = vapply(
       model.set$mod.formula[sort(names(model.set$mod.formula))], deparse1, character(1)
     ),
     modname = mdo$modname,
-    AICc = mdo$AICc,
-    BIC = mdo$BIC,
     delta.AICc = mdo$delta.AICc,
     delta.BIC = mdo$delta.BIC,
     wi.AICc = mdo$wi.AICc,
     wi.BIC = mdo$wi.BIC,
-    r2.vals = mdo$r2.vals,
-    edf = mdo$edf,
     vi.aic = out$variable.importance$aic$variable.weights.raw,
     vi.bic = out$variable.importance$bic$variable.weights.raw
+  )
+}
+
+# The unrounded fit statistics. Compared at 1e-6 relative.
+snapshot_numeric <- function(out) {
+  mdo <- out$mod.data.out[order(out$mod.data.out$modname), ]
+  list(
+    AICc = mdo$AICc,
+    BIC = mdo$BIC,
+    r2.vals = mdo$r2.vals,
+    edf = mdo$edf
   )
 }
 
@@ -39,9 +62,8 @@ test_that("the Gaussian case_study1 model set is numerically unchanged", {
   model.set <- fixture_cs1_model_set()
   out <- fit_quietly(model.set, parallel = FALSE, report.unique.r2 = TRUE)
 
-  expect_snapshot_value(
-    snapshot_summary(model.set, out), style = "json2", tolerance = 1e-3
-  )
+  expect_snapshot_value(snapshot_exact(model.set, out), style = "json2")
+  expect_snapshot_value(snapshot_numeric(out), style = "json2", tolerance = 1e-6)
 })
 
 test_that("variable importance under VI.mods = 'all' is numerically unchanged", {
@@ -53,20 +75,20 @@ test_that("variable importance under VI.mods = 'all' is numerically unchanged", 
       aic = out$variable.importance$aic$variable.weights.raw,
       bic = out$variable.importance$bic$variable.weights.raw
     ),
-    style = "json2", tolerance = 1e-3
+    style = "json2"
   )
 })
 
 test_that("the negative binomial case_study1 model set is numerically unchanged", {
   # an extended family, so this also pins the behaviour of the per-candidate
-  # family resolution that issues #10 and #12 turned on
+  # family resolution that the two conflicting upstream issues
+  # (beckyfisher/FSSgam#10 and #12) turned on
   fit <- fixture_cs1_nb()
   model.set <- fixture_cs1_model_set(fit = fit)
   out <- fit_quietly(model.set, parallel = FALSE)
 
-  expect_snapshot_value(
-    snapshot_summary(model.set, out), style = "json2", tolerance = 1e-3
-  )
+  expect_snapshot_value(snapshot_exact(model.set, out), style = "json2")
+  expect_snapshot_value(snapshot_numeric(out), style = "json2", tolerance = 1e-6)
 })
 
 test_that("the binomial gamm4/uGamm model set is numerically unchanged", {
@@ -81,9 +103,8 @@ test_that("the binomial gamm4/uGamm model set is numerically unchanged", {
   )
   out <- fit_quietly(model.set, parallel = FALSE)
 
-  expect_snapshot_value(
-    snapshot_summary(model.set, out), style = "json2", tolerance = 1e-3
-  )
+  expect_snapshot_value(snapshot_exact(model.set, out), style = "json2")
+  expect_snapshot_value(snapshot_numeric(out), style = "json2", tolerance = 1e-6)
 })
 
 test_that("the cyclic case_study3 model set is numerically unchanged", {
@@ -99,7 +120,6 @@ test_that("the cyclic case_study3 model set is numerically unchanged", {
   )
   out <- fit_quietly(model.set, parallel = FALSE)
 
-  expect_snapshot_value(
-    snapshot_summary(model.set, out), style = "json2", tolerance = 1e-3
-  )
+  expect_snapshot_value(snapshot_exact(model.set, out), style = "json2")
+  expect_snapshot_value(snapshot_numeric(out), style = "json2", tolerance = 1e-6)
 })

@@ -601,7 +601,7 @@ report.unique.r2, VI.mods), `test-fit_model_set_parallel.R`,
 (`expect_snapshot_value()` snapshots of the model table, variable
 importance and candidate formulas for five end-to-end scenarios).
 
-Things worth knowing before touching the suite again:
+Points to note before extending the suite again:
 
 - **testthat forces `LC_COLLATE=C`.** Candidate model names are built by
   `sort()`ing term names, so under testthat a factor named `ZONE` sorts
@@ -620,27 +620,37 @@ Things worth knowing before touching the suite again:
   random effect whose grouping factor has (number of basis columns)
   levels; at `k = 3` that is one level, which lme4's `checkNlevels()`
   rejects outright ("grouping factors must have > 1 sampled level"). This
-  is not FSSgam's doing, but it does mean the `k = 3` used everywhere else
-  in the suite cannot be used for a `uGamm(lme4 = TRUE)` test.fit.
+  originates in gamm4 rather than in this package, but it does mean the
+  `k = 3` used everywhere else in the suite is unusable for a
+  `uGamm(lme4 = TRUE)` test.fit.
 - **`fit_quietly()`/`full_subsets_quietly()`** wrap the fitting calls in
   `capture.output()` purely to keep `fit_model_set()`'s unconditional
-  `txtProgressBar` out of the reporter's output (issue #9). Warnings and
-  errors pass through, so `expect_warning()`/`expect_error()` still work.
+  `txtProgressBar` out of the reporter's output (FSSgam_package#9).
+  Warnings and errors pass through, so `expect_warning()`/`expect_error()`
+  still work. Four groups of tests deliberately keep their original direct
+  call form, because issue FSSgam_package#5 asks for them to be preserved
+  as they stand: the two beckyfisher/FSSgam#10/#12 family resolution tests,
+  the two `full_subsets_gam()` Phase 7 regression tests, and everything in
+  `test-deprecated.R`.
 - **`break_one_candidate()`** injects an unfittable formula into a model
-  set to exercise the partial-failure paths. That is more reliable than
-  hunting for real data on which some candidates fail and others do not.
+  set to exercise the partial-failure paths. This is more reliable than
+  locating real data on which some candidates fail and others do not.
 - **Every `parallel = TRUE` test is opt-in.** `skip_unless_parallel_opt_in()`
   requires `FSSGAM_TEST_PARALLEL=true` *and* an installed (not pkgload)
   copy -- a doSNOW worker always loads the installed package (Phase 12),
   so running these against a `load_all()` copy tests nothing. The opt-in
   exists because doSNOW cluster startup stalls indefinitely on a loaded
-  machine (see the caution below), and an unattended hang in
-  `devtools::check()`, `covr` or CI costs the whole run. Note
-  `devtools::check()` sets `NOT_CRAN=true`, so `skip_on_cran()` alone would
-  not have protected it. Consequence: `covr` never executes those branches,
-  which is why `check-correlations.R` (79.73%) and `fit-model-set.R`
-  (80.49%) sit below the rest -- every uncovered line in both is inside a
-  `parallel == TRUE` branch. Run them deliberately with
+  machine (see the caution below); an unattended stall consumes the entire
+  runtime of a `devtools::check()`, `covr` or CI job. Note that
+  `devtools::check()` sets `NOT_CRAN=true`, so `skip_on_cran()` alone does
+  not protect it. Consequence: `covr` never executes those branches, which
+  is why `check-correlations.R` and `fit-model-set.R` sit below the rest on
+  line coverage -- every uncovered line in both, bar
+  `check-correlations.R`'s equal-deviance branch, is inside a
+  `parallel == TRUE` branch. `.github/workflows/parallel-tests.yaml` is the
+  one place they run automatically; it installs the package, sets the
+  variable, and carries its own `timeout-minutes` so a stalled cluster
+  fails that job alone. Locally:
 
   ```
   R CMD INSTALL .
@@ -648,26 +658,38 @@ Things worth knowing before touching the suite again:
     'library(FSSgam); testthat::test_dir("tests/testthat", package = "FSSgam")'
   ```
 
-Five bugs were found while writing these tests. Three were fixed in their
-own commits, following the Phase 7 precedent (single-predictor model sets
-failing in `check_correlations()`; phantom `NA.by.<factor>` terms when
-`pred.vars.cont = NA`; interaction terms silently dropped for every
-`linear.vars` entry after the first), plus the `case_study1` `@format`
-count. The remainder were raised as issues rather than fixed here, being
-behaviour decisions rather than defects: #6 (`extract_mod_dat()` returns
-NA r2 for `gamm` fits under the default `r2.type`), #7
-(`full_subsets_gam()` does not forward `VI.mods`), #8 (locale-dependent
-model names), #9 (progress bar cannot be suppressed), #10 (spurious
-"NaNs produced" warnings out of `nnet`). Tests pin the current behaviour
-in each case, with a comment naming the issue, so fixing one shows up as a
-visible test change.
+**Issue numbering.** The historical `#10` and `#12` referenced throughout
+Phases 11-12, in `R/utils.R`, `R/fit-model-set.R`,
+`R/functions_supporting.R` and their tests, are issues in the *publication*
+repository `beckyfisher/FSSgam`, not in this one. This package repository
+has its own #10, filed during Phase 13, and no #12 of the same vintage.
+References added from Phase 13 onward are qualified explicitly --
+`beckyfisher/FSSgam#10` or `FSSgam_package#6` -- and new ones should be.
+
+Four bugs were fixed in their own commits, following the Phase 7 precedent:
+single-predictor model sets failing in `check_correlations()`; phantom
+`NA.by.<factor>` terms when `pred.vars.cont = NA`; interaction terms
+silently dropped for every `linear.vars` entry after the first; and the
+`case_study1` `@format` variable count. Six further findings were raised as
+issues rather than resolved here, being behaviour decisions rather than
+defects: FSSgam_package#6 (`extract_mod_dat()` returns NA r2 for `gamm`
+fits under the default `r2.type`), #7 (`full_subsets_gam()` does not
+forward `VI.mods`), #8 (locale-dependent model names), #9 (progress bar
+cannot be suppressed), #10 (spurious "NaNs produced" warnings out of
+`nnet`), and #12 (the factor-factor correlation diagonal is not exactly 1).
+A test pins the current behaviour in each case, with a comment naming the
+issue, so that fixing one appears as a visible test change.
 
 **Caution for next time:** doSNOW cluster startup stalled repeatedly while
-this work was done, including for a trivial `foreach()` with no FSSgam
-code in it, whenever another R process was doing heavy work on the same
-machine. This is the same symptom recorded in the Phase 6b caution. Before
-concluding that a `parallel = TRUE` path is broken, check `ps` for other R
-processes and re-run in isolation.
+this work was done, including for a trivial `foreach()` containing no
+FSSgam code, and including on an otherwise idle machine. Measured on this
+WSL host: `test-fit_model_set_parallel.R` completed cleanly on two of four
+consecutive attempts (14 expectations, 0 failures) and stalled past 180
+seconds on the other two; the same file's contents run from a plain script
+completed six times out of six. This is a wider version of the symptom
+recorded in the Phase 6b caution. Before concluding that a
+`parallel = TRUE` path is broken, check `ps` for other R processes, re-run
+in isolation, and re-run more than once.
 
 ---
 

@@ -1,6 +1,5 @@
 test_that("generate_model_set builds factor-factor interaction terms when requested", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   use.dat$ZONE2 <- factor(ifelse(use.dat$depth > median(use.dat$depth), "deep", "shallow"))
   test.fit <- mgcv::gam(
@@ -25,15 +24,14 @@ test_that("generate_model_set builds factor-factor interaction terms when reques
 })
 
 test_that("generate_model_set builds a te() smooth-smooth interaction for uncorrelated predictors", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
     data = use.dat
   )
 
-  # depth and SCORE2 have near-zero correlation in case_study1, so the te()
+  # depth and SCORE2 have near-zero correlation in FSSgam::case_study1, so the te()
   # interaction survives the cov.cutoff exclusion (default 0.28)
   model.set <- generate_model_set(
     use.dat = use.dat,
@@ -52,8 +50,7 @@ test_that("generate_model_set builds a te() smooth-smooth interaction for uncorr
 })
 
 test_that("smooth-smooth interactions are excluded when predictors exceed cov.cutoff", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
@@ -77,8 +74,7 @@ test_that("smooth-smooth interactions are excluded when predictors exceed cov.cu
 })
 
 test_that("generate_model_set uses check_non_linear_correlations when requested", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
@@ -165,7 +161,7 @@ test_that("factor.factor.interactions respects max.predictors when building comb
   # suppressWarnings: a pasted interaction column is perfectly predicted by its
   # own components, and the multinom() summary that check_correlations() takes
   # the deviance from warns "NaNs produced" while computing standard errors it
-  # then discards (issue #10). The correlations themselves are correct.
+  # then discards (FSSgam_package#10). The correlations themselves are correct.
   model.set <- suppressWarnings(fixture_cs1_model_set(
     fit = fit,
     pred.vars.cont = "depth",
@@ -221,4 +217,102 @@ test_that("named smooth.smooth.interactions are screened with non-linear correla
   )
 
   expect_true("depth.te.SCORE2" %in% names(model.set$mod.formula))
+})
+
+test_that("named factor.factor.interactions are still screened against cov.cutoff", {
+  # The character-vector form of factor.factor.interactions has its own
+  # correlation-exclusion pass, separate from the logical TRUE form tested above.
+  # ZONE.copy is a relabelling of ZONE, so that pair must be dropped while the
+  # independent ZONE/ZONE2 pair survives.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+
+  model.set <- suppressWarnings(fixture_cs1_model_set(
+    fit = fit,
+    pred.vars.cont = "depth",
+    pred.vars.fact = c("ZONE", "ZONE2", "ZONE.copy"),
+    factor.factor.interactions = c("ZONE", "ZONE2", "ZONE.copy"),
+    max.predictors = 2
+  ))
+  interaction.cols <- grep(".I.", colnames(model.set$used.data), fixed = TRUE, value = TRUE)
+
+  expect_true("ZONE.I.ZONE2" %in% interaction.cols)
+  expect_false("ZONE.I.ZONE.copy" %in% interaction.cols)
+})
+
+test_that("named smooth.smooth.interactions are still screened against cov.cutoff", {
+  # complexity and depth correlate above the default cov.cutoff in FSSgam::case_study1,
+  # so naming them explicitly must not bypass the exclusion the logical TRUE
+  # form applies.
+  model.set <- fixture_cs1_model_set(
+    pred.vars.cont = c("complexity", "depth"),
+    pred.vars.fact = NA,
+    smooth.smooth.interactions = c("complexity", "depth"),
+    max.predictors = 2
+  )
+
+  expect_false(any(grepl(".te.", names(model.set$mod.formula), fixed = TRUE)))
+})
+
+test_that("cov.cutoff decides which predictors may share a model", {
+  # complexity and depth correlate at about 0.61 in FSSgam::case_study1: excluded at the
+  # default 0.28, admitted once cov.cutoff is raised past their correlation.
+  fit <- fixture_cs1_gaussian()
+  observed.cor <- abs(stats::cor(fit$use.dat$complexity, fit$use.dat$depth))
+  expect_true(observed.cor > 0.28 && observed.cor < 0.9)
+
+  strict <- fixture_cs1_model_set(fit = fit, pred.vars.fact = NA, cov.cutoff = 0.28)
+  relaxed <- fixture_cs1_model_set(fit = fit, pred.vars.fact = NA, cov.cutoff = 0.9)
+
+  expect_false("complexity+depth" %in% names(strict$mod.formula))
+  expect_true("complexity+depth" %in% names(relaxed$mod.formula))
+  # and the single-predictor models are unaffected either way
+  expect_true(all(c("complexity", "depth") %in% names(strict$mod.formula)))
+})
+
+test_that("interaction enumeration is capped by the number of predictors, not max.predictors", {
+  # Both interaction builders clamp their combn() depth to the number of
+  # predictors available to them when max.predictors is larger, which is what
+  # keeps combn() from being asked for combinations that cannot exist.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  factors <- fixture_cs1_model_set(
+    fit = fit,
+    pred.vars.cont = c("complexity", "depth"),
+    pred.vars.fact = c("ZONE", "ZONE2"),
+    factor.factor.interactions = TRUE,
+    max.predictors = 3
+  )
+  # only the two-way interaction exists; a three-way one would need a third factor
+  interaction.cols <- grep(".I.", colnames(factors$used.data), fixed = TRUE, value = TRUE)
+  expect_equal(interaction.cols, "ZONE.I.ZONE2")
+
+  # the character-vector form clamps against the number of factors it was given,
+  # not against the whole of pred.vars.fact
+  named <- fixture_cs1_model_set(
+    fit = fit,
+    pred.vars.cont = c("complexity", "depth"),
+    pred.vars.fact = c("ZONE", "ZONE2"),
+    factor.factor.interactions = c("ZONE", "ZONE2"),
+    max.predictors = 3
+  )
+  expect_equal(
+    grep(".I.", colnames(named$used.data), fixed = TRUE, value = TRUE), "ZONE.I.ZONE2"
+  )
+
+  smooths <- fixture_cs1_model_set(
+    fit = fit,
+    pred.vars.cont = c("depth", "SCORE2", "complexity"),
+    pred.vars.fact = NA,
+    smooth.smooth.interactions = c("depth", "SCORE2"),
+    max.predictors = 3
+  )
+  te.terms <- grep(".te.", names(smooths$mod.formula), fixed = TRUE, value = TRUE)
+  expect_true(all(grepl("^depth\\.te\\.SCORE2", te.terms)))
 })

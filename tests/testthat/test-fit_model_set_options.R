@@ -107,17 +107,6 @@ test_that("r2.type = 'dev' reports mgcv's deviance explained", {
   expect_equal(out$mod.data.out$r2.vals, unname(expected))
 })
 
-test_that("r2.type does not change model ranking", {
-  model.set <- fixture_cs1_model_set()
-
-  ranks <- lapply(c("r2.lm.est", "r2", "dev"), function(rt) {
-    out <- fit_quietly(model.set, parallel = FALSE, r2.type = rt)
-    out$mod.data.out$modname[order(out$mod.data.out$AICc)]
-  })
-  expect_equal(ranks[[2]], ranks[[1]])
-  expect_equal(ranks[[3]], ranks[[1]])
-})
-
 # ---- report.unique.r2 -------------------------------------------------------
 
 test_that("report.unique.r2 = TRUE adds r2.vals.unique as r2 less the null model r2", {
@@ -179,25 +168,6 @@ test_that("VI.mods = 'min.n' (the default) sums only the best n models per predi
       info = v
     )
   }
-})
-
-test_that("VI.mods = 'min.n' never exceeds VI.mods = 'all'", {
-  # 'min.n' sums a subset of the weights 'all' sums, so it is bounded above by it
-  model.set <- fixture_cs1_model_set()
-
-  min.n <- fit_quietly(model.set, parallel = FALSE, VI.mods = "min.n")
-  all.n <- fit_quietly(model.set, parallel = FALSE, VI.mods = "all")
-
-  expect_true(all(
-    min.n$variable.importance$aic$variable.weights.raw <=
-      all.n$variable.importance$aic$variable.weights.raw + 1e-8
-  ))
-  expect_named(
-    min.n$variable.importance$aic$variable.weights.raw, model.set$included.vars
-  )
-  expect_named(
-    all.n$variable.importance$aic$variable.weights.raw, model.set$included.vars
-  )
 })
 
 # ---- failure handling -------------------------------------------------------

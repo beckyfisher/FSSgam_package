@@ -45,8 +45,7 @@ test_that("fit_model_set works when family is supplied as a list element rather 
   # function's local frame -- true of both the pre-fix and post-fix
   # mechanisms, and not something this fix changes or needs to change.
   library(mgcv)
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   family.opts <<- list(gaussian(), tw())
   on.exit(rm("family.opts", envir = globalenv()), add = TRUE)
@@ -75,8 +74,7 @@ test_that("fit_model_set works when family is supplied as a list element rather 
 
 test_that("fit_model_set works with a negative binomial family (extended family with estimated theta)", {
   library(mgcv)
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   use.dat$Herbivore.abundance <- round(use.dat$Herbivore.abundance)
   test.fit <- gam(
@@ -129,7 +127,7 @@ test_that("fit_model_set fits a gamm4/uGamm model set with a random effect", {
   )))
 })
 
-test_that("fit_model_set fits a factor-heavy case_study2 model set with nested random effects", {
+test_that("fit_model_set fits a factor-heavy FSSgam::case_study2 model set with nested random effects", {
   fit <- fixture_cs2_tweedie()
 
   model.set <- generate_model_set(

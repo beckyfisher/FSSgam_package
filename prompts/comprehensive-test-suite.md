@@ -83,3 +83,48 @@ when it has 27.
 *Genuine issues outside this scope, raised on GitHub*: #6, #7, #8, #9, #10.
 
 ---
+
+**Claude (work log, cycle 2 -- addressing an independent review):**
+
+A fresh session reviewed the branch against issue #5 and both `CLAUDE.md`
+files, and returned two blocking findings, five "should fix" and seven
+"consider". Actions taken:
+
+*Blocking 1 -- the parallel tests had never been executed, and nothing in the
+repository could execute them.* The file was run four times against the
+installed package: two runs completed cleanly (14 expectations, 0 failures) and
+two stalled past 180 s, giving a measured 50% stall rate on this host. Added
+`.github/workflows/parallel-tests.yaml`, which installs the package, sets
+`FSSGAM_TEST_PARALLEL=true` and `NOT_CRAN=true`, carries its own
+`timeout-minutes`, and fails if any test is skipped -- so a stall costs that job
+alone rather than an `R CMD check` run.
+
+*Blocking 2 -- the written coverage justification was wrong in three places.*
+`R/check-correlations.R:135` is in the sequential loop, not the parallel branch;
+`R/generate-model-set.R:303` and `:453` are `cov.cutoff` exclusions inside the
+character-vector forms of `factor.factor.interactions` and
+`smooth.smooth.interactions`, not `max.predictors` clamps;
+`R/functions_supporting.R:87` is the NULL-r2 guard, not the `dsm` branch. All
+five are now covered by tests rather than explained away.
+
+*Should fix.* The snapshot comparison was split: the columns the package rounds
+to three decimal places are compared exactly, the unrounded fit statistics at
+1e-6 relative -- the previous single 1e-3 relative tolerance permitted 0.2 of
+drift on an AICc of 205 while rejecting a last-digit change in a weight of
+0.007. Issue references were qualified by tracker (`beckyfisher/FSSgam#10`
+versus `FSSgam_package#10`), since the historical #10/#12 belong to the
+publication repository and this repository now has its own #10. `cov.cutoff` is
+now asserted rather than merely passed. The remaining `data(case_study1)` calls
+were replaced with `FSSgam::case_study1`, removing global-environment
+pollution. Six further calls were routed through the quiet wrappers.
+
+*Consider.* The `.t.` match was narrowed from a bare separator to
+`startsWith()` against each linear predictor's own prefix. Two tests that could
+not fail were removed. The `r2.lm.est` assertion now pins the link scale
+against an independently derived response-scale value. Comments were added
+where a reader could otherwise remove the load-bearing assertion.
+
+*Further issue raised*: FSSgam_package#12, the factor-factor correlation
+diagonal not being exactly 1.
+
+---

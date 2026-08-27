@@ -1,6 +1,5 @@
 test_that("generate.model.set warns and forwards to generate_model_set", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
@@ -24,8 +23,7 @@ test_that("generate.model.set warns and forwards to generate_model_set", {
 })
 
 test_that("fit.model.set warns and forwards to fit_model_set", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
@@ -48,8 +46,7 @@ test_that("fit.model.set warns and forwards to fit_model_set", {
 })
 
 test_that("full_subsets_gam does not itself emit deprecation warnings", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
@@ -70,8 +67,7 @@ test_that("full_subsets_gam does not itself emit deprecation warnings", {
 })
 
 test_that("full.subsets.gam warns and forwards to full_subsets_gam", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),

@@ -46,11 +46,11 @@ test_that("parallel = TRUE reproduces the sequential fit with save.model.fits = 
 })
 
 test_that("parallel = TRUE keeps each candidate's extended-family state independent", {
-  # The parallel half of the issue #10/#12 conflict. Every candidate's family is
-  # resolved on the calling process, before makeCluster(), precisely so that a
-  # worker never has to re-evaluate test.fit's family expression itself. A
-  # Tweedie test.fit exercises that: its estimated power parameter lives in the
-  # family object's own mutable environment.
+  # The parallel half of the beckyfisher/FSSgam#10 / #12 conflict. Every
+  # candidate's family is resolved on the calling process, before makeCluster(),
+  # precisely so that a worker never has to re-evaluate test.fit's family
+  # expression itself. A Tweedie test.fit exercises that: its estimated power
+  # parameter lives in the family object's own mutable environment.
   skip_on_cran()
   skip_unless_parallel_opt_in()
 
@@ -65,9 +65,9 @@ test_that("parallel = TRUE keeps each candidate's extended-family state independ
 })
 
 test_that("parallel = TRUE works when family was supplied as a list element", {
-  # Issue #10 proper: under parallel = TRUE every candidate used to fail with
-  # "object 'family.opts' not found", because update() re-evaluated test.fit's
-  # family expression on a worker that had never seen family.opts.
+  # beckyfisher/FSSgam#10 proper: under parallel = TRUE every candidate used
+  # to fail with "object 'family.opts' not found", because update() re-evaluated
+  # test.fit's family expression on a worker that had never seen family.opts.
   #
   # family.opts is assigned to the global environment (via <<-) rather than left
   # local to this block, mirroring a real top-level user script -- mgcv::gam()

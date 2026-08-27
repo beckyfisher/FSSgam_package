@@ -579,13 +579,20 @@ build_model_formulas=function(use.mods,pred.vars.cont,pred.vars.fact,linear.vars
      te.smooths=mod.m[grep(".te.",mod.m,fixed=TRUE)]
      factor.terms=mod.m[which(match(mod.m,pred.vars.fact)>0)]
      linear.terms=mod.m[which(match(mod.m,linear.vars)>0)]
-     # Match on the ".t." separator alone, the same way ".by."/".te." are matched
-     # above. Building the pattern as paste(linear.vars,".t.") made it a vector
-     # whenever more than one linear.vars was supplied, and grep() then silently
-     # used only its first element -- so every interaction term belonging to a
-     # second or later linear predictor was dropped from the fitted formula
-     # while still naming the candidate as if it were present.
-     linear.interaction.terms=mod.m[grep(".t.",mod.m,fixed=TRUE)]
+     # Tested against every linear predictor's own "<name>.t." prefix. Building
+     # the pattern as paste(linear.vars,".t.") made it a vector whenever more
+     # than one linear.vars was supplied, and grep() then silently used only its
+     # first element -- so every interaction term belonging to a second or later
+     # linear predictor was dropped from the fitted formula while still naming
+     # the candidate as if it were present. startsWith() rather than grep()
+     # because predictor names routinely contain "." and other regex
+     # metacharacters; matching a bare ".t." would work today but would depend
+     # on no user predictor name ever containing that substring.
+     linear.interaction.terms=character()
+     if(length(stats::na.omit(linear.vars))>0){
+       linear.prefixes=paste(stats::na.omit(linear.vars),".t.",sep="")
+       linear.interaction.terms=mod.m[vapply(mod.m,function(term.){
+         any(startsWith(term.,linear.prefixes))},logical(1))]}
      all.terms.vec=character()
 
      if(length(cont.smooths>0)){all.terms.vec=c(all.terms.vec,

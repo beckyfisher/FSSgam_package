@@ -1,6 +1,5 @@
 test_that("check_non_linear_correlations builds a matrix with a unit diagonal", {
-  data(case_study1)
-  cm <- check_non_linear_correlations(case_study1[, c("depth", "complexity", "ZONE")])
+  cm <- check_non_linear_correlations(FSSgam::case_study1[, c("depth", "complexity", "ZONE")])
 
   expect_true(is.matrix(cm))
   expect_equal(dim(cm), c(3, 3))
@@ -11,14 +10,12 @@ test_that("check_non_linear_correlations builds a matrix with a unit diagonal", 
 
 test_that("check_non_linear_correlations is not necessarily symmetric", {
   # row = response, column = predictor, so off-diagonal entries can differ
-  data(case_study1)
-  cm <- check_non_linear_correlations(case_study1[, c("depth", "complexity")])
+  cm <- check_non_linear_correlations(FSSgam::case_study1[, c("depth", "complexity")])
   expect_true(all(cm >= 0 & cm <= 1))
 })
 
 test_that("check_non_linear_correlations errors on an unsupported column class", {
-  data(case_study1)
-  bad.dat <- case_study1[, c("depth", "complexity")]
+  bad.dat <- FSSgam::case_study1[, c("depth", "complexity")]
   bad.dat$listcol <- as.list(seq_len(nrow(bad.dat)))
   expect_error(check_non_linear_correlations(bad.dat), "not supported")
 })
@@ -83,4 +80,20 @@ test_that("the gam basis dimension is reduced for predictors with few unique val
 
   expected <- sqrt(summary(mgcv::gam(SCORE2 ~ s(coarse, k = 3), data = dat))$r.sq)
   expect_equal(unname(cm["SCORE2", "coarse"]), expected, tolerance = 1e-6)
+})
+
+test_that("a factor response with an uninformative predictor is reported as uncorrelated", {
+  # The multinomial branch estimates sqrt(1 - fit/null). When the predictor
+  # carries no information the two deviances are identical, and the guarded
+  # branch returns exactly 0 rather than a square root of a quantity that is
+  # zero only to the optimiser's tolerance. predf splits each level of respf
+  # exactly in half, so the two models are the same model.
+  dat <- data.frame(
+    respf = factor(rep(c("a", "b"), each = 34)),
+    predf = factor(rep(c("x", "y"), times = 34))
+  )
+  cm <- check_non_linear_correlations(dat)
+
+  expect_equal(unname(cm["respf", "predf"]), 0)
+  expect_equal(unname(cm["predf", "respf"]), 0)
 })

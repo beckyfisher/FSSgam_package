@@ -1,6 +1,5 @@
 test_that("full_subsets_gam returns a fully populated output list", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
@@ -35,8 +34,7 @@ test_that("full_subsets_gam returns a fully populated output list", {
 })
 
 test_that("full_subsets_gam matches a separate generate_model_set + fit_model_set call", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
@@ -48,7 +46,7 @@ test_that("full_subsets_gam matches a separate generate_model_set + fit_model_se
     null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
   )
 
-  combined <- full_subsets_gam(
+  combined <- full_subsets_quietly(
     use.dat = args$use.dat, test.fit = args$test.fit,
     pred.vars.cont = args$pred.vars.cont, pred.vars.fact = args$pred.vars.fact,
     null.terms = args$null.terms, max.predictors = args$max.predictors, k = args$k
@@ -58,14 +56,13 @@ test_that("full_subsets_gam matches a separate generate_model_set + fit_model_se
     pred.vars.cont = args$pred.vars.cont, pred.vars.fact = args$pred.vars.fact,
     null.terms = args$null.terms, max.predictors = args$max.predictors, k = args$k
   )
-  separate <- fit_model_set(model.set, parallel = FALSE)
+  separate <- fit_quietly(model.set, parallel = FALSE)
 
   expect_equal(combined$mod.data.out$AICc, separate$mod.data.out$AICc)
 })
 
 test_that("full_subsets_gam's legacy factor.interactions argument forwards with a warning", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
@@ -73,7 +70,7 @@ test_that("full_subsets_gam's legacy factor.interactions argument forwards with 
   )
 
   expect_warning(
-    legacy <- full_subsets_gam(
+    legacy <- full_subsets_quietly(
       use.dat = use.dat, test.fit = test.fit,
       pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
       factor.interactions = TRUE,
@@ -81,7 +78,7 @@ test_that("full_subsets_gam's legacy factor.interactions argument forwards with 
     ),
     "factor.factor.interactions"
   )
-  current <- full_subsets_gam(
+  current <- full_subsets_quietly(
     use.dat = use.dat, test.fit = test.fit,
     pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
     factor.factor.interactions = TRUE,
@@ -92,8 +89,7 @@ test_that("full_subsets_gam's legacy factor.interactions argument forwards with 
 })
 
 test_that("full_subsets_gam's legacy smooth.interactions argument forwards with a warning", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
@@ -101,7 +97,7 @@ test_that("full_subsets_gam's legacy smooth.interactions argument forwards with 
   )
 
   expect_warning(
-    legacy <- full_subsets_gam(
+    legacy <- full_subsets_quietly(
       use.dat = use.dat, test.fit = test.fit,
       pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
       smooth.interactions = NA,
@@ -109,7 +105,7 @@ test_that("full_subsets_gam's legacy smooth.interactions argument forwards with 
     ),
     "factor.smooth.interactions"
   )
-  current <- full_subsets_gam(
+  current <- full_subsets_quietly(
     use.dat = use.dat, test.fit = test.fit,
     pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
     factor.smooth.interactions = NA,
@@ -122,8 +118,7 @@ test_that("full_subsets_gam's legacy smooth.interactions argument forwards with 
 })
 
 test_that("full_subsets_gam's legacy size argument constrains max.predictors", {
-  data(case_study1)
-  use.dat <- case_study1
+  use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
@@ -249,7 +244,7 @@ test_that("full_subsets_gam forwards a user-supplied cor.matrix and non.linear.c
 test_that("full_subsets_gam has no VI.mods argument and always uses the min.n default", {
   # Recorded as current behaviour: fit_model_set() takes VI.mods but
   # full_subsets_gam() does not forward it, so the all-models variant is
-  # unreachable through the wrapper. Reported upstream as its own issue.
+  # unreachable through the wrapper. Raised as FSSgam_package#7.
   expect_false("VI.mods" %in% names(formals(full_subsets_gam)))
 
   fit <- fixture_cs1_gaussian()
