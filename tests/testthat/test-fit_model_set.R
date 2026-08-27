@@ -27,7 +27,7 @@ test_that("fit_model_set works with a Tweedie family (non-Gaussian)", {
 })
 
 test_that("fit_model_set works when family is supplied as a list element rather than a literal call", {
-  # Regression test for GitHub issue #10. Passing family = family.opts[[2]]
+  # Regression test for GitHub issue beckyfisher/FSSgam#10. Passing family = family.opts[[2]]
   # (rather than family = tw() written out directly) used to make every
   # candidate model fail under parallel = TRUE, because fit_mod_l() relied
   # on update() re-evaluating that *expression* wherever the refit itself

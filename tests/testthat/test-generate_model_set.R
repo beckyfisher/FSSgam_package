@@ -27,24 +27,6 @@ test_that("generate_model_set returns exactly the elements it documents", {
   expect_type(model.set$included.vars, "character")
 })
 
-test_that("generate_model_set returns no duplicate candidates", {
-  # enumerate_candidate_models() sorts each term combination and then dedupes,
-  # so that e.g. c("depth","ZONE") and c("ZONE","depth") do not both survive as
-  # separate candidates. Without the dedupe the set would carry repeated fits
-  # under repeated names, which fit_model_set() would then weight twice.
-  model.set <- fixture_cs1_model_set(
-    pred.vars.cont = c("complexity", "depth"),
-    pred.vars.fact = "ZONE",
-    linear.vars = "SCORE2",
-    max.predictors = 3
-  )
-
-  expect_equal(anyDuplicated(names(model.set$mod.formula)), 0L)
-  expect_equal(
-    anyDuplicated(vapply(model.set$mod.formula, deparse_one, character(1))), 0L
-  )
-})
-
 test_that("generate_model_set errors when use.dat is not a data.frame", {
   expect_error(
     generate_model_set(use.dat = list(a = 1), test.fit = NULL, pred.vars.cont = "a"),

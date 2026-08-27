@@ -137,9 +137,11 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
   # started -- not lazily inside fit_mod_l() on whatever process ends up
   # refitting that candidate. A doSNOW worker never has this (the calling
   # process's) variables in scope, so resolving family on the worker would
-  # fail whenever family was supplied via a variable (GitHub issue #10).
+  # fail whenever family was supplied via a variable (GitHub issue
+  # beckyfisher/FSSgam#10).
   # Resolving per-candidate (rather than once, shared) also keeps every
-  # refit's family object independent (GitHub issue #12). See
+  # refit's family object independent (GitHub issue beckyfisher/FSSgam#12).
+  # See
   # resolve_candidate_family() in R/utils.R.
   family.list <- lapply(seq_len(length(mod.formula)),function(i.) resolve_candidate_family(test.fit))
 
@@ -204,7 +206,7 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
 
   # See the matching comment in fit_and_summarise_saved_models() above --
   # resolved here, per candidate, before any parallel workers start (GitHub
-  # issues #10 and #12).
+  # issues beckyfisher/FSSgam#10 and #12).
   family.list <- lapply(seq_len(length(mod.formula)),function(i.) resolve_candidate_family(test.fit))
 
   if(parallel==TRUE){

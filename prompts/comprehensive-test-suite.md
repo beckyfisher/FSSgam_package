@@ -206,3 +206,44 @@ assertions, the second using a simulated shrinkage fit whose edf straddle 0.25,
 because no bundled dataset produces one.
 
 ---
+
+**Claude (work log, cycle 5 -- addressing a fourth independent review):**
+
+The fourth review found that the two "untested behaviours" cycle 4 claimed to
+have closed were both still untested, and that three records said otherwise.
+Both were confirmed by mutating the source and re-running the suite: deleting
+`enumerate_candidate_models()`'s `unique()`, and changing `edf.less.1`'s
+threshold from 0.25 to 0.5, each left 432 expectations passing.
+
+*The dedupe assertion was placed where the dedupe is inert.* In the chosen
+configuration no candidate ever reaches `use.mods` twice, so
+`anyDuplicated(names(...)) == 0` held with or without `unique()`. Moved to the
+existing test where `depth` is named in both `pred.vars.cont` and
+`linear.vars`, which is the case that actually produces two candidates named
+`depth`. The mutation now fails two expectations.
+
+*The edf fixture separated the wrong pair of thresholds.* Its edf were 2.5950 /
+0.0723 / 0.7437, which distinguish 0.25 from 1 but not from 0.5 -- any
+threshold in (0.0723, 0.7437] gives the same count. Replaced with a four-smooth
+shrinkage fit at seed 32, whose edf are 1.1632 / 0.2844 / 0.1332 / 0.8049 and so
+give three different counts at 0.25, 0.5 and 1. The mutation now fails two
+expectations. The test also asserts that the fixture separates all three, so it
+cannot silently degrade again.
+
+*Records.* The stale explanation of the phantom `NA.by.` bug survived in the
+shipped source comment, which is the copy that outlives the pull request; it now
+says what the bug actually did. `CLAUDE.md`'s issue-numbering note claimed this
+repository has no `#12`, which stopped being true when
+FSSgam_package#12 was filed an hour earlier, so every remaining bare `#10`/`#12`
+in `R/` and `tests/` is now qualified rather than relying on that note. The
+"four bugs, each in its own commit" claim was corrected to six, with the
+deviation from the Phase 7 precedent recorded rather than glossed. `DESCRIPTION`
+now declares `testthat (>= 3.1.5)`, the version that introduced
+`expect_no_warning()`, which the suite uses in five places -- the same class of
+defect as the `deparse1()` one, missed when that was fixed.
+
+The `save.model.fits = FALSE` agreement test now compares the two model tables
+in full rather than seven named columns, which is what the pull request body had
+claimed of it.
+
+---

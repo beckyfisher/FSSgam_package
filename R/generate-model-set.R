@@ -337,9 +337,11 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
      if(length(stats::na.omit(factor.smooth.interactions))>0){
       # pred.vars.cont=NA is a documented way to run without smooth predictors.
       # Without this guard expand.grid() pairs the NA itself with each factor,
-      # producing a phantom "NA.by.<factor>" term. It is discarded again later
-      # (it has no matching main effect), but not before enumerate_candidate_models()
-      # takes max() of an empty correlation sub-matrix and warns.
+      # producing a phantom "NA.by.<factor>" term. At max.predictors=1 that term
+      # is discarded again before the model set is returned, and the only symptom
+      # is enumerate_candidate_models() taking max() of an empty correlation
+      # sub-matrix and warning; from max.predictors=2 it survives into the
+      # candidate set as a model whose formula smooths the literal NA.
       if(length(stats::na.omit(pred.vars.cont))>0){
        all.interactions=expand.grid(pred.vars.cont,factor.smooth.interactions)
        interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}
@@ -374,7 +376,7 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
      # make the interaction terms between the factors and continuous predictors
 
      if(length(stats::na.omit(factor.smooth.interactions))>0){
-      # see the matching guard in the character branch above
+      # see the matching guard, and its reasoning, in the character branch above
       if(length(stats::na.omit(cont.var.interactions))>0){
        all.interactions=expand.grid(cont.var.interactions,factor.smooth.interactions)
        interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}

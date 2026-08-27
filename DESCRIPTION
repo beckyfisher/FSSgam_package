@@ -36,5 +36,5 @@ URL: https://github.com/beckyfisher/FSSgam_package, https://beckyfisher.github.i
 BugReports: https://github.com/beckyfisher/FSSgam_package/issues
 Suggests:
     covr,
-    testthat (>= 3.0.0)
+    testthat (>= 3.1.5)
 Config/testthat/edition: 3

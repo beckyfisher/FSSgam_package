@@ -89,7 +89,7 @@ test_that("fit_mod_l updates a test.fit with a new formula on the supplied data"
 })
 
 test_that("fit_mod_l keeps every refit's extended-family state independent, even when family is shared via a variable", {
-  # Regression test for the conflict between GitHub issues #10 and #12.
+  # Regression test for the conflict between GitHub issues beckyfisher/FSSgam#10 and #12.
   # family.opts[[2]] is the exact object gam() used to fit base.fit, so
   # fitting base.fit already mutates it in place (theta is stored in the
   # family object's own mutable environment). If refits of base.fit shared
@@ -310,28 +310,31 @@ test_that("extract_mod_dat computes r2.lm.est for a non-binomial gamm4 fit", {
 })
 
 test_that("extract_mod_dat counts only severely shrunk smooth terms in edf.less.1", {
-  # edf.less.1 counts smooth terms whose edf is below 0.25, not below 1. The two
-  # thresholds are easy to confuse: edf < 1 is where edf is reset before being
-  # summed, a few lines earlier and for a different purpose. A fixture whose edf
-  # all fall on the same side of both thresholds cannot tell them apart, so this
-  # uses a shrinkage basis on simulated data with one real and two irrelevant
-  # predictors, giving edf that straddle 0.25.
-  set.seed(2)
+  # edf.less.1 counts smooth terms whose edf is below 0.25. Two nearby values
+  # could be confused with it: 1, which is where edf is reset before being
+  # summed a few lines earlier, and 0.5. Pinning 0.25 therefore needs a fixture
+  # with at least one edf below 0.25, at least one in (0.25, 0.5), and at least
+  # one in (0.5, 1) -- so that the three candidate thresholds give three
+  # different counts. No bundled dataset produces that, so this simulates it
+  # with a shrinkage basis over one real and three irrelevant predictors.
+  set.seed(32)
   n <- 200
-  sim.dat <- data.frame(x1 = runif(n), x2 = runif(n), x3 = runif(n))
+  sim.dat <- data.frame(x1 = runif(n), x2 = runif(n), x3 = runif(n), x4 = runif(n))
   sim.dat$y <- 2 * sim.dat$x1 + rnorm(n, sd = 0.5)
   fit <- mgcv::gam(
-    y ~ s(x1, k = 5, bs = "ts") + s(x2, k = 5, bs = "ts") + s(x3, k = 5, bs = "ts"),
+    y ~ s(x1, k = 5, bs = "ts") + s(x2, k = 5, bs = "ts") +
+      s(x3, k = 5, bs = "ts") + s(x4, k = 5, bs = "ts"),
     data = sim.dat
   )
   edf.m <- summary(fit)$edf
-  # the fixture must straddle both thresholds, or the assertions below pin nothing
-  expect_true(sum(edf.m < 0.25) > 0)
-  expect_true(sum(edf.m < 1) > sum(edf.m < 0.25))
+  # the fixture must separate all three thresholds, or the assertions pin nothing
+  expect_true(sum(edf.m < 0.25) < sum(edf.m < 0.5))
+  expect_true(sum(edf.m < 0.5) < sum(edf.m < 1))
 
   out <- extract_mod_dat(fit, r2.type. = "r2")
 
   expect_equal(out$edf.less.1, sum(edf.m < 0.25))
+  expect_false(isTRUE(all.equal(out$edf.less.1, sum(edf.m < 0.5))))
   expect_false(isTRUE(all.equal(out$edf.less.1, sum(edf.m < 1))))
   # and the summed edf resets the shrunk terms to 1 rather than dropping them
   expect_equal(out$edf, round(sum(c(pmax(edf.m, 1), length(summary(fit)$p.coeff))), 2))

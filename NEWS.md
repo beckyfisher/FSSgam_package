@@ -61,8 +61,8 @@
 * Bug fix: `case_study1` was documented as having 28 variables; it has 27.
 * Bug fix: `generate_model_set()`'s `@return` documented a `generated.models`
   element that it has never returned, and omitted `n.mods`, `mod.formula`,
-  `test.fit` and `included.vars`, which it does. `fit_model_set()`'s documented
-  a `used.data` element that it has never returned -- `full_subsets_gam()` is
+  `test.fit` and `included.vars`, which it does. `fit_model_set()`'s `@return`
+  documented a `used.data` element that it has never returned -- `full_subsets_gam()` is
   what carries that.
 * Bug fix: a candidate model named as an interaction between a factor and a
   linear predictor was fitted as the factor main effect alone, whenever the

@@ -12,13 +12,10 @@ test_that("save.model.fits = FALSE reproduces the saved path's model table", {
   saved <- fit_quietly(model.set, parallel = FALSE, save.model.fits = TRUE)
   unsaved <- fit_quietly(model.set, parallel = FALSE, save.model.fits = FALSE)
 
-  expect_equal(colnames(unsaved$mod.data.out), colnames(saved$mod.data.out))
-  expect_equal(unsaved$mod.data.out$modname, saved$mod.data.out$modname)
-  expect_equal(unsaved$mod.data.out$AICc, saved$mod.data.out$AICc, tolerance = 1e-8)
-  expect_equal(unsaved$mod.data.out$BIC, saved$mod.data.out$BIC, tolerance = 1e-8)
-  expect_equal(unsaved$mod.data.out$r2.vals, saved$mod.data.out$r2.vals, tolerance = 1e-8)
-  expect_equal(unsaved$mod.data.out$edf, saved$mod.data.out$edf, tolerance = 1e-8)
-  expect_equal(unsaved$mod.data.out$wi.AICc, saved$mod.data.out$wi.AICc, tolerance = 1e-8)
+  # the whole table, not a selection of columns: the delta, weight, r2.vals.unique,
+  # edf.less.1 and variable-inclusion columns are the ones a refactor of the
+  # separate unsaved implementation is most likely to get wrong
+  expect_equal(unsaved$mod.data.out, saved$mod.data.out, tolerance = 1e-8)
   expect_equal(unsaved$variable.importance, saved$variable.importance, tolerance = 1e-8)
 })
 

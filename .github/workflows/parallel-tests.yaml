@@ -5,7 +5,8 @@
 # for the guard: a doSNOW worker is a fresh R process that loads FSSgam from the
 # installed library, so the tests mean nothing against a pkgload copy; and
 # doSNOW cluster startup has been observed to stall indefinitely on a loaded
-# machine, which would take a whole check run with it.
+# machine, and an unattended stall consumes the entire runtime of the job it
+# happens in.
 #
 # This workflow is the place those tests do run. It installs the package first,
 # sets FSSGAM_TEST_PARALLEL, and carries its own timeout so that a stalled

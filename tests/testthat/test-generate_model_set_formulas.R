@@ -173,6 +173,17 @@ test_that("a continuous predictor named in both pred.vars.cont and linear.vars i
   expect_match(
     deparse_one(model.set$mod.formula[["complexity"]]), "s(complexity", fixed = TRUE
   )
+
+  # This configuration is also the one that exercises enumerate_candidate_models()'s
+  # deduplication: depth reaches use.mods twice, once from the pred.vars.cont
+  # combn() and once from the linear.vars one, so without the unique() the set
+  # carries two candidates both named "depth". Nothing downstream notices --
+  # mod.formula[["depth"]] returns the first match either way -- but
+  # fit_model_set() would fit and weight the same model twice.
+  expect_equal(anyDuplicated(names(model.set$mod.formula)), 0L)
+  expect_equal(
+    anyDuplicated(vapply(model.set$mod.formula, deparse_one, character(1))), 0L
+  )
 })
 
 test_that("a model set can be built from linear.vars alone", {

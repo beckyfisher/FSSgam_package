@@ -586,7 +586,7 @@ Phase 6b for the same reason: CRAN check overhead/flakiness from spinning
 up a cluster in tests) -- 8/8 candidates now fit under `parallel = TRUE`
 in the `family.vec[[2]]` reprex, versus 0/8 before this fix.
 
-### Phase 13 — Comprehensive test suite (issue #5) — Completed
+### Phase 13 — Comprehensive test suite (FSSgam_package#5) — Completed
 
 Done. The suite went from 105 expectations / 71.33% line coverage to 432 /
 94.27%, with `tests/testthat/helper-fixtures.R` added so the eight-line
@@ -612,7 +612,7 @@ Points to note before extending the suite again:
   ahead of a lowercase continuous predictor -- `"ZONE+complexity"`, not
   the `"complexity+ZONE"` you get interactively in `en_US.UTF-8`. Any
   test asserting on a `modname` must be written against C collation.
-  Raised as issue #8, since it also means a saved analysis is not
+  Raised as FSSgam_package#8, since it also means a saved analysis is not
   reproducible across machines with different locales.
 - **`library(mgcv)` is called in `helper-fixtures.R`, deliberately.**
   mgcv's extended-family constructors (`tw()`, `nb()`) build their
@@ -639,8 +639,11 @@ Points to note before extending the suite again:
 - **The tests may not use `deparse1()`.** It arrived in R 4.0.0 and
   `DESCRIPTION` declares `R (>= 3.5)`, so the suite has to run without it.
   `deparse_one()` in `helper-fixtures.R` is the replacement, and matches
-  `deparse1()`'s `width.cutoff = 500L` -- `deparse()`'s own default of 60
-  wraps most of these formulas and changes the string.
+  `deparse1()`'s `width.cutoff = 500L`. `deparse()`'s own default of 60
+  wraps 8 of the 39 formulas across three representative candidate sets,
+  and a wrapped formula deparses to a different string, so the cutoff
+  matters. `testthat (>= 3.1.5)` is declared for the same class of reason:
+  `expect_no_warning()` arrived in that version.
 - **The numerical snapshots run everywhere, with one exclusion.** The
   binomial `gamm4`/`uGamm` scenario omits `edf` from its numeric snapshot,
   because gamm4 reports a smooth's edf through lme4's random-effect
@@ -677,19 +680,29 @@ Points to note before extending the suite again:
     'library(FSSgam); testthat::test_dir("tests/testthat", package = "FSSgam")'
   ```
 
-**Issue numbering.** The historical `#10` and `#12` referenced throughout
-Phases 11-12, in `R/utils.R`, `R/fit-model-set.R`,
-`R/functions_supporting.R` and their tests, are issues in the *publication*
-repository `beckyfisher/FSSgam`, not in this one. This package repository
-has its own #10, filed during Phase 13, and no #12 of the same vintage.
-References added from Phase 13 onward are qualified explicitly --
-`beckyfisher/FSSgam#10` or `FSSgam_package#6` -- and new ones should be.
+**Issue numbering.** The `#10` and `#12` referenced throughout Phases 11-12,
+in `R/utils.R`, `R/fit-model-set.R`, `R/functions_supporting.R` and their
+tests, are issues in the *publication* repository `beckyfisher/FSSgam`, not
+in this one. This package repository now has its own `#10` *and* its own
+`#12`, both filed during Phase 13, and both about something else entirely --
+so a bare `#10` here resolves to the wrong issue. Every reference in `R/`
+and `tests/` was qualified during Phase 13 for that reason. Write
+`beckyfisher/FSSgam#10` or `FSSgam_package#6`; never a bare number.
 
-Four bugs were fixed in their own commits, following the Phase 7 precedent:
-single-predictor model sets failing in `check_correlations()`; phantom
-`NA.by.<factor>` terms when `pred.vars.cont = NA`; interaction terms
-silently dropped for every `linear.vars` entry after the first; and the
-`case_study1` `@format` variable count. Six further findings were raised as
+Six bugs were fixed: single-predictor model sets failing in
+`check_correlations()`; phantom `NA.by.<factor>` terms when
+`pred.vars.cont = NA`; interaction terms silently dropped for every
+`linear.vars` entry after the first; the `case_study1` `@format` variable
+count; two `@return` blocks that did not describe what their functions
+return; and a second route to the dropped-interaction defect, via the list
+form of `factor.smooth.interactions`.
+
+The Phase 7 precedent of one commit per bug was followed only partly, which
+is a deviation worth recording rather than repeating: `f599a2b` carries two
+fixes and `a47d114` carries two more folded in with a round of review
+responses. The two pairs were each found together and are each two
+instances of one theme, but separate commits would have been better and the
+commit messages carry the whole description as a result. Six further findings were raised as
 issues rather than resolved here, being behaviour decisions rather than
 defects: FSSgam_package#6 (`extract_mod_dat()` returns NA r2 for `gamm`
 fits under the default `r2.type`), #7 (`full_subsets_gam()` does not
