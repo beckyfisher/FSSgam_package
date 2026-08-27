@@ -88,6 +88,28 @@ test_that("full_subsets_gam's legacy factor.interactions argument forwards with 
   expect_equal(legacy$mod.data.out$AICc, current$mod.data.out$AICc)
 })
 
+test_that("full_subsets_gam forwards factor.factor.interactions", {
+  # The legacy-argument test above cannot show this: it compares two calls both
+  # made through full_subsets_gam(), so a change inside the wrapper moves both
+  # sides together, and it supplies a single factor, which the factor-factor
+  # block skips entirely. This needs two factors and a direct assertion on the
+  # interaction column the argument is supposed to produce.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  out <- suppress_nnet_nans(full_subsets_quietly(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = "depth", pred.vars.fact = c("ZONE", "ZONE2"),
+    factor.factor.interactions = TRUE,
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  ))
+
+  expect_true("ZONE.I.ZONE2" %in% colnames(out$used.data))
+  expect_true("ZONE.I.ZONE2" %in% out$mod.data.out$modname)
+})
+
 test_that("full_subsets_gam's legacy smooth.interactions argument forwards with a warning", {
   use.dat <- FSSgam::case_study1
   use.dat$site <- as.factor(use.dat$site)

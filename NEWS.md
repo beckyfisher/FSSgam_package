@@ -69,14 +69,14 @@
   `.t.` term came from the list form of `factor.smooth.interactions` naming a
   linear predictor absent from `linear.vars`. The model table then reported two
   identical fits under different names.
-* Substantially expanded the `testthat` suite, from 105 expectations to 433 and
-  from 71.33% to 94.27% line coverage (FSSgam_package#5). New coverage includes:
-  every non-default argument of `generate_model_set()`, `fit_model_set()` and
-  `full_subsets_gam()`; the `save.model.fits = FALSE` fitting path; `gamm4`,
-  `uGamm` and `gamm` test.fits; the `cyclic.vars`, `linear.vars` and `bs.arg`
-  formula construction; the bundled datasets; every documented error and
-  warning message; and numerical snapshot tests pinning fitted values for five
-  end-to-end scenarios.
+* Substantially expanded the `testthat` suite, from 105 passing expectations to
+  431, and from 71.33% to 94.27% line coverage (FSSgam_package#5). New coverage
+  includes: every non-default argument of `generate_model_set()`,
+  `fit_model_set()` and `full_subsets_gam()`; the `save.model.fits = FALSE`
+  fitting path; `gamm4`, `uGamm` and `gamm` test.fits; the `cyclic.vars`,
+  `linear.vars` and `bs.arg` formula construction; the bundled datasets; every
+  documented error and warning message; and numerical snapshot tests pinning
+  fitted values for five end-to-end scenarios.
 * Added a test-coverage GitHub Actions workflow
   (`.github/workflows/test-coverage.yaml`, using `covr` + Codecov) and a
   coverage badge to the README (FSSgam_package#3).

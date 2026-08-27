@@ -281,3 +281,40 @@ with the consequence that actually follows: those fixes are harder to revert or
 cite individually.
 
 ---
+
+**Claude (work log, cycle 7 -- addressing a sixth independent review):**
+
+The sixth review confirmed by mutation that the cycle-5 blocker is closed, ran a
+sweep of 37 single-point mutations over `R/` (34 caught), and reported two real
+gaps and a measurement error.
+
+*`full_subsets_gam()` does not have `factor.factor.interactions` pinned.*
+Hard-coding it to `FALSE` inside the wrapper left the whole suite passing. The
+existing legacy-argument test cannot catch it: it compares two calls both made
+through `full_subsets_gam()`, so a change inside the wrapper moves both sides
+together, and it supplies a single factor, which the factor-factor block skips
+entirely. Added a test with two factors asserting on the interaction column.
+
+*Nothing pinned the enumeration-stage exclusion of an interaction from models
+containing its own components.* Removing the generated `.I.` columns from
+`all.predictors` before the correlation matrix is built left the suite passing,
+while producing candidates that pair a pasted interaction with one of the
+factors it is built from -- perfectly collinear by construction. Now asserted.
+Both mutations fail two expectations.
+
+*Every expectation count recorded in Phase 13 was six too high.* The figures
+came from `sum(as.data.frame(res)$nb)`, which counts skipped expectations; the
+six skipped parallel tests therefore inflated every "after" figure, while the
+baseline of 105 was unaffected because `master` has no skips. testthat's own
+`PASS` line and CI both report 427 where this log recorded 433. Corrected to 431
+passing after this cycle's additions, and `CLAUDE.md` now records which figure to
+quote and why, so the mistake is not repeated.
+
+*The claim that a test pins each of the six raised issues was true of three.*
+FSSgam_package#6, #7 and #8 are pinned by expectations that change when the
+issue is fixed. #9, #10 and #12 are recorded in comments only, and fixing them
+would change no test -- deliberately, since an expectation that fails when a
+wart is corrected is worse than a comment, but not something to describe as
+coverage. `CLAUDE.md` and the pull request body now say which is which.
+
+---

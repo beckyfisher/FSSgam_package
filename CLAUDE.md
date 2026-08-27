@@ -58,7 +58,7 @@ to determine what is available — don't assume this list stays in sync.
 
 - **Imports**: `doSNOW`, `foreach`, `gamm4`, `mgcv`, `MuMIn`, `nnet`,
   `parallel`, `stats`, `utils`
-- **Suggests**: `testthat (>= 3.0.0)`
+- **Suggests**: `covr`, `testthat (>= 3.1.5)`
 - **Depends**: `R (>= 3.5)` only — no other package may go in `Depends`
 
 `doSNOW` is not installed by default in fresh environments (e.g. this WSL
@@ -588,14 +588,21 @@ in the `family.vec[[2]]` reprex, versus 0/8 before this fix.
 
 ### Phase 13 — Comprehensive test suite (FSSgam_package#5) — Completed
 
-Done. The suite went from 105 expectations / 71.33% line coverage to 433 /
-94.27%, with `tests/testthat/helper-fixtures.R` added so the eight-line
-`use.dat`/`test.fit`/`model.set` preamble is written once. Runtime went
-from 4.8 s to about 15.5 s (this WSL host, R 4.6.1; it is machine
-dependent, so re-measure before and after rather than comparing against
-these). Note the "93 tests" figure carried in the Phase 12 entry does not
-reproduce: `master` and `fix_issues` both report 105 expectations across 36
-`test_that()` blocks. Count expectations, and say which you mean.
+Done. The suite went from 105 passing expectations / 71.33% line coverage
+to 431 / 94.27%, with `tests/testthat/helper-fixtures.R` added so the
+eight-line `use.dat`/`test.fit`/`model.set` preamble is written once.
+Runtime went from 4.8 s to about 15 s (this WSL host, R 4.6.1; it is
+machine dependent, so re-measure before and after rather than comparing
+against these).
+
+**Counting expectations.** Quote testthat's own `PASS` figure, which is
+`sum(as.data.frame(res)$passed)`. `sum(...$nb)` is *not* that: it includes
+skipped expectations, so with the six skipped parallel tests it reads six
+high, and every count recorded during Phase 13 was wrong by exactly that
+margin until the sixth review round caught it. `master` and `fix_issues`
+both report 105 across 36 `test_that()` blocks and have no skips, so the
+baseline is unaffected. The "93 tests" figure in the Phase 12 entry does not
+reproduce at all.
 
 New files: `helper-fixtures.R`, `test-generate_model_set_formulas.R`
 (cyclic.vars, linear.vars, bs.arg, the gamm4 `t2()` branch),
@@ -714,8 +721,17 @@ the default `r2.type`), #7 (`full_subsets_gam()` does not
 forward `VI.mods`), #8 (locale-dependent model names), #9 (progress bar
 cannot be suppressed), #10 (spurious "NaNs produced" warnings out of
 `nnet`), and #12 (the factor-factor correlation diagonal is not exactly 1).
-A test pins the current behaviour in each case, with a comment naming the
-issue, so that fixing one appears as a visible test change.
+Three of those are pinned by an expectation that changes when the issue is
+fixed: #6 (`test-functions_supporting.R` asserts the `NA` r2), #7
+(`test-full_subsets_gam.R` asserts `VI.mods` is absent from `formals()`) and
+#8 (candidate names asserted under C collation, which testthat forces). The
+other three are recorded in comments naming the issue but not pinned by any
+expectation, and fixing them would change no test: #9 (no expectation
+depends on the progress bar), #10 (`suppress_nnet_nans()` tolerates the
+warning being absent, which it already is on nnet 7.3-20) and #12 (the
+diagonal is asserted as `> 0.99`, which keeps passing once it is exactly 1).
+That asymmetry is deliberate -- an expectation that fails when a wart is
+fixed is worse than a comment -- but do not read the comments as coverage.
 
 **Caution for next time:** doSNOW cluster startup stalled repeatedly while
 this work was done, including for a trivial `foreach()` containing no

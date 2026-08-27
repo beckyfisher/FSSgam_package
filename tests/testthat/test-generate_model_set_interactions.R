@@ -26,6 +26,20 @@ test_that("generate_model_set builds factor-factor interaction terms when reques
   expect_true("ZONE.I.ZONE2" %in% colnames(model.set$used.data))
   expect_true("ZONE.I.ZONE2" %in% names(model.set$mod.formula))
   expect_true(model.set$n.mods > 0)
+
+  # The generated interaction column has to reach all.predictors before the
+  # correlation matrix is built, or it is never screened for collinearity. It is
+  # perfectly predicted by its own components by construction, so no candidate
+  # may pair it with either of them.
+  expect_true("ZONE.I.ZONE2" %in% rownames(model.set$predictor.correlations))
+  pairs.own.components <- vapply(
+    strsplit(names(model.set$mod.formula), "+", fixed = TRUE),
+    function(terms.) {
+      any(terms. == "ZONE.I.ZONE2") && any(terms. %in% c("ZONE", "ZONE2"))
+    },
+    logical(1)
+  )
+  expect_false(any(pairs.own.components))
 })
 
 test_that("generate_model_set builds a te() smooth-smooth interaction for uncorrelated predictors", {

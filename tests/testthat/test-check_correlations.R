@@ -44,7 +44,10 @@ test_that("check_correlations estimates factor-factor correlations via multinom"
   expect_equal(unname(cm["ZONE2", "ZONE"]), unname(cm["ZONE", "ZONE2"]), tolerance = 1e-3)
   # The factor-factor diagonal is a fitted multinomial pseudo-R2 rather than a
   # set constant, so it is 1 only to the optimiser's convergence tolerance.
-  # Asserting equality to 1 would pin nnet's optimiser, not this package.
+  # Asserting equality to 1 would pin nnet's optimiser, not this package. Raised
+  # as FSSgam_package#12; this assertion is deliberately loose enough to keep
+  # passing when that is fixed, so it records the behaviour rather than pinning
+  # it.
   expect_true(all(diag(cm)[c("ZONE", "ZONE2")] > 0.99))
 })
 
