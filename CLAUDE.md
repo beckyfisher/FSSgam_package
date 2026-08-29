@@ -882,12 +882,40 @@ re-run in isolation, and re-run more than once.
 
 ## 7. Prompt Log
 
-Session logs for this project are in `prompts/`. Create the folder if it
-does not exist. Use a short kebab-case descriptor as the filename for
-each session (e.g. `cran-modernisation.md`). If a file with that name
-already exists, append to it.
+Session logs for this project are in `prompts/`. Use a short kebab-case
+descriptor as the filename for each session
+(e.g. `cran-modernisation.md`). If a file with that name already exists,
+append to it.
 
-Log format for each session entry:
+### What to log
+
+**Log a session only if it changes the package itself** — code in `R/`,
+tests, `man/`, `DESCRIPTION`/`NAMESPACE`, `NEWS.md`, `_pkgdown.yml`, or
+workflow files. The publication-disclosure requirement covers work that
+could bear on a publication; a session that leaves the package
+byte-identical cannot.
+
+Changes confined to `CLAUDE.md` or to `prompts/` itself do not count —
+those are session housekeeping, not package work.
+
+This is deliberately stricter than the parent `CLAUDE.md` Section 10,
+and overrides it. In particular, do **not** open or append to a log for:
+
+- git housekeeping — fetching, merging, rebasing, fast-forwarding a
+  branch, pushing, reporting what is behind or untracked, deleting
+  merged branches;
+- reading, listing, searching or summarising files with no change made;
+- environment checks (which R is active, whether a package is
+  installed);
+- answering a question about how the package behaves;
+- writing or commenting on a GitHub issue or pull request without a code
+  change;
+- editing this `CLAUDE.md`, or tidying a prompt log.
+
+If such a session goes on to change the package, log it from that point
+— the log records the work that produced the change, not the preamble.
+
+### Log format
 
     ## Session: <descriptor>
     Date: <YYYY-MM-DD>
@@ -900,7 +928,3 @@ Log format for each session entry:
     **Claude:** <summary of response — full code blocks where relevant, prose summarised>
 
     ---
-
-**Note:** the `prompts/` folder does not exist yet — the v1.0.0
-modernisation session was not logged here. Start the folder and log file
-on the next session that touches this repo.

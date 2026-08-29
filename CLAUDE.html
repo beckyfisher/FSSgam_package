@@ -231,8 +231,22 @@ FSSGAM_TEST_PARALLEL=true NOT_CRAN=true Rscript -e \
 </div>
 <div class="section level2">
 <h2 id="id_7-prompt-log">7. Prompt Log<a class="anchor" aria-label="anchor" href="#id_7-prompt-log"></a></h2>
-<p>Session logs for this project are in <code>prompts/</code>. Create the folder if it does not exist. Use a short kebab-case descriptor as the filename for each session (e.g. <code>cran-modernisation.md</code>). If a file with that name already exists, append to it.</p>
-<p>Log format for each session entry:</p>
+<p>Session logs for this project are in <code>prompts/</code>. Use a short kebab-case descriptor as the filename for each session (e.g. <code>cran-modernisation.md</code>). If a file with that name already exists, append to it.</p>
+<div class="section level3">
+<h3 id="what-to-log">What to log<a class="anchor" aria-label="anchor" href="#what-to-log"></a></h3>
+<p><strong>Log a session only if it changes the package itself</strong> — code in <code>R/</code>, tests, <code>man/</code>, <code>DESCRIPTION</code>/<code>NAMESPACE</code>, <code>NEWS.md</code>, <code>_pkgdown.yml</code>, or workflow files. The publication-disclosure requirement covers work that could bear on a publication; a session that leaves the package byte-identical cannot.</p>
+<p>Changes confined to <code>CLAUDE.md</code> or to <code>prompts/</code> itself do not count — those are session housekeeping, not package work.</p>
+<p>This is deliberately stricter than the parent <code>CLAUDE.md</code> Section 10, and overrides it. In particular, do <strong>not</strong> open or append to a log for:</p>
+<ul><li>git housekeeping — fetching, merging, rebasing, fast-forwarding a branch, pushing, reporting what is behind or untracked, deleting merged branches;</li>
+<li>reading, listing, searching or summarising files with no change made;</li>
+<li>environment checks (which R is active, whether a package is installed);</li>
+<li>answering a question about how the package behaves;</li>
+<li>writing or commenting on a GitHub issue or pull request without a code change;</li>
+<li>editing this <code>CLAUDE.md</code>, or tidying a prompt log.</li>
+</ul><p>If such a session goes on to change the package, log it from that point — the log records the work that produced the change, not the preamble.</p>
+</div>
+<div class="section level3">
+<h3 id="log-format">Log format<a class="anchor" aria-label="anchor" href="#log-format"></a></h3>
 <pre><code>## Session: &lt;descriptor&gt;
 Date: &lt;YYYY-MM-DD&gt;
 Model: &lt;model name and version&gt;
@@ -244,7 +258,7 @@ Model: &lt;model name and version&gt;
 **Claude:** &lt;summary of response — full code blocks where relevant, prose summarised&gt;
 
 ---</code></pre>
-<p><strong>Note:</strong> the <code>prompts/</code> folder does not exist yet — the v1.0.0 modernisation session was not logged here. Start the folder and log file on the next session that touches this repo.</p>
+</div>
 </div>
 </div>
 
