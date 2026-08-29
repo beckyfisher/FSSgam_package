@@ -69,7 +69,7 @@ in sync.
 
 - **Imports**: `doSNOW`, `foreach`, `gamm4`, `mgcv`, `MuMIn`, `nnet`,
   `parallel`, `stats`, `utils`
-- **Suggests**: `testthat (>= 3.0.0)`
+- **Suggests**: `covr`, `testthat (>= 3.1.5)`
 - **Depends**: `R (>= 3.5)` only — no other package may go in `Depends`
 
 `doSNOW` is not installed by default in fresh environments (e.g. this
@@ -687,6 +687,196 @@ Phase 6b for the same reason: CRAN check overhead/flakiness from
 spinning up a cluster in tests) – 8/8 candidates now fit under
 `parallel = TRUE` in the `family.vec[[2]]` reprex, versus 0/8 before
 this fix.
+
+### Phase 13 — Comprehensive test suite (FSSgam_package#5) — Completed
+
+Done. The suite went from 105 passing expectations / 71.33% line
+coverage to 447 / 94.27%, with `tests/testthat/helper-fixtures.R` added
+so the eight-line `use.dat`/`test.fit`/`model.set` preamble is written
+once. Runtime went from 4.8 s to about 15 s (this WSL host, R 4.6.1; it
+is machine dependent, so re-measure before and after rather than
+comparing against these).
+
+**Counting expectations.** The figure appears in three places –
+`NEWS.md`, this file and the pull request body – and went out of step
+between them in five consecutive review rounds, every time because one
+was updated and the others were not. Update all three together or not at
+all. Quote testthat’s own `PASS` figure, which is
+`sum(as.data.frame(res)$passed)`. `sum(...$nb)` is *not* that: it
+includes skipped expectations, so with the six skipped parallel tests it
+reads six high, and every count recorded during Phase 13 was wrong by
+exactly that margin until the sixth review round caught it. `master` and
+`fix_issues` both report 105 across 36 `test_that()` blocks and have no
+skips, so the baseline is unaffected. The “93 tests” figure in the Phase
+12 entry does not reproduce at all.
+
+New files: `helper-fixtures.R`, `test-generate_model_set_formulas.R`
+(cyclic.vars, linear.vars, bs.arg, the gamm4 `t2()` branch),
+`test-fit_model_set_options.R` (save.model.fits, max.models, r2.type,
+report.unique.r2, VI.mods), `test-fit_model_set_parallel.R`,
+`test-utils.R`, `test-data.R`, and `test-numerical-regression.R`
+(`expect_snapshot_value()` snapshots of the model table, variable
+importance and candidate formulas for five end-to-end scenarios).
+
+Points to note before extending the suite again:
+
+- **testthat forces `LC_COLLATE=C`.** Candidate model names are built by
+  [`sort()`](https://rdrr.io/r/base/sort.html)ing term names, so under
+  testthat a factor named `ZONE` sorts ahead of a lowercase continuous
+  predictor – `"ZONE+complexity"`, not the `"complexity+ZONE"` you get
+  interactively in `en_US.UTF-8`. Any test asserting on a `modname` must
+  be written against C collation. Raised as FSSgam_package#8, since it
+  also means a saved analysis is not reproducible across machines with
+  different locales.
+
+- **[`library(mgcv)`](https://rdrr.io/r/base/library.html) is called in
+  `helper-fixtures.R`, deliberately.** mgcv’s extended-family
+  constructors (`tw()`, `nb()`) build their component closures in an
+  environment whose parent is `.GlobalEnv`, not the mgcv namespace, so
+  `ldTweedie()` and friends only resolve when mgcv is attached. Any
+  fixture using `tw()` fails with “could not find function ldTweedie”
+  otherwise.
+
+- **gamm4 fixtures need `k >= 4`.** gamm4 represents each smooth as a
+  random effect whose grouping factor has (number of basis columns)
+  levels; at `k = 3` that is one level, which lme4’s `checkNlevels()`
+  rejects outright (“grouping factors must have \> 1 sampled level”).
+  This originates in gamm4 rather than in this package, but it does mean
+  the `k = 3` used everywhere else in the suite is unusable for a
+  `uGamm(lme4 = TRUE)` test.fit.
+
+- **`fit_quietly()`/`full_subsets_quietly()`** wrap the fitting calls in
+  [`capture.output()`](https://rdrr.io/r/utils/capture.output.html)
+  purely to keep
+  [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md)’s
+  unconditional `txtProgressBar` out of the reporter’s output
+  (FSSgam_package#9). Warnings and errors pass through, so
+  `expect_warning()`/`expect_error()` still work. Four groups of tests
+  deliberately keep their original direct call form, because issue
+  FSSgam_package#5 asks for them to be preserved as they stand: the two
+  beckyfisher/FSSgam#10/#12 family resolution tests, the two
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
+  Phase 7 regression tests, and everything in `test-deprecated.R`.
+
+- **The tests may not use
+  [`deparse1()`](https://rdrr.io/r/base/deparse.html).** It arrived in R
+  4.0.0 and `DESCRIPTION` declares `R (>= 3.5)`, so the suite has to run
+  without it. `deparse_one()` in `helper-fixtures.R` is the replacement,
+  and matches [`deparse1()`](https://rdrr.io/r/base/deparse.html)’s
+  `width.cutoff = 500L`.
+  [`deparse()`](https://rdrr.io/r/base/deparse.html)’s own default of 60
+  wraps 8 of the 39 formulas across three representative candidate sets,
+  and a wrapped formula deparses to a different string, so the cutoff
+  matters. `testthat (>= 3.1.5)` is declared for the same class of
+  reason: `expect_no_warning()` arrived in that version.
+
+- **The numerical snapshots run everywhere, with one exclusion.** The
+  binomial `gamm4`/`uGamm` scenario omits `edf` from its numeric
+  snapshot, because gamm4 reports a smooth’s edf through lme4’s
+  random-effect machinery and that column therefore tracks the lme4
+  version: measured 4.000/5.000/8.000 here against 4.260/5.050/8.350 on
+  `ubuntu-latest`. It is asserted structurally in that scenario instead.
+  Everything else is compared wherever the suite runs. The comparison is
+  split into a group compared exactly (the columns
+  `compute_model_weights()` rounds to three decimal places) and a group
+  compared at 1e-6 relative (the unrounded fit statistics), because
+  `expect_snapshot_value()` applies its tolerance element-wise and
+  relatively, and one setting cannot serve both.
+
+- **`break_one_candidate()`** injects an unfittable formula into a model
+  set to exercise the partial-failure paths. This is more reliable than
+  locating real data on which some candidates fail and others do not.
+
+- **Every `parallel = TRUE` test is opt-in.**
+  `skip_unless_parallel_opt_in()` requires `FSSGAM_TEST_PARALLEL=true`
+  *and* an installed (not pkgload) copy – a doSNOW worker always loads
+  the installed package (Phase 12), so running these against a
+  `load_all()` copy tests nothing. The opt-in exists because doSNOW
+  cluster startup stalls indefinitely on a loaded machine (see the
+  caution below); an unattended stall consumes the entire runtime of a
+  `devtools::check()`, `covr` or CI job. Note that `devtools::check()`
+  sets `NOT_CRAN=true`, so `skip_on_cran()` alone does not protect it.
+  Consequence: `covr` never executes those branches, which is why
+  `check-correlations.R` and `fit-model-set.R` sit below the rest on
+  line coverage – every uncovered line in both is inside a
+  `parallel == TRUE` branch. `.github/workflows/parallel-tests.yaml` is
+  the one place they run automatically; it installs the package, sets
+  the variable, and carries its own `timeout-minutes` so a stalled
+  cluster fails that job alone. Locally:
+
+      R CMD INSTALL .
+      FSSGAM_TEST_PARALLEL=true NOT_CRAN=true Rscript -e \
+        'library(FSSgam); testthat::test_dir("tests/testthat", package = "FSSgam")'
+
+**Issue numbering.** The `#10` and `#12` referenced throughout Phases
+11-12, in `R/utils.R`, `R/fit-model-set.R`, `R/functions_supporting.R`
+and their tests, are issues in the *publication* repository
+`beckyfisher/FSSgam`, not in this one. This package repository now has
+its own `#10` *and* its own `#12`, both filed during Phase 13, and both
+about something else entirely – so a bare `#10` here resolves to the
+wrong issue. Every reference in `R/` and `tests/` was qualified during
+Phase 13 for that reason. Write `beckyfisher/FSSgam#10` or
+`FSSgam_package#6` anywhere the reference has to survive on its own – in
+`R/`, in `tests/`, in `NEWS.md`. Bare numbers are fine only in prose
+that has already named the repository, as the paragraph below does.
+
+Six bugs were fixed: single-predictor model sets failing in
+[`check_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_correlations.md);
+phantom `NA.by.<factor>` terms when `pred.vars.cont = NA`; interaction
+terms silently dropped for every `linear.vars` entry after the first;
+the `case_study1` `@format` variable count; two `@return` blocks that
+did not describe what their functions return; and a second route to the
+dropped-interaction defect, via the list form of
+`factor.smooth.interactions`.
+
+The Phase 7 precedent of one commit per bug was followed only partly,
+which is a deviation worth recording rather than repeating: `f599a2b`
+carries two fixes and `a47d114` carries two more, folded in with a round
+of review responses. Each pair was found together and each is two
+instances of one theme, which is the reason but not a justification –
+separate commits would have been easier to revert or cite individually.
+
+Six further findings were raised as issues in this repository rather
+than resolved here, being behaviour decisions rather than defects:
+FSSgam_package#6
+([`extract_mod_dat()`](https://beckyfisher.github.io/FSSgam_package/reference/extract_mod_dat.md)
+returns NA r2 for `gamm` fits under the default `r2.type`), \#7
+([`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
+does not forward `VI.mods`), \#8 (locale-dependent model names), \#9
+(progress bar cannot be suppressed), \#10 (spurious “NaNs produced”
+warnings out of `nnet`), and \#12 (the factor-factor correlation
+diagonal is not exactly 1). Two of those are pinned by an expectation
+that must change when the issue is fixed: \#6
+(`test-functions_supporting.R` asserts the `NA` r2) and \#7
+(`test-full_subsets_gam.R` asserts `VI.mods` is absent from
+[`formals()`](https://rdrr.io/r/base/formals.html)).
+
+\#8 is a partial case. Candidate names are asserted throughout the suite
+under C collation, which testthat forces, so any change to how they are
+built shows up – but the natural fix for \#8 is to sort by byte order,
+under which the asserted names are exactly what they already are, and no
+test changes.
+
+\#9, \#10 and \#12 are recorded in comments or in this file, and fixing
+any of them would change no test: \#9 has no expectation depending on
+the progress bar and is named here rather than in a comment; \#10’s
+`suppress_nnet_nans()` tolerates the warning being absent, which it
+already is on nnet 7.3-20; and \#12’s diagonal is asserted as `> 0.99`,
+which keeps passing once it is exactly 1.
+
+That asymmetry is deliberate: an expectation that fails when a defect is
+corrected is worse than a comment. Do not read the comments as coverage.
+
+**Caution for next time:** doSNOW cluster startup stalled repeatedly
+while this work was done, including for a trivial `foreach()` containing
+no FSSgam code, and including on an otherwise idle machine. Measured on
+this WSL host: `test-fit_model_set_parallel.R` completed cleanly on two
+of four consecutive attempts (14 expectations, 0 failures) and stalled
+past 180 seconds on the other two; the same file’s contents run from a
+plain script completed six times out of six. This is a wider version of
+the symptom recorded in the Phase 6b caution. Before concluding that a
+`parallel = TRUE` path is broken, check `ps` for other R processes,
+re-run in isolation, and re-run more than once.
 
 ------------------------------------------------------------------------
 
