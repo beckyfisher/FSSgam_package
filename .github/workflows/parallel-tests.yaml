@@ -1,0 +1,67 @@
+# Runs the parallel = TRUE tests, which the main R-CMD-check workflow skips.
+#
+# They are skipped there, and under covr, because they are guarded by
+# skip_unless_parallel_opt_in() (tests/testthat/helper-fixtures.R). Two reasons
+# for the guard: a doSNOW worker is a fresh R process that loads FSSgam from the
+# installed library, so the tests mean nothing against a pkgload copy; and
+# doSNOW cluster startup has been observed to stall indefinitely on a loaded
+# machine, and an unattended stall consumes the entire runtime of the job it
+# happens in.
+#
+# This workflow is the place those tests do run. It installs the package first,
+# sets FSSGAM_TEST_PARALLEL, and carries its own timeout so that a stalled
+# cluster fails this job alone rather than blocking anything else.
+on:
+  push:
+    branches: [main, master, dev]
+  pull_request:
+
+name: parallel-tests.yaml
+
+permissions: read-all
+
+jobs:
+  parallel-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      FSSGAM_TEST_PARALLEL: true
+      NOT_CRAN: true
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::testthat
+          needs: check
+
+      - name: Install FSSgam
+        run: R CMD INSTALL .
+        shell: bash
+
+      - name: Run the parallel tests
+        timeout-minutes: 10
+        run: |
+          library(FSSgam)
+          # Scoped to the two files carrying parallel tests. Running the whole
+          # directory would execute the suite a second time per push, and would
+          # count skips from unrelated files against the assertion below.
+          res <- testthat::test_dir(
+            "tests/testthat",
+            package = "FSSgam",
+            filter = "fit_model_set_parallel|check_correlations",
+            reporter = "summary",
+            stop_on_failure = TRUE
+          )
+          df <- as.data.frame(res)
+          cat("skipped:", sum(df$skipped), "\n")
+          if (sum(df$skipped) > 0) {
+            stop("a parallel test was skipped; the opt-in guard did not take effect")
+          }
+        shell: Rscript {0}

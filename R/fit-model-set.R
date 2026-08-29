@@ -42,8 +42,6 @@
 #' To simplify output, only AICc and AICc based model weights, rather than AIC, are included as these are asymptotically equivalent at large sample sizes, and for small sample sizes AICc should be used in any case.
 #' Calculating R2 values is non-trivial for mixed models, especially non-gaussian cases (and some argue should not be done at all). We have supplied a range of methods for estimating R2 (r2.type), as in our experience a single method rarely performs adequately across all scenarios.
 #'
-#' used.data - A data.frame which is identical to the data.frame initially supplied by the user, but with any hard coded interaction terms appended via cbind.
-#'
 #' failed.models - A list of model formula that failed to fit. Ideally the list of failed models should be empty, but when this is not the case interrogating failed.models provides a useful means of troubleshooting. Users can examine which models are not fitting and explore the reasons for this by fitting the failed models outside the full_subsets_gam call based on the listed formula. When a large number of models fail to fit properly it usually indicates poor specification of the initial test.fit or other arguments in the call to full_subsets_gam (such as the inclusion of factor interactions when there are few data within each level of the factor), or that inappropriate variables are being included in the model set.
 #'
 #' success.models - A complete list of all successfully fitted model formula. If models were saved, this can be used for multimodel inference and creating model averaged predictions.
@@ -139,9 +137,11 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
   # started -- not lazily inside fit_mod_l() on whatever process ends up
   # refitting that candidate. A doSNOW worker never has this (the calling
   # process's) variables in scope, so resolving family on the worker would
-  # fail whenever family was supplied via a variable (GitHub issue #10).
+  # fail whenever family was supplied via a variable (GitHub issue
+  # beckyfisher/FSSgam#10).
   # Resolving per-candidate (rather than once, shared) also keeps every
-  # refit's family object independent (GitHub issue #12). See
+  # refit's family object independent (GitHub issue beckyfisher/FSSgam#12).
+  # See
   # resolve_candidate_family() in R/utils.R.
   family.list <- lapply(seq_len(length(mod.formula)),function(i.) resolve_candidate_family(test.fit))
 
@@ -206,7 +206,7 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
 
   # See the matching comment in fit_and_summarise_saved_models() above --
   # resolved here, per candidate, before any parallel workers start (GitHub
-  # issues #10 and #12).
+  # issues beckyfisher/FSSgam#10 and #12).
   family.list <- lapply(seq_len(length(mod.formula)),function(i.) resolve_candidate_family(test.fit))
 
   if(parallel==TRUE){

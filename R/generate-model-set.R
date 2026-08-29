@@ -67,11 +67,17 @@
 #' @export
 #' @return A list of the following output files:
 #'
-#' used.data - A data.frame which is identical to the data.frame initially supplied by the user, but with any hard coded interaction terms appended via cbind.
+#' n.mods - The number of candidate models generated, equal to length(mod.formula).
 #'
 #' predictor.correlations - The matrix of estimated predictor correlations returned by the function check_correlations and used for model exclusion based on cov.cutoff
 #'
-#' generated.models - A list containing the model formula that were generated (and will be fitted by fit_model_set).
+#' mod.formula - A named list containing the model formula that were generated (and will be fitted by fit_model_set). The names are the candidate model names used in the modname column of fit_model_set's output.
+#'
+#' used.data - A data.frame which is identical to the data.frame initially supplied by the user, but with any hard coded interaction terms appended via cbind.
+#'
+#' test.fit - The test.fit supplied by the user, passed through so that fit_model_set can update it.
+#'
+#' included.vars - A character vector of the predictors included in the model set, used to build the variable inclusion columns of fit_model_set's output.
 #' @examples
 #' library(mgcv)
 #' data(case_study1)
@@ -158,6 +164,7 @@ generate_model_set=function(use.dat,
                           pred.vars.cont=pred.vars.cont,
                           pred.vars.fact=pred.vars.fact,
                           linear.vars=linear.vars,
+                          linear.interaction.terms=linear.interaction.terms,
                           cyclic.vars=cyclic.vars,
                           k=k,
                           bs.arg=bs.arg,
@@ -328,8 +335,16 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
      # make the interaction terms between the factors and continuous predictors
 
      if(length(stats::na.omit(factor.smooth.interactions))>0){
-      all.interactions=expand.grid(pred.vars.cont,factor.smooth.interactions)
-      interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")
+      # pred.vars.cont=NA is a documented way to run without smooth predictors.
+      # Without this guard expand.grid() pairs the NA itself with each factor,
+      # producing a phantom "NA.by.<factor>" term. At max.predictors=1 that term
+      # is discarded again before the model set is returned, and the only symptom
+      # is enumerate_candidate_models() taking max() of an empty correlation
+      # sub-matrix and warning; from max.predictors=2 it survives into the
+      # candidate set as a model whose formula smooths the literal NA.
+      if(length(stats::na.omit(pred.vars.cont))>0){
+       all.interactions=expand.grid(pred.vars.cont,factor.smooth.interactions)
+       interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}
 
       # now interactions between linear continous predictors and factors
       if(length(stats::na.omit(linear.vars))>0){
@@ -361,8 +376,10 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
      # make the interaction terms between the factors and continuous predictors
 
      if(length(stats::na.omit(factor.smooth.interactions))>0){
-      all.interactions=expand.grid(cont.var.interactions,factor.smooth.interactions)
-      interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")
+      # see the matching guard, and its reasoning, in the character branch above
+      if(length(stats::na.omit(cont.var.interactions))>0){
+       all.interactions=expand.grid(cont.var.interactions,factor.smooth.interactions)
+       interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}
 
       # now interactions between linear continous predictors and factors
       if(length(stats::na.omit(linear.var.interactions))>0){
@@ -458,9 +475,14 @@ resolve_smooth_smooth_interactions=function(use.dat,pred.vars.cont,smooth.smooth
 # model exclusion: either computed from use.dat, or validated if the caller
 # supplied their own cor.matrix.
 build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.correlations,cor.matrix){
+  # drop=FALSE matters: with a single predictor use.dat[,all.predictors] would
+  # otherwise collapse to a bare vector, and both check_* functions require a
+  # data.frame (they classify columns via sapply(dat,class) and compare against
+  # ncol(dat)). Without it, any model set with exactly one predictor failed
+  # with an unrelated "argument is of length zero" error.
   if(non.linear.correlations==TRUE){
-   cc=check_non_linear_correlations(use.dat[,all.predictors])}else{
-   cc=check_correlations(use.dat[,all.predictors])}
+   cc=check_non_linear_correlations(use.dat[,all.predictors,drop=FALSE])}else{
+   cc=check_correlations(use.dat[,all.predictors,drop=FALSE])}
   if(length(cor.matrix)==1){
    cor.matrix=cc
    # replace NA's with zero.
@@ -551,7 +573,8 @@ enumerate_candidate_models=function(pred.vars.cont,pred.vars.fact,linear.vars,
 # formula objects, handling smooth/by/te/linear/factor terms, cyclic.vars,
 # and the null model. Returns the named list of formulas (including "null").
 build_model_formulas=function(use.mods,pred.vars.cont,pred.vars.fact,linear.vars,
-                          cyclic.vars,k,bs.arg,null.terms,null.formula,test.fit){
+                          linear.interaction.terms,cyclic.vars,k,bs.arg,null.terms,
+                          null.formula,test.fit){
   # now make the models into gamm formula
   if(nchar(null.terms)==0){# if there is no bs='re' random effect random effect
                              # or other null term in the null model
@@ -566,7 +589,20 @@ build_model_formulas=function(use.mods,pred.vars.cont,pred.vars.fact,linear.vars
      te.smooths=mod.m[grep(".te.",mod.m,fixed=TRUE)]
      factor.terms=mod.m[which(match(mod.m,pred.vars.fact)>0)]
      linear.terms=mod.m[which(match(mod.m,linear.vars)>0)]
-     linear.interaction.terms=mod.m[grep(paste(linear.vars,".t.",sep=""),mod.m,fixed=TRUE)]
+     # Matched against the .t. term names resolve_factor_interactions() actually
+     # generated, the same way factor.terms and linear.terms are matched against
+     # their own vectors. Two earlier forms were wrong. Building a pattern as
+     # paste(linear.vars,".t.") made it a vector whenever more than one
+     # linear.vars was supplied, and grep() then silently used only its first
+     # element, so every interaction term belonging to a second or later linear
+     # predictor was dropped from the fitted formula while the candidate kept
+     # its interaction name. Deriving the prefixes from linear.vars here instead
+     # fixed that, but still disagreed with the generator whenever the terms came
+     # from factor.smooth.interactions$linear.vars, which is validated against
+     # all.predictors rather than against linear.vars -- so the same silent drop
+     # reappeared for a list-form factor.smooth.interactions naming a linear
+     # predictor absent from linear.vars.
+     linear.interaction.terms.m=mod.m[which(match(mod.m,linear.interaction.terms)>0)]
      all.terms.vec=character()
 
      if(length(cont.smooths>0)){all.terms.vec=c(all.terms.vec,
@@ -577,8 +613,8 @@ build_model_formulas=function(use.mods,pred.vars.cont,pred.vars.fact,linear.vars
          paste("te(",gsub(".te.",",",te.smooths,fixed=TRUE),",k=",k,",bs=",bs.arg,")",sep=""))}
      if(length(te.smooths>0) & class(test.fit)[[1]]=="gamm4"){all.terms.vec=c(all.terms.vec,
          paste("t2(",gsub(".te.",",",te.smooths,fixed=TRUE),",k=",k,",bs=",bs.arg,")",sep=""))}
-      if(length(linear.interaction.terms>0)){all.terms.vec=c(all.terms.vec,
-               gsub(".t.","*",linear.interaction.terms,fixed=TRUE))}
+      if(length(linear.interaction.terms.m>0)){all.terms.vec=c(all.terms.vec,
+               gsub(".t.","*",linear.interaction.terms.m,fixed=TRUE))}
      if(length(factor.terms>0)){all.terms.vec=c(all.terms.vec,factor.terms)}
      if(length(linear.terms>0)){all.terms.vec=c(all.terms.vec,linear.terms)}
      if(max(is.na(cyclic.vars))!=1){

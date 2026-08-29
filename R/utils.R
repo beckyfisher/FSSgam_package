@@ -43,8 +43,8 @@ classify_correlation_predictors=function(dat){
 # refit itself happens to run -- then hands the result to
 # clone_independent_family() so repeated candidate refits never share
 # mutable extended-family state. This combined approach is required to
-# fix GitHub issues #10 and #12 together: #10 because a doSNOW worker
-# process never has the calling session's variables in scope (so the
+# fix GitHub issues beckyfisher/FSSgam#10 and #12 together: #10 because a
+# doSNOW worker process never has the calling session's variables in scope (so the
 # expression must be evaluated on the calling process, not re-evaluated
 # lazily inside update() on whatever process refits the candidate); #12
 # because mgcv's extended families (nb(), tw(), ...) store their estimated

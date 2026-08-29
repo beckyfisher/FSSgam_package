@@ -1,0 +1,124 @@
+# parallel = TRUE for both fitting paths.
+#
+# Every test here is guarded by skip_unless_parallel_opt_in()
+# (tests/testthat/helper-fixtures.R), which requires an installed package and an
+# explicit FSSGAM_TEST_PARALLEL=true. See that function for why. In short: these
+# mean nothing against a pkgload copy, and doSNOW cluster startup is unreliable
+# enough on a loaded machine that they must not run unattended.
+#
+#   R CMD INSTALL .
+#   FSSGAM_TEST_PARALLEL=true NOT_CRAN=true Rscript -e \
+#     'library(FSSgam); testthat::test_dir("tests/testthat", package = "FSSgam")'
+#
+# n.cores = 2 throughout, per CRAN's limit on parallel workers in checks.
+
+test_that("parallel = TRUE reproduces the sequential fit with saved model fits", {
+  skip_on_cran()
+  skip_unless_parallel_opt_in()
+
+  model.set <- fixture_cs1_model_set()
+
+  sequential <- fit_quietly(model.set, parallel = FALSE)
+  parallel <- fit_quietly(model.set, parallel = TRUE, n.cores = 2)
+
+  expect_equal(parallel$mod.data.out$modname, sequential$mod.data.out$modname)
+  expect_equal(parallel$mod.data.out$AICc, sequential$mod.data.out$AICc, tolerance = 1e-8)
+  expect_equal(parallel$mod.data.out$r2.vals, sequential$mod.data.out$r2.vals,
+                tolerance = 1e-8)
+  expect_equal(parallel$variable.importance, sequential$variable.importance,
+                tolerance = 1e-8)
+  expect_s3_class(parallel$success.models[[1]], "gam")
+})
+
+test_that("parallel = TRUE reproduces the sequential fit with save.model.fits = FALSE", {
+  skip_on_cran()
+  skip_unless_parallel_opt_in()
+
+  model.set <- fixture_cs1_model_set()
+
+  sequential <- fit_quietly(model.set, parallel = FALSE, save.model.fits = FALSE)
+  parallel <- fit_quietly(model.set, parallel = TRUE, n.cores = 2,
+                           save.model.fits = FALSE)
+
+  expect_equal(parallel$mod.data.out$AICc, sequential$mod.data.out$AICc, tolerance = 1e-8)
+  expect_equal(parallel$mod.data.out$edf, sequential$mod.data.out$edf, tolerance = 1e-8)
+  expect_s3_class(parallel$success.models[[1]], "formula")
+})
+
+test_that("parallel = TRUE keeps each candidate's extended-family state independent", {
+  # The parallel half of the beckyfisher/FSSgam#10 / #12 conflict. Every
+  # candidate's family is resolved on the calling process, before makeCluster(),
+  # precisely so that a worker never has to re-evaluate test.fit's family
+  # expression itself. A Tweedie test.fit exercises that: its estimated power
+  # parameter lives in the family object's own mutable environment.
+  skip_on_cran()
+  skip_unless_parallel_opt_in()
+
+  fit <- fixture_cs1_tweedie()
+  model.set <- fixture_cs1_model_set(fit = fit)
+
+  sequential <- fit_quietly(model.set, parallel = FALSE)
+  parallel <- fit_quietly(model.set, parallel = TRUE, n.cores = 2)
+
+  expect_length(parallel$failed.models, 0)
+  expect_equal(parallel$mod.data.out$AICc, sequential$mod.data.out$AICc, tolerance = 1e-6)
+})
+
+test_that("parallel = TRUE works when family was supplied as a list element", {
+  # beckyfisher/FSSgam#10 proper: under parallel = TRUE every candidate used
+  # to fail with "object 'family.opts' not found", because update() re-evaluated
+  # test.fit's family expression on a worker that had never seen family.opts.
+  #
+  # family.opts is assigned to the global environment (via <<-) rather than left
+  # local to this block, mirroring a real top-level user script -- mgcv::gam()
+  # normalises away the environment a formula was written in, so the expression
+  # always resolves through the global environment. See the matching comment in
+  # test-fit_model_set.R.
+  skip_on_cran()
+  skip_unless_parallel_opt_in()
+
+  use.dat <- fixture_cs1_data()
+  family.opts <<- list(gaussian(), tw())
+  on.exit(rm("family.opts", envir = globalenv()), add = TRUE)
+  test.fit <- gam(
+    Herbivore.abundance ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    family = family.opts[[2]],
+    data = use.dat
+  )
+
+  model.set <- fixture_cs1_model_set(
+    fit = list(use.dat = use.dat, test.fit = test.fit)
+  )
+  out <- fit_quietly(model.set, parallel = TRUE, n.cores = 2)
+
+  expect_length(out$failed.models, 0)
+  expect_equal(nrow(out$mod.data.out), model.set$n.mods)
+  expect_true(all(is.finite(out$mod.data.out$AICc)))
+
+  # Both fitting paths resolve the family themselves, deliberately kept separate
+  # (CLAUDE.md Section 6, Phase 6), so both need exercising here. This is the
+  # only configuration that can tell the unsaved path's copy apart: sequentially
+  # a NULL family. still fits, and a Gaussian test.fit resolves to NULL anyway.
+  unsaved <- fit_quietly(model.set, parallel = TRUE, n.cores = 2,
+                          save.model.fits = FALSE)
+  expect_length(unsaved$failed.models, 0)
+  expect_true(all(is.finite(unsaved$mod.data.out$AICc)))
+  expect_equal(unsaved$mod.data.out$AICc, out$mod.data.out$AICc, tolerance = 1e-8)
+})
+
+test_that("full_subsets_gam forwards parallel and n.cores", {
+  skip_on_cran()
+  skip_unless_parallel_opt_in()
+
+  fit <- fixture_cs1_gaussian()
+  args <- list(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
+  sequential <- do.call(full_subsets_quietly, args)
+  parallel <- do.call(full_subsets_quietly, c(args, list(parallel = TRUE, n.cores = 2)))
+
+  expect_equal(parallel$mod.data.out$AICc, sequential$mod.data.out$AICc, tolerance = 1e-8)
+})

@@ -181,11 +181,13 @@ if(length(grep("dsm",class(test.fit.)))==0){
  #  - Passing the already-FITTED family (family=stats::family(test.fit.))
  #    shares one mutable family object (theta etc.) across every candidate
  #    refit, warm-starting each from test.fit.'s unrelated estimate and
- #    destabilising mgcv's IRLS loop for most formulas (GitHub issue #12).
+ #    destabilising mgcv's IRLS loop for most formulas (GitHub issue
+ #    beckyfisher/FSSgam#12).
  #  - Omitting family= entirely so update() re-evaluates test.fit.'s
  #    original *expression* fixes that when the expression is a literal
  #    constructor call (family = tw()), but when family was supplied as a
- #    vector/list element (family = family.vec[[2]], GitHub issue #10) two
+ #    vector/list element (family = family.vec[[2]], GitHub issue
+ #    beckyfisher/FSSgam#10) two
  #    things break: (a) under parallel = TRUE, update() re-evaluates that
  #    expression on a doSNOW worker process that never had family.vec
  #    exported to it, so every refit fails with "object not found"; and

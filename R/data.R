@@ -6,7 +6,7 @@
 #' and habitat structure influence abundance and 
 #' biomass across multiple reef fish functional groups.
 #'
-#' @format A data frame with 68 rows and 28 variables
+#' @format A data frame with 68 rows and 27 variables
 #' @name case_study1
 #' @docType data
 NULL

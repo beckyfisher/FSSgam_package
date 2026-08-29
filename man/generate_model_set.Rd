@@ -73,11 +73,17 @@ via , with no random effects, fitted}
 \value{
 A list of the following output files:
 
-used.data - A data.frame which is identical to the data.frame initially supplied by the user, but with any hard coded interaction terms appended via cbind.
+n.mods - The number of candidate models generated, equal to length(mod.formula).
 
 predictor.correlations - The matrix of estimated predictor correlations returned by the function check_correlations and used for model exclusion based on cov.cutoff
 
-generated.models - A list containing the model formula that were generated (and will be fitted by fit_model_set).
+mod.formula - A named list containing the model formula that were generated (and will be fitted by fit_model_set). The names are the candidate model names used in the modname column of fit_model_set's output.
+
+used.data - A data.frame which is identical to the data.frame initially supplied by the user, but with any hard coded interaction terms appended via cbind.
+
+test.fit - The test.fit supplied by the user, passed through so that fit_model_set can update it.
+
+included.vars - A character vector of the predictors included in the model set, used to build the variable inclusion columns of fit_model_set's output.
 }
 \description{
 Generate a complete full subsets model set for analysis based on gam(m4) via a call to fit_model_set.

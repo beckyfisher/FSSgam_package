@@ -42,6 +42,16 @@ check_non_linear_correlations=function(dat){
   fact.vars=vars$fact.vars
   cont.vars=vars$cont.vars
 
+  # A single column has no pairs to estimate, so build_correlation_pair_grid()
+  # would return a zero-row grid and fail. Return the 1x1 unit matrix instead.
+  # Note check_correlations() returns exactly 1 here for a continuous column but
+  # a fitted multinomial pseudo-R2 (about 0.999999) for a factor one; this
+  # function sets its diagonal explicitly, so it is exact in both cases.
+  if(ncol(dat)<2){
+    out.cor.mat=matrix(1,nrow=ncol(dat),ncol=ncol(dat),
+                       dimnames=list(colnames(dat),colnames(dat)))
+    return(out.cor.mat)}
+
   test.mat=build_correlation_pair_grid(dat=dat)
 
   test.mat$r.sq=apply(test.mat,MARGIN=1,FUN=function(x){

@@ -5,7 +5,7 @@
 \alias{case_study1}
 \title{Case study 1 dataset}
 \format{
-A data frame with 68 rows and 28 variables
+A data frame with 68 rows and 27 variables
 }
 \description{
 This is the dataset used for case study 1.
