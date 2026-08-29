@@ -4,7 +4,7 @@ This is the dataset used for case study 1.
 
 ## Format
 
-A data frame with 68 rows and 28 variables
+A data frame with 68 rows and 27 variables
 
 ## Details
 

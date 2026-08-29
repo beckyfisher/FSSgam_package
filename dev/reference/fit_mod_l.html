@@ -38,7 +38,12 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fit_mod_l</span><span class="op">(</span><span class="va">formula.l</span>, <span class="va">test.fit.</span>, <span class="va">use.dat</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fit_mod_l</span><span class="op">(</span></span>
+<span>  <span class="va">formula.l</span>,</span>
+<span>  <span class="va">test.fit.</span>,</span>
+<span>  <span class="va">use.dat</span>,</span>
+<span>  family. <span class="op">=</span> <span class="fu">resolve_candidate_family</span><span class="op">(</span><span class="va">test.fit.</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -55,6 +60,16 @@
 
 <dt id="arg-use-dat">use.dat<a class="anchor" aria-label="anchor" href="#arg-use-dat"></a></dt>
 <dd><p>the data used to fit test.fit#</p></dd>
+
+
+<dt id="arg-family-">family.<a class="anchor" aria-label="anchor" href="#arg-family-"></a></dt>
+<dd><p>The family to refit formula.l with. Defaults to a fresh,
+independent re-evaluation of the family test.fit. itself used (see
+resolve_candidate_family in R/utils.R), so repeated calls never share
+mutable extended-family state (e.g. mgcv's nb()/tw() estimated theta).
+fit_model_set() resolves this once per candidate up front, on the
+calling process, and passes it in explicitly rather than relying on this
+default – see the comment below for why.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -97,7 +112,7 @@ This wrapper was required to allow full_subsets_gam and fit_model_set to be appl
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

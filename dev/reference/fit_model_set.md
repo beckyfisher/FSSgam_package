@@ -92,10 +92,6 @@ argue should not be done at all). We have supplied a range of methods
 for estimating R2 (r2.type), as in our experience a single method rarely
 performs adequately across all scenarios.
 
-used.data - A data.frame which is identical to the data.frame initially
-supplied by the user, but with any hard coded interaction terms appended
-via cbind.
-
 failed.models - A list of model formula that failed to fit. Ideally the
 list of failed models should be empty, but when this is not the case
 interrogating failed.models provides a useful means of troubleshooting.
