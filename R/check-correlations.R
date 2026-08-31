@@ -114,8 +114,12 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
     var.1=as.character(lm.grid[r,1])
     var.2=as.character(lm.grid[r,2])
     dat.r=stats::na.omit(dat[,c(var.1,var.2)])
-    fit <- try(summary(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE))$deviance,silent=TRUE)
-    null.fit=try(summary(nnet::multinom(dat[,var.1] ~ 1,trace=FALSE))$deviance,silent=TRUE)
+    # $deviance is taken from the fit itself rather than from summary(): the
+    # summary method computes standard errors that are discarded here, and
+    # sqrt()s a negative variance on a perfectly separated fit, which is where
+    # the spurious "NaNs produced" warnings came from (FSSgam_package#10).
+    fit <- try(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE)$deviance,silent=TRUE)
+    null.fit=try(nnet::multinom(dat[,var.1] ~ 1,trace=FALSE)$deviance,silent=TRUE)
     if(!inherits(fit,"try-error")){
        if(round(fit,4)==round(null.fit,4)){r.est=0}else{
       r.est=sqrt(1-(fit/null.fit))}
@@ -128,8 +132,9 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
           var.1=as.character(lm.grid[r,1])
           var.2=as.character(lm.grid[r,2])
           dat.r=stats::na.omit(dat[,c(var.1,var.2)])
-          fit <- try(summary(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE))$deviance,silent=TRUE)
-          null.fit=try(summary(nnet::multinom(dat[,var.1] ~ 1,trace=FALSE))$deviance,silent=TRUE)
+          # see the matching comment in the parallel branch above
+          fit <- try(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE)$deviance,silent=TRUE)
+          null.fit=try(nnet::multinom(dat[,var.1] ~ 1,trace=FALSE)$deviance,silent=TRUE)
           out=NA
           if(!inherits(fit,"try-error")){
            if(round(fit,4)==round(null.fit,4)){r.est=0}else{

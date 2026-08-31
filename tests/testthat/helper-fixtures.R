@@ -243,14 +243,19 @@ deparse_one <- function(x) paste(deparse(x, width.cutoff = 500L), collapse = " "
 # Muffles only nnet's "NaNs produced" warning, leaving every other warning to
 # reach the test.
 #
-# check_correlations() takes its factor-factor estimate from a summary() of a
-# multinom() fit, and that summary computes standard errors it then discards. On
-# a perfectly separated fit -- which factor.factor.interactions guarantees, since
-# a pasted interaction column is by construction perfectly predicted by its own
-# components -- the variance-covariance matrix has negative diagonal entries and
-# sqrt() warns (FSSgam_package#10). Whether nnet's optimiser reaches that state
-# is version dependent: it does on the CI runners and does not on nnet 7.3-20
-# here.
+# check_correlations() used to take its factor-factor estimate from a summary()
+# of a multinom() fit, and that summary computes standard errors it then
+# discards. On a perfectly separated fit -- which factor.factor.interactions
+# guarantees, since a pasted interaction column is by construction perfectly
+# predicted by its own components -- the variance-covariance matrix has negative
+# diagonal entries and sqrt() warns (FSSgam_package#10). Whether nnet's
+# optimiser reaches that state is version dependent: it did on the CI runners
+# and did not on nnet 7.3-20 here.
+#
+# The deviance is now read straight off the fit, so the summary is never
+# computed and the warning cannot arise. This filter is retained because it
+# costs nothing and the tests must keep passing against an older installed
+# FSSgam, but it should have nothing left to suppress.
 #
 # A blanket suppressWarnings() would also hide the "no non-missing arguments to
 # max" warnings that this package's own regression tests rely on, so the filter

@@ -113,3 +113,28 @@ test_that("two exactly balanced factors are reported as uncorrelated", {
   expect_equal(unname(cm["respf", "predf"]), 0)
   expect_equal(unname(cm["predf", "respf"]), 0)
 })
+
+test_that("a perfectly separated factor pair is estimated without warning", {
+  # FSSgam_package#10. The factor-factor deviance is read straight off the
+  # multinom() fit rather than from summary(), which computes standard errors
+  # that are discarded here and sqrt()s a negative variance when the fit is
+  # perfectly separated.
+  #
+  # This does not fail against the unfixed code on nnet 7.3-20, which does not
+  # reach the state that warns; it did on the CI runners at the time the issue
+  # was raised. What is asserted here is that no warning is possible, and the
+  # values are unchanged.
+  use.dat <- fixture_cs1_data()
+  use.dat$ZONE2 <- factor(
+    ifelse(use.dat$SCORE2 > stats::median(use.dat$SCORE2), "high", "low")
+  )
+  # a pasted column is perfectly predicted by each of its components
+  use.dat$ZONE.I.ZONE2 <- factor(paste(use.dat$ZONE, use.dat$ZONE2, sep = "."))
+
+  expect_no_warning(
+    cm <- check_correlations(use.dat[, c("ZONE", "ZONE2", "ZONE.I.ZONE2")])
+  )
+  # the interaction column is perfectly collinear with both components
+  expect_gt(cm["ZONE", "ZONE.I.ZONE2"], 0.99)
+  expect_gt(cm["ZONE2", "ZONE.I.ZONE2"], 0.99)
+})

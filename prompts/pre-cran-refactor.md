@@ -331,3 +331,40 @@ difference attributable to the version — the diff contains only the intended
 argument and text changes.
 
 ---
+
+### Phase 2 — the correlation functions
+
+**FSSgam_package#10 — spurious "NaNs produced" warnings out of `nnet`.**
+
+`check_correlations()` and `check_non_linear_correlations()` took the
+factor-factor deviance from `summary(nnet::multinom(...))$deviance`. The
+summary method computes a variance-covariance matrix in order to report
+standard errors, and on a perfectly separated fit its diagonal is negative, so
+`sqrt()` warns. Only `$deviance` is used, and the fit carries it directly.
+Changed both calls in both functions, and both branches in
+`check_correlations()`, to read it off the fit.
+
+Verified rather than assumed, in two ways.
+
+`identical(summary(f)$deviance, f$deviance)` is `TRUE` for the fits involved.
+A golden-master comparison over 14 scenarios — continuous only, factors only,
+mixed, one factor, a single factor column, a single continuous column, and a
+`case_study2` mixed set, each through both `check_correlations()` and
+`check_non_linear_correlations()` — gives bit-identical matrices before and
+after, at `tolerance = 0`.
+
+Recorded honestly: the warning itself could not be reproduced on this machine,
+either before or after. nnet here is 7.3-20, and its optimiser does not reach
+the state that warns, even on a deliberately perfectly separated fit
+(`ZONE ~ paste(ZONE, ZONE2)`). This matches what Phase 13 recorded. The change
+is therefore justified by removing a computation whose result is discarded,
+which is where the warning came from on the platforms that did show it — not by
+a reproduction here.
+
+The added test asserts no warning is emitted on a perfectly separated pair. It
+does not fail against the unfixed code on this nnet version, which is stated in
+a comment on the test itself so it is not mistaken for a regression test. The
+`suppress_nnet_nans()` helper is retained, and its comment corrected: it
+described the `summary()` call that no longer exists.
+
+---

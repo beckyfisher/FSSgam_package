@@ -94,9 +94,12 @@ estimate_non_linear_correlation=function(response.var1,predictor.var2,dat,fact.v
 
     # if the response.var1 variable is a factor use a multinomial model
     if(class.response.var1=="factor"){
-      fit <- try(summary(nnet::multinom(response.var1 ~ predictor.var2,trace=FALSE,
-          data=dat.r))$deviance,silent=TRUE)
-      null.fit=try(summary(nnet::multinom(response.var1 ~ 1,trace=FALSE,data=dat.r))$deviance,silent=TRUE)
+      # $deviance straight off the fit rather than via summary(), which
+      # computes discarded standard errors and warns "NaNs produced" on a
+      # perfectly separated fit (FSSgam_package#10).
+      fit <- try(nnet::multinom(response.var1 ~ predictor.var2,trace=FALSE,
+          data=dat.r)$deviance,silent=TRUE)
+      null.fit=try(nnet::multinom(response.var1 ~ 1,trace=FALSE,data=dat.r)$deviance,silent=TRUE)
       if(!inherits(fit,"try-error")){
          if(round(fit,4)==round(null.fit,4)){r.est=0}else{
         r.est=sqrt(1-(fit/null.fit))}
