@@ -86,6 +86,10 @@ fit_model_set=function(model.set.list,
   # than in extract_mod_dat(), which is exported and documents r2.type. as
   # being passed straight through.
   r2.type <- match.arg(r2.type, c("r2.lm.est", "r2", "dev"))
+  # compute_variable_importance() had two if blocks and no else, so an
+  # unrecognised VI.mods left both weight objects unassigned and the failure
+  # surfaced as "object 'aic.var.weights' not found".
+  VI.mods <- match.arg(VI.mods, c("min.n", "all"))
 
   use.datModSet <- model.set.list$used.data
   n.mods=length(model.set.list$mod.formula)#model.set.list$n.mods
@@ -326,8 +330,12 @@ compute_variable_importance=function(mod.data.out,included.vars,VI.mods){
     names(var.weights) <- included.vars
     variable.weights.raw <- var.weights
     bic.var.weights <- list(variable.weights.raw=variable.weights.raw)
-  }
-  if(VI.mods=='all'){
+  }else{
+    # else rather than a second if on VI.mods=='all': with two ifs an
+    # unrecognised value assigned neither object and the failure surfaced much
+    # further down as "object 'aic.var.weights' not found". This function is
+    # unexported and only ever reached after fit_model_set()'s match.arg(), so
+    # the two branches are exhaustive.
     # first for AICc
     variable.weights.raw <- colSums(mod.data.out[,included.vars,drop=FALSE]*mod.data.out$wi.AICc)
     aic.var.weights <- list(variable.weights.raw=variable.weights.raw)

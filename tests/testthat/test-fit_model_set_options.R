@@ -210,6 +210,18 @@ test_that("VI.mods = 'min.n' (the default) sums only the best n models per predi
   }
 })
 
+test_that("an unrecognised VI.mods is an error, not a missing object", {
+  # compute_variable_importance() had two if blocks and no else, so a value
+  # matching neither assigned nothing and the failure surfaced as
+  # "object 'aic.var.weights' not found".
+  model.set <- fixture_cs1_model_set()
+
+  expect_error(
+    fit_quietly(model.set, parallel = FALSE, VI.mods = "alll"),
+    "'arg' should be one of"
+  )
+})
+
 # ---- failure handling -------------------------------------------------------
 
 test_that("normalise_mod_dat_rows replaces anything that is not a summary row", {

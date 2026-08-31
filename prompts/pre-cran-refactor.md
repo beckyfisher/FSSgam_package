@@ -188,3 +188,23 @@ matching does not make it ambiguous with `"r2.lm.est"`; this is asserted rather
 than assumed, by a test that runs all three documented values through.
 
 ---
+
+**B2 — `VI.mods` accepted any value.**
+
+`fit_model_set(model.set, VI.mods = "alll")` failed with `object
+'aic.var.weights' not found`: `compute_variable_importance()` had two `if`
+blocks and no `else`, so a value matching neither assigned nothing and the
+failure surfaced further down as a missing object rather than as a bad
+argument.
+
+Added `match.arg(VI.mods, c("min.n", "all"))` to `fit_model_set()` and changed
+the second `if` to `else`. The helper is unexported and only reached after that
+`match.arg()`, so the two branches are exhaustive.
+
+The corresponding assertion for `full_subsets_gam()` was written and then moved
+to the FSSgam_package#7 commit below, because the wrapper has no `VI.mods`
+argument at this point in the sequence — the test failed with `unused argument
+(VI.mods = "alll")`, which is the defect #7 reports rather than the one under
+test here.
+
+---
