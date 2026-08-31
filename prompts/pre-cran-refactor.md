@@ -165,3 +165,26 @@ re-run in isolation before the pull request. The sequential suite is green at
 467 passing expectations (baseline 438).
 
 ---
+
+**B1 — `r2.type` accepted any value.**
+
+`fit_model_set(model.set, r2.type = "rsq")` returned an all-NA `r2.vals`
+column with no message: `extract_mod_dat()` matches `r2.type.` against three
+literals in sequence and leaves the value at `NA` when none matches. Added
+`match.arg(r2.type, c("r2.lm.est", "r2", "dev"))` to `fit_model_set()` and to
+`full_subsets_gam()`.
+
+Validated in the wrapper as well as in `fit_model_set()`, although the wrapper
+forwards the argument, because `generate_model_set()` runs first: without the
+earlier check the whole candidate set is built before the error is raised.
+
+Deliberately *not* added to `extract_mod_dat()`. That function is exported and
+documents `r2.type.` as being passed straight through, so validating there
+would make an exported function stricter than it is today. The same reasoning
+was later applied to `check_correlations()`.
+
+`"r2"` is an exact match against the second element, so `match.arg()`'s partial
+matching does not make it ambiguous with `"r2.lm.est"`; this is asserted rather
+than assumed, by a test that runs all three documented values through.
+
+---

@@ -161,6 +161,10 @@ full_subsets_gam=function(use.dat,
               future versions.')
      }
 
+  # Validated here as well as in fit_model_set(), so an unrecognised value is
+  # reported before the candidate set is built rather than after.
+  r2.type <- match.arg(r2.type, c("r2.lm.est", "r2", "dev"))
+
   model.set=generate_model_set(use.dat=use.dat,
                           test.fit=test.fit,
                           pred.vars.cont=pred.vars.cont,

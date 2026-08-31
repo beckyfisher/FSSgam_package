@@ -115,6 +115,38 @@ test_that("r2.type = 'dev' reports mgcv's deviance explained", {
   expect_equal(out$mod.data.out$r2.vals, unname(expected))
 })
 
+test_that("an unrecognised r2.type is an error, not a silent column of NA", {
+  # extract_mod_dat() matches r2.type. against three literals and leaves the
+  # value at NA when none matches, so r2.vals came back all-NA with no message.
+  model.set <- fixture_cs1_model_set()
+
+  expect_error(
+    fit_quietly(model.set, parallel = FALSE, r2.type = "rsq"),
+    "'arg' should be one of"
+  )
+
+  fit <- fixture_cs1_gaussian()
+  expect_error(
+    full_subsets_quietly(
+      use.dat = fit$use.dat, test.fit = fit$test.fit,
+      pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+      null.terms = "s(site,bs='re')", max.predictors = 2, k = 3,
+      r2.type = "rsq"
+    ),
+    "'arg' should be one of"
+  )
+})
+
+test_that("each documented r2.type is accepted and reaches the model table", {
+  # "r2" is an exact match against the second element, so match.arg()'s partial
+  # matching does not make it ambiguous with "r2.lm.est".
+  model.set <- fixture_cs1_model_set()
+  for (rt in c("r2.lm.est", "r2", "dev")) {
+    out <- fit_quietly(model.set, parallel = FALSE, r2.type = rt)
+    expect_true(all(is.finite(out$mod.data.out$r2.vals)), info = rt)
+  }
+})
+
 # ---- report.unique.r2 -------------------------------------------------------
 
 test_that("report.unique.r2 = TRUE adds r2.vals.unique as r2 less the null model r2", {

@@ -80,6 +80,13 @@ fit_model_set=function(model.set.list,
                           report.unique.r2=FALSE,
                           VI.mods='min.n'){
 
+  # An unrecognised r2.type used to reach extract_mod_dat(), which matches it
+  # against three literals and leaves the value at NA when none matches, so the
+  # whole r2.vals column came back NA with no message. Validated here rather
+  # than in extract_mod_dat(), which is exported and documents r2.type. as
+  # being passed straight through.
+  r2.type <- match.arg(r2.type, c("r2.lm.est", "r2", "dev"))
+
   use.datModSet <- model.set.list$used.data
   n.mods=length(model.set.list$mod.formula)#model.set.list$n.mods
   mod.formula <- model.set.list$mod.formula
