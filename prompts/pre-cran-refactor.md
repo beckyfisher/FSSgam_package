@@ -595,3 +595,38 @@ it. `NA` is neither a character vector nor a list and still falls through with
 phase. All 31 golden-master scenarios identical; suite green at 508.
 
 ---
+
+**The interaction-column building.** Both factor branches pasted each surviving
+combination into a new `a.I.b` column and appended it to `use.dat`. Extracted as
+`build_factor_interaction_columns()`.
+
+They diverge on what happens when the screen leaves nothing, and checking that
+turned up a fourth difference. The logical branch guards with `if(ncol(tt)>0)`
+and warns otherwise. The character branch called `cbind()` unconditionally, and
+`cbind(use.dat, <0-column data.frame>)` raises "arguments imply differing number
+of rows: n, 0" -- an error naming neither the argument nor the cutoff. This was
+confirmed at the console rather than assumed.
+
+Reproduced rather than repaired, because phase 3 changes no behaviour, with the
+reasoning recorded at the helper. No scenario reaches it, and it appears
+unreachable in practice: the guard above it requires at least two cells of the
+correlation matrix below the cutoff, while every combination being screened out
+requires every upper-triangle cell above it, and `check_correlations()` is
+asymmetric by less than 1e-3, so both cannot hold at once. It is listed for
+phase 4 alongside the other three divergences.
+
+**Phase 3 result.** `resolve_factor_interactions()` is 82 lines, from 161.
+`resolve_smooth_smooth_interactions()` is 52, from 73. Five new helpers, each
+under 35 lines. Four divergences between the duplicated branches are now
+explicit arguments or comments rather than differences a reader has to find by
+diffing two blocks:
+
+1. `screen.both` -- both triangles against upper only;
+2. `warn.when.empty` -- warn, against an error from `cbind()`;
+3. the cell-counting guard on the character branch, which has no counterpart;
+4. the `te()` arity, retained by decision and now documented at the call site.
+
+All 31 golden-master scenarios identical at every step; suite green at 508
+throughout.
+
+---

@@ -286,6 +286,40 @@ combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff,screen.both){
   combns
 }
 
+# Pastes each surviving combination of factors into a new column named a.I.b
+# and appends them to use.dat. Returns the extended data and the new names.
+#
+# warn.when.empty separates the two callers when the collinearity screen leaves
+# nothing. The logical factor.factor.interactions branch warns and carries on.
+# The character branch reached cbind() unconditionally, and
+# cbind(use.dat, <0-column data.frame>) raises "arguments imply differing
+# number of rows", so it fails with an error that names neither the argument
+# nor the cutoff. That is reproduced here rather than repaired, because this
+# restructure changes no behaviour.
+#
+# No scenario exercises the empty character case, and it appears unreachable in
+# practice: the guard above it requires at least two cells of the correlation
+# matrix below the cutoff, while every combination being screened out requires
+# every upper-triangle cell above it. check_correlations() is asymmetric by
+# less than 1e-3, so the two conditions cannot both hold.
+build_factor_interaction_columns=function(use.dat,fact.combns,warn.when.empty){
+  tt=data.frame(lapply(fact.combns,FUN=function(x){
+             do.call("paste",as.list(use.dat[,x]))}))
+  factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
+  colnames(tt)=factor.interaction.terms
+
+  if(ncol(tt)>0){
+    use.dat=cbind(use.dat,tt)
+  }else{
+    if(warn.when.empty){
+      warning("You have set factor.factor.interactions to 'TRUE' but there are no
+                factors to interaction at your specified cor.cuttoff value.")
+    }else{
+      use.dat=cbind(use.dat,tt)}}
+
+  list(use.dat=use.dat,factor.interaction.terms=factor.interaction.terms)
+}
+
 # Normalises factor.smooth.interactions to one triple of variable sets.
 #
 # The character form names only the factors, and the continuous and linear
@@ -371,17 +405,10 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
                           sizes=combination_sizes(pred.vars.fact,max.predictors),
                           cor.matrix=factor.correlations,cov.cutoff=cov.cutoff,
                           screen.both=TRUE)
-        tt=data.frame(lapply(fact.combns,FUN=function(x){
-                   do.call("paste",as.list(use.dat[,x]))}))
-        factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
-        colnames(tt)=factor.interaction.terms
-      if(ncol(tt)>0){
-        use.dat=cbind(use.dat,tt)
-      }else{
-        warning("You have set factor.factor.interactions to 'TRUE' but there are no
-                factors to interaction at your specified cor.cuttoff value.")}
-
-      pred.vars.fact=c(pred.vars.fact,factor.interaction.terms)
+      cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns,
+                          warn.when.empty=TRUE)
+      use.dat=cols.l$use.dat
+      pred.vars.fact=c(pred.vars.fact,cols.l$factor.interaction.terms)
       }
     }
     # make only specified interactions between factors
@@ -400,13 +427,10 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
                           sizes=combination_sizes(factor.factor.interactions,max.predictors),
                           cor.matrix=factor.correlations,cov.cutoff=cov.cutoff,
                           screen.both=FALSE)
-          tt=data.frame(lapply(fact.combns,FUN=function(x){
-                     do.call("paste",as.list(use.dat[,x]))}))
-          factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
-          colnames(tt)=factor.interaction.terms
-
-        use.dat=cbind(use.dat,tt)
-        pred.vars.fact=c(pred.vars.fact,factor.interaction.terms)
+        cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns,
+                          warn.when.empty=FALSE)
+        use.dat=cols.l$use.dat
+        pred.vars.fact=c(pred.vars.fact,cols.l$factor.interaction.terms)
       }
     }
    }
