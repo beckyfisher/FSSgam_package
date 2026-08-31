@@ -245,3 +245,25 @@ A stale comment on a neighbouring test was corrected in the same commit: it
 described the `is.na()` branch that no longer exists.
 
 ---
+
+**B4 — `max.models` had different defaults in the wrapper and the pair.**
+
+`fit_model_set()` defaulted to 200 and `full_subsets_gam()` to 500,
+undocumented in either, so a candidate set of 300 saved its model fits through
+the wrapper and did not through `generate_model_set()` + `fit_model_set()`.
+Set both to 200 and documented the default in both `@param` entries.
+
+200 rather than 500 because it is the value the two primary user-facing
+functions already used; raising `fit_model_set()` to 500 would have increased
+the memory a default call can consume, which is what the argument exists to
+bound. This is a behaviour change for anyone with a set between 201 and 500
+calling `full_subsets_gam()`: they now get the warning and lose
+`success.models`. Recorded in `NEWS.md`.
+
+The test asserts the two defaults are equal rather than only that each is 200,
+so the two cannot drift apart again without failing.
+
+`NEWS.md` entries for all of phase 1 were written in one commit at the end of
+the phase rather than one per fix, since the file is a per-release changelog.
+
+---

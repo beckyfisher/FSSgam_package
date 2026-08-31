@@ -439,3 +439,14 @@ test_that("the deprecated arguments stay absent when not supplied", {
     "max.predictors"
   )
 })
+
+test_that("max.models has the same default in the wrapper and in fit_model_set", {
+  # The two defaults were 500 and 200, undocumented in either, so a candidate
+  # set of 300 saved its fits through full_subsets_gam() and not through
+  # generate_model_set() + fit_model_set().
+  expect_equal(
+    eval(formals(full_subsets_gam)$max.models),
+    eval(formals(fit_model_set)$max.models)
+  )
+  expect_equal(eval(formals(full_subsets_gam)$max.models), 200)
+})

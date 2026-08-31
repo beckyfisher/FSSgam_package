@@ -58,7 +58,7 @@
 #'
 #' @param parallel  A logical value indicating if parallel processing should be used. The default is FALSE.
 #'
-#' @param max.models The total number of models allowed to be fit and still save the model fits. If the candidate set is bigger than this value, a warning will be returned indicating that model fits will not be saved.
+#' @param max.models The total number of models allowed to be fit and still save the model fits. Defaults to 200. If the candidate set is bigger than this value, a warning will be returned indicating that model fits will not be saved.
 #'
 #' @param save.model.fits Are the model fits to be saved in the output list? If TRUE this will be overriten if the model candidate set is bigger than max.models. If FALSE only model output data are saved.
 #'
@@ -128,7 +128,7 @@ full_subsets_gam=function(use.dat,
                           k=5,
                           bs.arg="'cr'",
                           null.terms="",
-                          max.models=500,
+                          max.models=200,
                           save.model.fits=TRUE,
                           parallel=FALSE,
                           n.cores=4,
