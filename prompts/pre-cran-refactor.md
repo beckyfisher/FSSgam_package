@@ -429,3 +429,92 @@ self-pairs, 16 after this change. Elapsed time is not a useful figure here —
 sub-millisecond. The count is the quantity that scales.
 
 ---
+
+### Verifying A4 under `parallel = TRUE`, and a pre-existing intermittent stall
+
+The A4 regression test could not be observed to pass for some time, and the
+investigation produced two corrections worth recording.
+
+**First correction: A4 was not the cause of the stalls.** From single runs it
+appeared that re-enabling `.errorhandling='pass'` made the unsaved parallel path
+hang: removing that one argument gave a clean 1.6 s run, leaving it gave a
+timeout. That inference was wrong. Adding two `message()` calls to the same
+unmodified function also produced a clean 1.6 s run, which no theory of
+`.errorhandling` explains. The path stalls *intermittently*, so one observation
+either side established nothing.
+
+Measured properly, 12 repetitions of the same plain script against each build,
+25 s timeout (a successful run takes 1.6 s):
+
+| build | completed | stalled |
+|---|---|---|
+| this branch, A4 applied | 8/12 | 4/12 |
+| `master` worktree | 6/12 | 6/12 |
+
+`master` stalls at least as often, so A4 did not introduce this. A trivial
+`foreach()` completes in 0.29 s, and `.errorhandling='pass'` with `.packages`
+and `.options.snow = list()` completes in isolation, so it is not the cluster
+machinery or the arguments themselves.
+
+This extends the Phase 13 caution rather than repeating it. Phase 13 recorded
+the stall for the *test file* and noted that the same contents "run from a plain
+script completed six times out of six". That no longer holds: the plain script
+stalls at roughly the same rate as the test file.
+
+**Second correction: a defective probe, not a defective package.** The first
+successful A4 run reported nine rows in a table for a model set of eight. The
+probe injected the broken formula with
+`ms$mod.formula[["ZONE+depth"]] <- ...`, and `[[<-` on a name that does not
+exist *appends* rather than replaces. In a plain UTF-8 session the candidate is
+named `depth+ZONE`; `ZONE+depth` is its C-collation spelling, which is what
+testthat produces. This is FSSgam_package#8 seen from the other side, and it is
+exactly what `break_one_candidate()`'s `stopifnot(modname %in% ...)` exists to
+catch, so the committed test was never at risk.
+
+**A4 verified.** With the probe corrected, under `parallel = TRUE` and
+`save.model.fits = FALSE` with one unfittable candidate:
+
+```
+failed.models names : depth+ZONE
+rows in table       : 8 of 8
+broken row AICc isNA: TRUE
+others all finite   : TRUE
+matches sequential  : TRUE
+```
+
+Before the fix this configuration aborted the whole run.
+
+---
+
+**The stall is gamm4 loading on the workers, not this package.**
+
+Instrumenting a stall showed the last marker reached is "entering foreach":
+`makeCluster()` and `registerDoSNOW()` both complete, so it is not cluster
+startup. A `foreach()` with a trivial body (`i * 2`), calling no FSSgam code at
+all, reproduces it purely from `.packages`:
+
+| `.packages` | completed | loads gamm4 |
+|---|---|---|
+| `mgcv` | 10/10 | no |
+| `mgcv, MuMIn` | 10/10 | no |
+| `gamm4` | 7/10 | yes |
+| `mgcv, gamm4` | 3/10 | yes |
+| `mgcv, FSSgam` | 6/10 | yes, via Imports |
+| `mgcv, gamm4, MuMIn, FSSgam` | 8/10 | yes |
+
+Every set that loads gamm4 stalls and no set without it does: 20/20 against
+24/40. No ordering is read into the individual gamm4 rates; at n = 10 those
+intervals overlap heavily, and the only supported statement is gamm4 present
+against gamm4 absent.
+
+Not established: whether this is specific to WSL2 or to this lme4/Matrix build,
+and the mechanism. gamm4 loads lme4, Matrix and nlme, so a namespace or S4
+method-table race on the workers is plausible but was not demonstrated.
+
+This is outside the refactor's scope and predates all of it, so no code change
+was made. A correction to `CLAUDE.md` is drafted, since three statements there
+are now known to be wrong: that the stall is in cluster startup, that a plain
+script completed six times out of six, and that it is contention from another
+process.
+
+---
