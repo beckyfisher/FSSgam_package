@@ -81,6 +81,53 @@
   (`.github/workflows/test-coverage.yaml`, using `covr` + Codecov) and a
   coverage badge to the README (FSSgam_package#3).
 
+* Bug fix: `fit_model_set()` (and `full_subsets_gam()`, which calls it)
+  failed on a model set with exactly one predictor, with `'x' must be an
+  array of at least two dimensions`. The variable importance calculation
+  indexed the model table by column name without `drop = FALSE`, so a single
+  predictor collapsed it to a vector before `colSums()`. `generate_model_set()`
+  was fixed for the single-predictor case earlier in this development cycle;
+  `fit_model_set()` was not.
+* Bug fix: with `VI.mods = 'min.n'`, a predictor present in no successfully
+  fitted model was given the weight of the single best model containing any
+  predictor, rather than none. The number of models to sum over is zero in
+  that case, and `1:0` counts backwards.
+* Bug fix: with `save.model.fits = FALSE` and `parallel = TRUE`, a single
+  candidate that could not be fitted aborted the whole run instead of being
+  recorded in `failed.models`. The `foreach()` on that path had its
+  `.errorhandling` disabled; the `save.model.fits = TRUE` path was unaffected.
+* Bug fix: an unrecognised `r2.type` was accepted silently and produced a
+  column of `NA` r2 values. `fit_model_set()` and `full_subsets_gam()` now
+  reject anything other than `"r2.lm.est"`, `"r2"` or `"dev"`. `extract_mod_dat()`
+  is unchanged, since it documents `r2.type.` as passed through.
+* Bug fix: an unrecognised `VI.mods` failed with `object 'aic.var.weights'
+  not found`. `fit_model_set()` and `full_subsets_gam()` now reject anything
+  other than `"min.n"` or `"all"`.
+* Bug fix: `full_subsets_gam()`'s deprecated `factor.interactions`,
+  `smooth.interactions` and `size` arguments raised an error on values they
+  are documented to accept. A character vector of length greater than one
+  gave `the condition has length > 1`, and `NA` gave `missing value where
+  TRUE/FALSE needed`. All three are now detected with `missing()`, which is
+  correct for every type, length and `NA`. As a result
+  `smooth.interactions = NA` now warns about the deprecation, which it did
+  not do reliably before.
+* Behaviour change: `full_subsets_gam()`'s `max.models` default changes from
+  500 to 200, matching `fit_model_set()`. The two disagreed and neither
+  documented its default, so a candidate set of between 201 and 500 models
+  saved its model fits through `full_subsets_gam()` but not through
+  `generate_model_set()` plus `fit_model_set()`. Anyone relying on the old
+  wrapper default for a set in that range will now receive the
+  "model fits will not be saved" warning and an empty `success.models`; pass
+  `max.models = 500` explicitly to keep the previous behaviour. The default
+  is now stated in the documentation of both functions.
+* `full_subsets_gam()` gains `VI.mods`, which it previously did not forward
+  to `fit_model_set()`, so `VI.mods = 'all'` was unreachable through the
+  wrapper (FSSgam_package#7).
+* `fit_model_set()` and `full_subsets_gam()` gain `progress`, defaulting to
+  `interactive()`. The progress bar was previously written to stdout
+  unconditionally, so suppressing it in a script or report required wrapping
+  the call in `capture.output()` (FSSgam_package#9).
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.
