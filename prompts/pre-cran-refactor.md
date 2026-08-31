@@ -578,3 +578,20 @@ Two details preserved deliberately rather than tidied:
 All 31 scenarios identical, suite green at 508.
 
 ---
+
+**The factor-smooth branches.** `factor.smooth.interactions` accepted a
+character vector or a named list, and the two forms had separate
+implementations of the same twenty lines. They differ only in where the three
+variable sets come from: the character form names the factors and takes the
+continuous and linear predictors from `pred.vars.cont` and `linear.vars`, while
+the list form names all three and is validated against `all.predictors` first.
+
+Split into `normalise_factor_smooth_interactions()`, which produces one triple,
+and `build_factor_smooth_terms()`, which builds the `.by.` and `.t.` names from
+it. `NA` is neither a character vector nor a list and still falls through with
+`interaction.terms` left at `NA`, which the `fsi_na` scenario pins.
+
+`resolve_factor_interactions()` is now 92 lines, from 161 at the start of the
+phase. All 31 golden-master scenarios identical; suite green at 508.
+
+---

@@ -286,6 +286,71 @@ combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff,screen.both){
   combns
 }
 
+# Normalises factor.smooth.interactions to one triple of variable sets.
+#
+# The character form names only the factors, and the continuous and linear
+# predictors are taken from pred.vars.cont and linear.vars. The list form names
+# all three itself, and is validated against all.predictors first -- a check
+# the character form does not make, because pred.vars.fact has already been
+# validated by the time it is reached.
+normalise_factor_smooth_interactions=function(factor.smooth.interactions,
+                          pred.vars.cont,linear.vars,all.predictors){
+  if(inherits(factor.smooth.interactions,"list")){
+    check.list=match(stats::na.omit(
+    unlist(factor.smooth.interactions)),all.predictors)
+
+    if(length(which(is.na(check.list)))>0){
+            stop(paste("Variable(s)",
+                       unlist(factor.smooth.interactions)[which(is.na(check.list))] ,
+                       "included in the factor.smooth.interactions list do(es)
+                       not appear in either pred.vars.fact, pred.vars.cont or linear.vars.
+                       Pleasure ensure all predictors are specified as one of these three types"))}
+
+    return(list(fact.vars=factor.smooth.interactions$fact.vars,
+                cont.vars=factor.smooth.interactions$cont.vars,
+                linear.vars=factor.smooth.interactions$linear.vars))
+  }
+  list(fact.vars=factor.smooth.interactions,
+       cont.vars=pred.vars.cont,
+       linear.vars=linear.vars)
+}
+
+# Builds the ".by." and ".t." interaction term names from that triple.
+#
+# The requested factors are first expanded to include any hard-coded ".I."
+# interaction column built from them, so naming a factor also brings in the
+# interactions it participates in.
+build_factor_smooth_terms=function(spec,pred.vars.fact){
+  interaction.terms=NA
+  linear.interaction.terms=NA
+
+  fact.vars=pred.vars.fact[which(unlist(lapply(strsplit(pred.vars.fact,
+     split=".I."),function(x){
+     max(is.na(match(x,spec$fact.vars)))}))==0)]
+
+  if(length(stats::na.omit(fact.vars))>0){
+   # pred.vars.cont=NA is a documented way to run without smooth predictors.
+   # Without this guard expand.grid() pairs the NA itself with each factor,
+   # producing a phantom "NA.by.<factor>" term. At max.predictors=1 that term
+   # is discarded again before the model set is returned, and the only symptom
+   # is enumerate_candidate_models() taking max() of an empty correlation
+   # sub-matrix and warning; from max.predictors=2 it survives into the
+   # candidate set as a model whose formula smooths the literal NA.
+   if(length(stats::na.omit(spec$cont.vars))>0){
+    all.interactions=expand.grid(spec$cont.vars,fact.vars)
+    interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}
+
+   # now interactions between linear continous predictors and factors
+   if(length(stats::na.omit(spec$linear.vars))>0){
+    linear.interactions=expand.grid(spec$linear.vars,fact.vars)
+    linear.interaction.terms=paste(linear.interactions$Var1,linear.interactions$Var2,
+                               sep=".t.")}
+   }
+
+  list(interaction.terms=interaction.terms,
+       linear.interaction.terms=linear.interaction.terms)
+}
+
 resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.interactions,
                           factor.smooth.interactions,pred.vars.cont,linear.vars,
                           all.predictors,max.predictors,cov.cutoff){
@@ -351,69 +416,21 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
 
 
    # check which factors should be included as interactions with the smoothers
-   # for if only factors are specified (including default)
-   if(inherits(factor.smooth.interactions,"character")){
-
-     factor.smooth.interactions=pred.vars.fact[which(unlist(lapply(strsplit(pred.vars.fact,
-        split=".I."),function(x){
-        max(is.na(match(x,factor.smooth.interactions)))}))==0)]
-     # make the interaction terms between the factors and continuous predictors
-
-     if(length(stats::na.omit(factor.smooth.interactions))>0){
-      # pred.vars.cont=NA is a documented way to run without smooth predictors.
-      # Without this guard expand.grid() pairs the NA itself with each factor,
-      # producing a phantom "NA.by.<factor>" term. At max.predictors=1 that term
-      # is discarded again before the model set is returned, and the only symptom
-      # is enumerate_candidate_models() taking max() of an empty correlation
-      # sub-matrix and warning; from max.predictors=2 it survives into the
-      # candidate set as a model whose formula smooths the literal NA.
-      if(length(stats::na.omit(pred.vars.cont))>0){
-       all.interactions=expand.grid(pred.vars.cont,factor.smooth.interactions)
-       interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}
-
-      # now interactions between linear continous predictors and factors
-      if(length(stats::na.omit(linear.vars))>0){
-       linear.interactions=expand.grid(linear.vars,factor.smooth.interactions)
-       linear.interaction.terms=paste(linear.interactions$Var1,linear.interactions$Var2,
-                                  sep=".t.")}
-      }
-    }
-   if(inherits(factor.smooth.interactions,"list")){
-
-     check.list=match(stats::na.omit(
-     unlist(factor.smooth.interactions)),all.predictors)
-
-
-     if(length(which(is.na(check.list)))>0){
-             stop(paste("Variable(s)",
-                        unlist(factor.smooth.interactions)[which(is.na(check.list))] ,
-                        "included in the factor.smooth.interactions list do(es)
-                        not appear in either pred.vars.fact, pred.vars.cont or linear.vars.
-                        Pleasure ensure all predictors are specified as one of these three types"))}
-
-     cont.var.interactions=factor.smooth.interactions$cont.vars
-     linear.var.interactions=factor.smooth.interactions$linear.vars
-     factor.smooth.interactions=factor.smooth.interactions$fact.vars
-
-     factor.smooth.interactions=pred.vars.fact[which(unlist(lapply(strsplit(pred.vars.fact,
-        split=".I."),function(x){
-        max(is.na(match(x,factor.smooth.interactions)))}))==0)]
-     # make the interaction terms between the factors and continuous predictors
-
-     if(length(stats::na.omit(factor.smooth.interactions))>0){
-      # see the matching guard, and its reasoning, in the character branch above
-      if(length(stats::na.omit(cont.var.interactions))>0){
-       all.interactions=expand.grid(cont.var.interactions,factor.smooth.interactions)
-       interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}
-
-      # now interactions between linear continous predictors and factors
-      if(length(stats::na.omit(linear.var.interactions))>0){
-       linear.interactions=expand.grid(linear.var.interactions,factor.smooth.interactions)
-       linear.interaction.terms=paste(linear.interactions$Var1,linear.interactions$Var2,
-                                  sep=".t.")}
-      }
-
-        }
+   #
+   # The character and list forms differ only in where the three variable sets
+   # come from, so they are normalised to one triple and then handled once.
+   # factor.smooth.interactions=NA is neither, and correctly falls through with
+   # interaction.terms left at NA.
+   if(inherits(factor.smooth.interactions,"character")|
+      inherits(factor.smooth.interactions,"list")){
+     spec=normalise_factor_smooth_interactions(
+                          factor.smooth.interactions=factor.smooth.interactions,
+                          pred.vars.cont=pred.vars.cont,linear.vars=linear.vars,
+                          all.predictors=all.predictors)
+     smooth.terms.l=build_factor_smooth_terms(spec=spec,pred.vars.fact=pred.vars.fact)
+     interaction.terms=smooth.terms.l$interaction.terms
+     linear.interaction.terms=smooth.terms.l$linear.interaction.terms
+   }
 
    }
 
