@@ -125,6 +125,34 @@ fit_model_set=function(model.set.list,
 
 # Internal helpers for fit_model_set(). Not exported.
 
+# extract_mod_dat()'s all-NA return, in the unlist()ed form the fitting loops
+# collect.
+na_mod_dat_row=function(){
+  unlist(list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA))
+}
+
+# Replaces anything in the collected list that is not one of those vectors
+# with the all-NA row.
+#
+# Needed because of .errorhandling='pass': a failing element of the foreach()
+# comes back as the condition object rather than as a named vector, and
+# do.call("rbind", .) over the mixed list produces a malformed table. Once
+# replaced, the candidate reaches failed.models via the is.na(AICc) test the
+# caller already applies, which is how a fit that returns a try-error is
+# already handled.
+#
+# is.atomic() rather than is.numeric(): the all-NA row is logical, not
+# numeric, so is.numeric() would reject rows that are already correct. A
+# condition object is a list, so is.atomic() still separates the two.
+normalise_mod_dat_rows=function(mod.dat){
+  na.row <- na_mod_dat_row()
+  ok <- vapply(mod.dat,
+               function(x) is.atomic(x) && length(x)==length(na.row),
+               logical(1))
+  mod.dat[!ok] <- list(na.row)
+  mod.dat
+}
+
 # Fits every model in mod.formula (parallel or sequential) and keeps the
 # fitted model objects, then builds mod.data.out/failed.models/success.models
 # from those fits. Used when save.model.fits=TRUE.
@@ -215,7 +243,7 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
    opts <- list(progress = progress)
    mod.dat <- foreach::foreach(l = 1:length(mod.formula),
                    .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
-                   #.errorhandling='pass',
+                   .errorhandling='pass',
                    .options.snow = opts)%dopar%{
       unlist(extract_mod_dat(fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]]),
                              r2.type.=r2.type))
@@ -236,6 +264,7 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
   close(pb)
   names(mod.dat) <- names(mod.formula[1:n.mods])
 
+  mod.dat <- normalise_mod_dat_rows(mod.dat)
   mod.data.out <- cbind(mod.data.out,do.call("rbind",mod.dat))
 
   failed.models <- mod.formula[which(is.na(mod.data.out$AICc)==TRUE)]

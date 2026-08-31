@@ -180,6 +180,48 @@ test_that("VI.mods = 'min.n' (the default) sums only the best n models per predi
 
 # ---- failure handling -------------------------------------------------------
 
+test_that("normalise_mod_dat_rows replaces anything that is not a summary row", {
+  # The unsaved parallel path runs foreach() with .errorhandling = 'pass', so a
+  # failing element comes back as the condition object rather than as the named
+  # vector unlist(extract_mod_dat(...)) returns. rbind() over the mixed list
+  # would produce a malformed table.
+  good <- unlist(list(AICc = 1, BIC = 2, r2.vals = 0.5, r2.vals.unique = NA,
+                      edf = 3, edf.less.1 = 0))
+  na.row <- unlist(list(AICc = NA, BIC = NA, r2.vals = NA, r2.vals.unique = NA,
+                        edf = NA, edf.less.1 = NA))
+
+  out <- normalise_mod_dat_rows(list(
+    a = good,
+    b = simpleError("worker failed"),
+    c = na.row,
+    d = NULL,
+    e = 1:3
+  ))
+
+  expect_named(out, c("a", "b", "c", "d", "e"))
+  expect_identical(out$a, good)
+  # already an all-NA row: passed through, not replaced
+  expect_identical(out$c, na.row)
+  for (nm in c("b", "d", "e")) {
+    expect_identical(out[[nm]], na.row, info = nm)
+  }
+
+  # the point of the replacement: rbind() now yields one row per element
+  tab <- do.call("rbind", out)
+  expect_equal(dim(tab), c(5L, 6L))
+  expect_true(is.numeric(tab))
+  expect_equal(unname(tab[1, "AICc"]), 1)
+  expect_true(all(is.na(tab[c(2, 3, 4, 5), "AICc"])))
+})
+
+test_that("normalise_mod_dat_rows leaves a fully successful list untouched", {
+  rows <- replicate(3, unlist(list(AICc = 1, BIC = 2, r2.vals = 0.5,
+                                   r2.vals.unique = NA, edf = 3,
+                                   edf.less.1 = 0)), simplify = FALSE)
+  expect_identical(normalise_mod_dat_rows(rows), rows)
+  expect_identical(normalise_mod_dat_rows(list()), list())
+})
+
 test_that("fit_model_set errors when no model in the set can be fitted", {
   model.set <- fixture_cs1_model_set()
   # an all-NA response makes every candidate, including the null model, fail

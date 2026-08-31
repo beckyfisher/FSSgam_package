@@ -123,3 +123,45 @@ second reporting weights of `1.0 0.0 NA` where `0 0 0` is expected — and pass
 after.
 
 ---
+
+**A4 — the unsaved parallel fitting path lost its error handling.**
+
+`.errorhandling='pass'` was commented out on the `foreach()` in
+`fit_and_summarise_unsaved_models()`, while the saved path
+(`fit_and_summarise_saved_models()`) has always had it. One unfittable
+candidate therefore aborted the whole run instead of being recorded in
+`failed.models`.
+
+Re-enabling it is not a one-character change. With `.errorhandling='pass'` a
+failing element comes back as the condition object rather than as the named
+vector `unlist(extract_mod_dat(...))` returns, and `do.call("rbind", .)` over
+the mixed list produces a malformed table. Added two unexported helpers,
+`na_mod_dat_row()` and `normalise_mod_dat_rows()`, which replace any element
+that is not one of those vectors with `extract_mod_dat()`'s all-NA row. The
+candidate then reaches `failed.models` through the `is.na(AICc)` test the
+caller already applies, which is how a fit returning a `try-error` is already
+handled.
+
+Deviated from the specification on one detail. It proposed testing elements
+with `is.numeric(x) && length(x) == 6`; `is.atomic()` is used instead, because
+the all-NA row is *logical*, not numeric, so `is.numeric()` would reject rows
+that are already correct and replace them with themselves. A condition object
+is a list, so `is.atomic()` still separates the two.
+
+The replacement logic was factored into a named helper rather than left inline
+specifically so that a sequential test can reach it: the sequential path cannot
+produce a malformed element, so inline code would be exercised only under
+`parallel = TRUE`, which `covr` never runs (Phase 13).
+
+`normalise_mod_dat_rows()` is tested directly, and an end-to-end assertion was
+added to `test-fit_model_set_parallel.R` behind `skip_unless_parallel_opt_in()`.
+
+**Verification note.** That end-to-end assertion has not yet been observed to
+pass. Two attempts against an installed copy stalled: the doSNOW workers
+started and then sat idle, and the run was killed at its 400 s timeout. Another
+R process belonging to an unrelated session was saturating a core throughout,
+which is the loaded-machine condition recorded in the Phase 13 caution. To be
+re-run in isolation before the pull request. The sequential suite is green at
+467 passing expectations (baseline 438).
+
+---
