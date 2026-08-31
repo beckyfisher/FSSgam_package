@@ -397,3 +397,35 @@ Phase 13 anticipated when it wrote them deliberately loose so they would keep
 passing once the issue was fixed.
 
 ---
+
+**C4 — the null multinomial was refitted once per pair.**
+
+`null.fit` in `fill_factor_factor_correlations()` depends only on `var.1`, but
+was refitted inside the loop for every ordered pair. Hoisted to one fit per
+factor, computed before the loop and looked up by name. `foreach()` exports it
+to the workers automatically, as it already does for `dat` and `lm.grid`.
+
+**A correction to the specification.** It stated that hoisting "changes `r.est`
+for factor pairs with missing data", because the null fit used `dat[, var.1]`
+while the pair fit used `dat.r`, the pair's complete cases. Re-reading the
+original line shows the null was *already* computed on the whole `dat` column
+regardless of `var.2`, so the hoist recomputes the identical value fewer times
+and changes nothing. Confirmed against the 14-scenario golden master: identical
+at `tolerance = 0` in every case. The `NEWS.md` entry the specification asked
+for was therefore not written, and the code comment drafted from that claim was
+corrected before committing.
+
+The `dat` / `dat.r` asymmetry itself is real and pre-existing, and was left
+alone: the null deviance comes from the whole column while the pair deviance
+comes from `na.omit()` of the pair, so for a factor carrying `NA`s the two are
+computed on different row sets. Changing it would change reported correlations
+for a case `generate_model_set()` already rejects. Recorded in a comment at the
+hoisted fit, which is now the one place it is visible.
+
+**Measurement.** `multinom()` calls for a four-factor `case_study1` set,
+counted with `trace()`: 32 on `master`, 24 after FSSgam_package#12 removed the
+self-pairs, 16 after this change. Elapsed time is not a useful figure here —
+0.022 s against 0.020 s over five replicates — because each fit on this data is
+sub-millisecond. The count is the quantity that scales.
+
+---
