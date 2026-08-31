@@ -267,3 +267,30 @@ so the two cannot drift apart again without failing.
 the phase rather than one per fix, since the file is a per-release changelog.
 
 ---
+
+**FSSgam_package#7 — `full_subsets_gam()` did not forward `VI.mods`.**
+
+`fit_model_set()` takes `VI.mods` but the wrapper never passed it on, so the
+`'all'` setting was unreachable through `full_subsets_gam()`. Added the
+argument with the same `'min.n'` default, forwarded it, and copied the
+`@param` entry.
+
+The existing test asserting the absence (`expect_false("VI.mods" %in%
+names(formals(full_subsets_gam)))`, written during Phase 13 to pin the
+behaviour until the issue was addressed) was replaced.
+
+Writing the replacement surfaced something worth recording. The obvious test —
+run the wrapper with each setting and compare against `fit_model_set()` called
+directly — passes on the standard fixture *even if nothing is forwarded*,
+because the two settings produce identical variable importance there. Measured
+on that model set: `min.mods` is 4, and every model beyond the fourth for each
+predictor carries a `wi.AICc` of 0.000 once `compute_model_weights()` rounds to
+three decimal places, so summing the best four and summing all seven give the
+same total. Predictor counts of 4, 4, 5 and 7 are not enough to separate them.
+
+The separating case is a response with no signal, which spreads the weights so
+that the models beyond the fourth carry non-zero weight. A second test uses a
+`set.seed(42)` normal deviate as the response and asserts that the two settings
+differ, and that `'all'` is never smaller than `'min.n'`.
+
+---

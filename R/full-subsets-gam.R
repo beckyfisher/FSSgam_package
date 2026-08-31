@@ -68,6 +68,8 @@
 #'
 #' @param  report.unique.r2 The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.
 #'
+#' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.
+#'
 #' @param factor.interactions Deprecated. Superseded by factor.factor.interactions; retained only so older code does not break, and will warn if used.
 #'
 #' @param smooth.interactions Deprecated. Superseded by factor.smooth.interactions; retained only so older code does not break, and will warn if used.
@@ -134,6 +136,7 @@ full_subsets_gam=function(use.dat,
                           n.cores=4,
                           r2.type="r2.lm.est",
                           report.unique.r2=FALSE,
+                          VI.mods='min.n',
                           factor.interactions,
                           smooth.interactions,
                           size){
@@ -196,7 +199,8 @@ full_subsets_gam=function(use.dat,
                           parallel=parallel,
                           n.cores=n.cores,
                           r2.type=r2.type,
-                          report.unique.r2=report.unique.r2)
+                          report.unique.r2=report.unique.r2,
+                          VI.mods=VI.mods)
 
   # now return the list of outputs
   return(list(mod.data.out=out.dat$mod.data.out,

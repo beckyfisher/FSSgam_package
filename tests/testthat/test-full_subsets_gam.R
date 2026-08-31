@@ -284,11 +284,12 @@ test_that("full_subsets_gam forwards a user-supplied cor.matrix and non.linear.c
   expect_true("complexity+depth" %in% supplied$mod.data.out$modname)
 })
 
-test_that("full_subsets_gam has no VI.mods argument and always uses the min.n default", {
-  # Recorded as current behaviour: fit_model_set() takes VI.mods but
-  # full_subsets_gam() does not forward it, so the all-models variant is
-  # unreachable through the wrapper. Raised as FSSgam_package#7.
-  expect_false("VI.mods" %in% names(formals(full_subsets_gam)))
+test_that("full_subsets_gam forwards VI.mods", {
+  # FSSgam_package#7: fit_model_set() took VI.mods but the wrapper did not
+  # forward it, so the all-models variant was unreachable through
+  # full_subsets_gam(). This test previously asserted that absence.
+  expect_true("VI.mods" %in% names(formals(full_subsets_gam)))
+  expect_equal(eval(formals(full_subsets_gam)$VI.mods), "min.n")
 
   fit <- fixture_cs1_gaussian()
   set.args <- list(
@@ -296,10 +297,62 @@ test_that("full_subsets_gam has no VI.mods argument and always uses the min.n de
     pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
     null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
   )
+  model.set <- do.call(generate_model_set, set.args)
 
-  combined <- do.call(full_subsets_quietly, set.args)
-  separate <- fit_quietly(do.call(generate_model_set, set.args), VI.mods = "min.n")
-  expect_equal(combined$variable.importance, separate$variable.importance)
+  for (vi in c("min.n", "all")) {
+    combined <- do.call(full_subsets_quietly, c(set.args, list(VI.mods = vi)))
+    separate <- fit_quietly(model.set, VI.mods = vi)
+    expect_equal(combined$variable.importance, separate$variable.importance, info = vi)
+  }
+})
+
+test_that("the VI.mods full_subsets_gam forwards changes the result", {
+  # The two settings agree on the fixture above, so equality with a separate
+  # fit_model_set() call would pass there even if nothing were forwarded. They
+  # agree because every model beyond the min.mods-th carries a wi.AICc that
+  # rounds to 0.000 at the three decimal places compute_model_weights() keeps,
+  # so summing the best n and summing all give the same total. A response with
+  # no signal spreads the weights out and separates them.
+  set.seed(42)
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$noise <- stats::rnorm(nrow(fit$use.dat))
+  test.fit <- mgcv::gam(
+    noise ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"), data = fit$use.dat
+  )
+
+  set.args <- list(
+    use.dat = fit$use.dat, test.fit = test.fit,
+    pred.vars.cont = c("complexity", "depth", "SCORE2"), pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
+  min.n <- do.call(full_subsets_quietly, c(set.args, list(VI.mods = "min.n")))
+  all <- do.call(full_subsets_quietly, c(set.args, list(VI.mods = "all")))
+
+  expect_false(isTRUE(all.equal(min.n$variable.importance, all$variable.importance)))
+  # 'all' sums over at least as many models as 'min.n', so it is never smaller
+  expect_true(all(
+    all$variable.importance$aic$variable.weights.raw >=
+      min.n$variable.importance$aic$variable.weights.raw
+  ))
+  # the default is still min.n
+  expect_equal(
+    do.call(full_subsets_quietly, set.args)$variable.importance,
+    min.n$variable.importance
+  )
+})
+
+test_that("full_subsets_gam rejects an unrecognised VI.mods", {
+  fit <- fixture_cs1_gaussian()
+  expect_error(
+    full_subsets_quietly(
+      use.dat = fit$use.dat, test.fit = fit$test.fit,
+      pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+      null.terms = "s(site,bs='re')", max.predictors = 2, k = 3,
+      VI.mods = "alll"
+    ),
+    "'arg' should be one of"
+  )
 })
 
 test_that("full_subsets_gam's legacy smooth.interactions argument accepts a character value", {
