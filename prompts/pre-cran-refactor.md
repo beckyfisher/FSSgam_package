@@ -368,3 +368,32 @@ a comment on the test itself so it is not mistaken for a regression test. The
 described the `summary()` call that no longer exists.
 
 ---
+
+**FSSgam_package#12 — the factor-factor diagonal was not exactly 1.**
+
+`fill_factor_factor_correlations()` enumerated all ordered pairs of factors,
+including each factor with itself. Regressing a factor on itself gives a
+pseudo-R2 of about 0.999999 rather than exactly 1, and costs one `multinom()`
+fit per factor for a value known in advance. Self-pairs are now dropped from
+the grid and the factor block's diagonal assigned directly.
+
+Only the factor block's diagonal is assigned, via
+`out.cor.mat[cbind(fact.vars, fact.vars)] <- 1`, rather than
+`diag(out.cor.mat) <- 1` over the whole matrix. The continuous block comes from
+`cor()`, which already returns exactly 1 there, and the narrower assignment
+cannot disturb it.
+
+Dropping the self-pairs makes the grid empty when there is exactly one factor,
+which `check_correlations()` does reach. `1:nrow(lm.grid)` would then count
+backwards, so the two loop bounds became `seq_len()` and the fill loop
+`seq_along()`. This was necessary for correctness here, not idiom tidying.
+
+Verified with the same 14-scenario golden master. Every off-diagonal cell is
+identical at `tolerance = 0`; the only difference is on the diagonal, at most
+6e-07, and the diagonal is exactly 1 in every scenario afterwards.
+
+Three existing assertions were tightened from `> 0.99` to exact equality, as
+Phase 13 anticipated when it wrote them deliberately loose so they would keep
+passing once the issue was fixed.
+
+---

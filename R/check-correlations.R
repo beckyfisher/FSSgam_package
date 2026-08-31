@@ -106,11 +106,17 @@ build_factor_continuous_skeleton=function(dat,fact.vars,cont.vars,cor.mat){
 # sequential) and fills them into out.cor.mat.
 fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.cores){
   # estimate r values for fact-fact combinations
+  #
+  # Self-pairs are dropped here and the diagonal set to 1 at the end. Fitting
+  # var ~ var gave a pseudo-R2 of about 0.999999 rather than exactly 1
+  # (FSSgam_package#12), at the cost of one multinom() fit per factor for a
+  # value that is known in advance.
   lm.grid=expand.grid(list(fact.var1=fact.vars,fact.var2=fact.vars))
+  lm.grid=lm.grid[as.character(lm.grid$fact.var1)!=as.character(lm.grid$fact.var2),,drop=FALSE]
   if(parallel==TRUE){
    cl=parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
-   out.cor.dat<-foreach::foreach(r = 1:nrow(lm.grid),.packages=c('nnet'),.errorhandling='pass')%dopar%{
+   out.cor.dat<-foreach::foreach(r = seq_len(nrow(lm.grid)),.packages=c('nnet'),.errorhandling='pass')%dopar%{
     var.1=as.character(lm.grid[r,1])
     var.2=as.character(lm.grid[r,2])
     dat.r=stats::na.omit(dat[,c(var.1,var.2)])
@@ -128,7 +134,7 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
    foreach::registerDoSEQ()
    }else{
     out.cor.dat=list()
-    for(r in 1:nrow(lm.grid)){
+    for(r in seq_len(nrow(lm.grid))){
           var.1=as.character(lm.grid[r,1])
           var.2=as.character(lm.grid[r,2])
           dat.r=stats::na.omit(dat[,c(var.1,var.2)])
@@ -143,9 +149,13 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
       out.cor.dat=c(out.cor.dat,list(out))}
       }
 
-    for(r in 1:length(out.cor.dat)){
+    for(r in seq_along(out.cor.dat)){
        out.cor.mat[which(colnames(out.cor.mat)==out.cor.dat[[r]][1]),
                    which(rownames(out.cor.mat)==out.cor.dat[[r]][2])]=
                    as.numeric(out.cor.dat[[r]][3])}
+
+  # Only the factor block's diagonal: the continuous block comes from cor(),
+  # which already returns exactly 1 there.
+  out.cor.mat[cbind(fact.vars,fact.vars)]=1
   return(out.cor.mat)
 }

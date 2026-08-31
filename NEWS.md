@@ -128,6 +128,16 @@
   unconditionally, so suppressing it in a script or report required wrapping
   the call in `capture.output()` (FSSgam_package#9).
 
+* `check_correlations()` and `check_non_linear_correlations()` no longer emit
+  spurious "NaNs produced" warnings when a factor-factor pair is perfectly
+  separated. The deviance is read directly off the `nnet::multinom()` fit
+  rather than from its `summary()`, which computes standard errors that were
+  discarded (FSSgam_package#10). Reported correlation values are unchanged.
+* `check_correlations()`'s factor-factor diagonal is now exactly 1. It was
+  previously a fitted multinomial pseudo-R2 of about 0.999999, because each
+  factor was regressed on itself (FSSgam_package#12). Off-diagonal values are
+  unchanged.
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.
