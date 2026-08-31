@@ -303,8 +303,6 @@ test_that("full_subsets_gam has no VI.mods argument and always uses the min.n de
 })
 
 test_that("full_subsets_gam's legacy smooth.interactions argument accepts a character value", {
-  # the NA case is handled by a separate branch (is.na() is checked first), so a
-  # named factor takes the other one
   fit <- fixture_cs1_gaussian()
 
   expect_warning(
@@ -325,4 +323,119 @@ test_that("full_subsets_gam's legacy smooth.interactions argument accepts a char
 
   expect_equal(legacy$mod.data.out$AICc, current$mod.data.out$AICc)
   expect_true(any(grepl(".by.ZONE", legacy$mod.data.out$modname, fixed = TRUE)))
+})
+
+# ---- the deprecated arguments on valid but awkward input --------------------
+#
+# These three were declared with a "previous.arg" sentinel default and tested
+# with != or is.na(). Both comparisons fail on input the arguments are
+# documented to accept, so passing a perfectly valid value raised an error
+# instead of forwarding it. missing() replaced the sentinel.
+
+test_that("a legacy smooth.interactions of length greater than one forwards", {
+  # is.na(smooth.interactions) on a character vector of length 2 gave
+  # "the condition has length > 1".
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  args <- list(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = c("complexity", "depth"),
+    pred.vars.fact = c("ZONE", "ZONE2"),
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
+  expect_warning(
+    legacy <- do.call(
+      full_subsets_quietly, c(args, list(smooth.interactions = c("ZONE", "ZONE2")))
+    ),
+    "factor.smooth.interactions"
+  )
+  current <- do.call(
+    full_subsets_quietly,
+    c(args, list(factor.smooth.interactions = c("ZONE", "ZONE2")))
+  )
+
+  expect_equal(legacy$mod.data.out$AICc, current$mod.data.out$AICc)
+  expect_true(any(grepl(".by.ZONE2", legacy$mod.data.out$modname, fixed = TRUE)))
+})
+
+test_that("a legacy factor.interactions of NA forwards", {
+  # factor.interactions != "previous.arg" on NA gave "missing value where
+  # TRUE/FALSE needed".
+  fit <- fixture_cs1_gaussian()
+  args <- list(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
+  expect_warning(
+    legacy <- do.call(full_subsets_quietly, c(args, list(factor.interactions = NA))),
+    "factor.factor.interactions"
+  )
+  current <- do.call(
+    full_subsets_quietly, c(args, list(factor.factor.interactions = NA))
+  )
+  expect_equal(legacy$mod.data.out$AICc, current$mod.data.out$AICc)
+})
+
+test_that("a legacy smooth.interactions of NA still warns", {
+  # NA used to take a branch of its own, which assigned the value but reached
+  # the warning only through that branch. Under missing() it is assigned and
+  # warned about like any other value.
+  fit <- fixture_cs1_gaussian()
+
+  expect_warning(
+    legacy <- full_subsets_quietly(
+      use.dat = fit$use.dat, test.fit = fit$test.fit,
+      pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+      smooth.interactions = NA,
+      null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+    ),
+    "factor.smooth.interactions"
+  )
+  expect_false(any(grepl("\\.by\\.", legacy$mod.data.out$modname)))
+})
+
+test_that("the deprecated arguments stay absent when not supplied", {
+  # missing() has to keep reporting correctly through full.subsets.gam(), which
+  # forwards everything through ... rather than naming the arguments.
+  fit <- fixture_cs1_gaussian()
+  args <- list(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
+  expect_no_warning(do.call(full_subsets_quietly, args))
+
+  # through the deprecated alias: the .Deprecated() warning fires, but none of
+  # the three legacy-argument warnings do
+  legacy.warnings <- character(0)
+  withCallingHandlers(
+    utils::capture.output(out <- do.call(full.subsets.gam, args)),
+    warning = function(w) {
+      legacy.warnings <<- c(legacy.warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_true(any(grepl("full_subsets_gam", legacy.warnings)))
+  expect_false(any(grepl("has been replaced with", legacy.warnings)))
+
+  # and supplying one through the alias is still detected
+  expect_warning(
+    withCallingHandlers(
+      utils::capture.output(
+        do.call(full.subsets.gam, c(args[names(args) != "max.predictors"],
+                                    list(size = 1)))
+      ),
+      warning = function(w) {
+        if (grepl("full_subsets_gam", conditionMessage(w))) invokeRestart("muffleWarning")
+      }
+    ),
+    "max.predictors"
+  )
 })

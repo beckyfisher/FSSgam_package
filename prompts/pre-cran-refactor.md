@@ -208,3 +208,40 @@ argument at this point in the sequence — the test failed with `unused argument
 test here.
 
 ---
+
+**B3 — the deprecated `full_subsets_gam()` arguments failed on valid input.**
+
+`factor.interactions`, `smooth.interactions` and `size` were declared with a
+`"previous.arg"` sentinel default and tested with `!=` or `is.na()`. Both
+comparisons fail on input the arguments are documented to accept:
+
+```
+full_subsets_gam(..., smooth.interactions = c("ZONE", "ZONE2"))
+#> Error in if (is.na(smooth.interactions) == TRUE) { :
+#>   the condition has length > 1
+full_subsets_gam(..., factor.interactions = NA)
+#> Error in if (factor.interactions != "previous.arg") { :
+#>   missing value where TRUE/FALSE needed
+```
+
+Replaced the sentinel with `missing()`, which is correct for every type,
+length and `NA`. The formals lose their defaults as a result.
+
+This removes the special branch that handled `smooth.interactions = NA`. Under
+`missing()`, `NA` is simply assigned, which is its documented meaning for
+`factor.smooth.interactions` ("If specified as NA no factor-continuous
+predictor interactions will be included"), and it now warns like any other use
+of a deprecated argument, which it did not do reliably before.
+
+Four tests added. Two pin the two errors above; both were confirmed to fail
+against the unmodified function with exactly those messages. One pins that `NA`
+still warns. The fourth pins that `missing()` keeps reporting correctly through
+`full.subsets.gam()`, which forwards everything through `...` rather than
+naming the arguments — it asserts that the alias emits its own `.Deprecated()`
+warning but none of the three legacy-argument warnings, and that a legacy
+argument passed through the alias is still detected.
+
+A stale comment on a neighbouring test was corrected in the same commit: it
+described the `is.na()` branch that no longer exists.
+
+---

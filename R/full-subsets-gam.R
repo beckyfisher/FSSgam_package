@@ -134,27 +134,35 @@ full_subsets_gam=function(use.dat,
                           n.cores=4,
                           r2.type="r2.lm.est",
                           report.unique.r2=FALSE,
-                          factor.interactions="previous.arg",
-                          smooth.interactions="previous.arg",
-                          size="previous.arg"){
+                          factor.interactions,
+                          smooth.interactions,
+                          size){
   # manage previous version arguments
-  if(factor.interactions!="previous.arg"){
+  #
+  # missing() rather than a "previous.arg" sentinel default. The sentinel had
+  # to be compared with != or is.na(), and both fail on input the deprecated
+  # arguments are documented to accept: a character vector of length > 1 gave
+  # "the condition has length > 1", and NA gave "missing value where
+  # TRUE/FALSE needed". missing() is correct for every type, length and NA.
+  # full.subsets.gam() forwards through ..., so missing() still reports
+  # correctly through the deprecated alias.
+  if(!missing(factor.interactions)){
      factor.factor.interactions=factor.interactions
      warning('Argument factor.interactions has been replaced with factor.factor.interactions.
               Please update your code as usage of factor.interactions will not be supported in
               future versions.')
      }
-  if(is.na(smooth.interactions)==TRUE){
-     factor.smooth.interactions=smooth.interactions
-     warning('Argument smooth.interactions has been replaced with factor.smooth.interactions.
-              Please update your code as usage of smooth.interactions will not be supported in
-              future versions.')}else{if(smooth.interactions!="previous.arg"){
+  # NA no longer needs its own branch: it is simply assigned, which is its
+  # documented meaning for factor.smooth.interactions ("If specified as NA no
+  # factor-continuous predictor interactions will be included"), and it now
+  # warns like any other use of the deprecated argument.
+  if(!missing(smooth.interactions)){
      factor.smooth.interactions=smooth.interactions
      warning('Argument smooth.interactions has been replaced with factor.smooth.interactions.
               Please update your code as usage of smooth.interactions will not be supported in
               future versions.')
-     }}
-  if(size!="previous.arg"){
+     }
+  if(!missing(size)){
      max.predictors=size
      warning('Argument size has been replaced with max.predictors.
               Please update your code as usage of size will not be supported in
