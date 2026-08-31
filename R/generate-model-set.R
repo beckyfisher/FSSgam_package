@@ -240,6 +240,52 @@ check_predictor_missingness=function(use.dat,all.predictors){
 # all factor predictors to class factor, and resolves the factor-smooth (.by.
 # / .t.) interaction term names. Returns list(use.dat=, pred.vars.fact=,
 # interaction.terms=, linear.interaction.terms=).
+# The combination sizes the historical `for(i in 2:n)` loops actually visit.
+#
+# At n = 1 that sequence counts backwards to c(2, 1), so a size-1
+# "combination" is enumerated as well -- which is where the duplicated columns
+# and the "no non-missing arguments to max" warnings at max.predictors = 1 come
+# from. Reproduced exactly here: this commit changes no behaviour, and the
+# defect is corrected separately so the two are reviewable apart.
+combination_sizes=function(vars,max.size){
+  n=min(max.size,length(vars))
+  sizes=2:n
+  sizes[sizes<=length(vars)]
+}
+
+# Every combination of `vars` at each size in `sizes`, dropping any whose
+# sub-matrix of `cor.matrix` exceeds `cov.cutoff` off the diagonal. Returns a
+# list of character vectors, possibly empty.
+#
+# screen.both distinguishes the two historical copies of this block: the
+# logical factor.factor.interactions branch tested upper.tri and lower.tri,
+# every other caller tested upper.tri alone. check_correlations() fits
+# multinom() separately in each direction, so its factor block is not quite
+# symmetric and the two can disagree. The argument exists to keep each caller
+# at its current behaviour through this restructure; the divergence is resolved
+# separately.
+#
+# The `if (max(...) > cov.cutoff) out <- NA` shape is kept rather than reduced
+# to a logical vector: max() of an all-NA sub-matrix returns NA, and `if (NA)`
+# raises an error, which is the existing behaviour. A vapply() over a logical
+# predicate would silently drop the combination instead.
+combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff,screen.both){
+  combns=list()
+  for(i in sizes){
+    combns=c(combns,utils::combn(vars,i,simplify=FALSE))}
+  combns=lapply(combns,FUN=function(x){
+          row.index=which(match(rownames(cor.matrix),x)>0)
+          col.index=which(match(colnames(cor.matrix),x)>0)
+          cor.mat.m=cor.matrix[row.index,col.index]
+          out=x
+          if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
+          if(screen.both){
+            if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){out=NA}}
+          return(out)})
+  combns[which(is.na(combns))]=NULL
+  combns
+}
+
 resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.interactions,
                           factor.smooth.interactions,pred.vars.cont,linear.vars,
                           all.predictors,max.predictors,cov.cutoff){
@@ -256,23 +302,10 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
         if(length(pred.vars.fact)<2){
             stop("You have less than 2 factors. Please reset 'factor.factor.interactions' to 'False'")}
       factor.correlations=check_correlations(use.dat[,pred.vars.fact])
-      fact.combns=list()
-      fact.cmbns.max.predictors=max.predictors
-      if(max.predictors>length(pred.vars.fact)){fact.cmbns.max.predictors=length(pred.vars.fact)}
-      for(i in 2:fact.cmbns.max.predictors){
-        if(i<=length(pred.vars.fact)){
-        fact.combns=c(fact.combns,
-         utils::combn(pred.vars.fact,i,simplify=FALSE)) }}
-        # check which were correlated
-        fact.combns=lapply(fact.combns,FUN=function(x){
-                row.index=which(match(rownames(factor.correlations),x)>0)
-                col.index=which(match(colnames(factor.correlations),x)>0)
-                cor.mat.m=factor.correlations[row.index,col.index]
-                out=x
-                if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-                if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-                return(out)})
-        fact.combns[which(is.na(fact.combns))]=NULL
+      fact.combns=combine_uncorrelated(vars=pred.vars.fact,
+                          sizes=combination_sizes(pred.vars.fact,max.predictors),
+                          cor.matrix=factor.correlations,cov.cutoff=cov.cutoff,
+                          screen.both=TRUE)
         tt=data.frame(lapply(fact.combns,FUN=function(x){
                    do.call("paste",as.list(use.dat[,x]))}))
         factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
@@ -293,23 +326,15 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
         if(max(is.na(match(factor.factor.interactions,colnames(use.dat))))==1){
             stop("Not all specified factor.factor.interactions are supplied in use.dat")}
       factor.correlations=check_correlations(use.dat[,factor.factor.interactions])
+      # This outer guard has no counterpart in the logical branch. It counts
+      # cells of the correlation matrix below the cutoff, not pairs, so with
+      # two factors whose two off-diagonal cells straddle cov.cutoff the count
+      # is 1 and the whole block is skipped in silence. Preserved as-is here.
       if(length(which(factor.correlations<cov.cutoff))>1){
-        fact.combns=list()
-        fact.cmbns.max.predictors=max.predictors
-        if(max.predictors>length(factor.factor.interactions)){fact.cmbns.max.predictors=length(factor.factor.interactions)}
-        for(i in 2:fact.cmbns.max.predictors){
-          if(i<=length(factor.factor.interactions)){
-          fact.combns=c(fact.combns,
-           utils::combn(factor.factor.interactions,i,simplify=FALSE)) }}
-          # check which were correlated
-          fact.combns=lapply(fact.combns,FUN=function(x){
-                  row.index=which(match(rownames(factor.correlations),x)>0)
-                  col.index=which(match(colnames(factor.correlations),x)>0)
-                  cor.mat.m=factor.correlations[row.index,col.index]
-                  out=x
-                  if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-                  return(out)})
-          fact.combns[which(is.na(fact.combns))]=NULL
+        fact.combns=combine_uncorrelated(vars=factor.factor.interactions,
+                          sizes=combination_sizes(factor.factor.interactions,max.predictors),
+                          cor.matrix=factor.correlations,cov.cutoff=cov.cutoff,
+                          screen.both=FALSE)
           tt=data.frame(lapply(fact.combns,FUN=function(x){
                      do.call("paste",as.list(use.dat[,x]))}))
           factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
@@ -414,26 +439,20 @@ resolve_smooth_smooth_interactions=function(use.dat,pred.vars.cont,smooth.smooth
         continuous.correlations=check_non_linear_correlations(use.dat[,pred.vars.cont])}else{
         continuous.correlations=check_correlations(use.dat[,pred.vars.cont])}
 
-      cont.combns=list()
-      cont.cmbns.max.predictors=2#max.predictors
-      #if(max.predictors>length(pred.vars.cont)){cont.cmbns.max.predictors=length(pred.vars.cont)}
-      for(i in 2:cont.cmbns.max.predictors){
-        if(i<=length(pred.vars.cont)){
-        cont.combns=c(cont.combns,
-         utils::combn(pred.vars.cont,i,simplify=FALSE)) }}
-        # check which were correlated
-        cont.combns=lapply(cont.combns,FUN=function(x){
-                row.index=which(match(rownames(continuous.correlations),x)>0)
-                col.index=which(match(colnames(continuous.correlations),x)>0)
-                cor.mat.m=continuous.correlations[row.index,col.index]
-                out=x
-                if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-                return(out)})
-        cont.combns[which(is.na(cont.combns))]=NULL
-        tt=data.frame(lapply(cont.combns,FUN=function(x){
-                   do.call("paste",as.list(use.dat[,x]))}))
-        smooth.smooth.interaction.terms=unlist(lapply(cont.combns,FUN=paste,collapse=".te."))
-        colnames(tt)=smooth.smooth.interaction.terms
+      # The size is fixed at 2 here while the character branch below goes up to
+      # max.predictors. That difference is intentional, not an unfinished edit:
+      # smooth.smooth.interactions = TRUE builds bivariate te() terms, and a
+      # character vector builds terms of every size from 2 to max.predictors,
+      # so te(a, b, c) is reachable only through the character form. The
+      # documentation states both forms separately.
+      #
+      # combination_sizes(pred.vars.cont, 2) is 2 exactly, because the guard
+      # above has already rejected fewer than two continuous predictors.
+      cont.combns=combine_uncorrelated(vars=pred.vars.cont,
+                          sizes=combination_sizes(pred.vars.cont,2),
+                          cor.matrix=continuous.correlations,cov.cutoff=cov.cutoff,
+                          screen.both=FALSE)
+      smooth.smooth.interaction.terms=unlist(lapply(cont.combns,FUN=paste,collapse=".te."))
      }
     }
     # for only specific interactions amonst continuous predictors
@@ -446,26 +465,11 @@ resolve_smooth_smooth_interactions=function(use.dat,pred.vars.cont,smooth.smooth
        continuous.correlations=check_non_linear_correlations(use.dat[,smooth.smooth.interactions])}else{
        continuous.correlations=check_correlations(use.dat[,smooth.smooth.interactions])}
 
-      cont.combns=list()
-      cont.cmbns.max.predictors=max.predictors
-      if(max.predictors>length(smooth.smooth.interactions)){cont.cmbns.max.predictors=length(smooth.smooth.interactions)}
-      for(i in 2:cont.cmbns.max.predictors){
-        if(i<=length(smooth.smooth.interactions)){
-        cont.combns=c(cont.combns,
-         utils::combn(smooth.smooth.interactions,i,simplify=FALSE)) }}
-        # check which were correlated
-        cont.combns=lapply(cont.combns,FUN=function(x){
-                row.index=which(match(rownames(continuous.correlations),x)>0)
-                col.index=which(match(colnames(continuous.correlations),x)>0)
-                cor.mat.m=continuous.correlations[row.index,col.index]
-                out=x
-                if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-                return(out)})
-        cont.combns[which(is.na(cont.combns))]=NULL
-        tt=data.frame(lapply(cont.combns,FUN=function(x){
-                   do.call("paste",as.list(use.dat[,x]))}))
-        smooth.smooth.interaction.terms=unlist(lapply(cont.combns,FUN=paste,collapse=".te."))
-        colnames(tt)=smooth.smooth.interaction.terms
+      cont.combns=combine_uncorrelated(vars=smooth.smooth.interactions,
+                          sizes=combination_sizes(smooth.smooth.interactions,max.predictors),
+                          cor.matrix=continuous.correlations,cov.cutoff=cov.cutoff,
+                          screen.both=FALSE)
+      smooth.smooth.interaction.terms=unlist(lapply(cont.combns,FUN=paste,collapse=".te."))
     }
 
   return(smooth.smooth.interaction.terms)

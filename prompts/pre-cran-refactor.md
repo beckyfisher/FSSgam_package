@@ -518,3 +518,63 @@ script completed six times out of six, and that it is contention from another
 process.
 
 ---
+
+### Phase 3 — restructuring interaction resolution
+
+**The golden master.** Thirty-one `generate_model_set()` scenarios, captured
+before any change and compared with `identical()` afterwards. Each records
+`n.mods`, the candidate names, every deparsed formula, `predictor.correlations`,
+the names and dimensions of `used.data`, `included.vars`, and every warning or
+error raised. Errors and warnings are captured as values so that a scenario
+which currently fails keeps failing in the same way.
+
+Building it changed what I understood about the code in three ways, each found
+by measuring rather than reading.
+
+**The three-way `te()` is real, but the obvious scenario does not show it.**
+With the default `cov.cutoff` of 0.28, `smooth.smooth.interactions = TRUE` and
+the character form give byte-identical output at `max.predictors = 3`. The
+reason is that `depth` and `complexity` correlate at 0.3336, so that pair is
+screened out and the three-way combination containing it goes with it. At
+`cov.cutoff = 0.4` all three pairs are admitted and the character form produces
+`depth.te.SCORE2.te.complexity` while `TRUE` does not. Without that scenario I
+would have "retained" a capability with nothing demonstrating it was still
+there.
+
+**A third divergence between the two factor branches, not in the review.** The
+character branch is wrapped in `if(length(which(factor.correlations <
+cov.cutoff)) > 1)`, which counts cells of the correlation matrix rather than
+pairs. With two factors whose two off-diagonal cells straddle the cutoff, the
+count is 1 and the entire block is skipped in silence. This defeated the first
+attempt at a scenario separating the upper/lower triangle screening: both
+branches produced nothing, for two unrelated reasons.
+
+**A scenario that does separate them.** `check_correlations()` fits `multinom()`
+separately in each direction, so its factor block is asymmetric — by at most
+8.5e-4 over these columns. `ZONE3`/`ZONE5` measure 0.5425 one way and 0.5434 the
+other, so `cov.cutoff = 0.543` falls between. With a third uncorrelated factor
+present to clear the cell-counting guard, the logical branch drops
+`ZONE3.I.ZONE5` and the character branch keeps it: 15 candidates against 16.
+
+**The restructure.** `combination_sizes()` and `combine_uncorrelated()` replace
+four copies of "enumerate every combination, drop the ones that are too
+correlated". `resolve_factor_interactions()` is 140 lines, down from 161;
+`resolve_smooth_smooth_interactions()` is 52, down from 73, with the `tt` data
+frame that both copies built and never read now gone.
+
+Two details preserved deliberately rather than tidied:
+
+- `combination_sizes()` reproduces `2:n` counting backwards at `n = 1`, so
+  size-1 "combinations" are still enumerated. That is the A3 defect, and it is
+  corrected in its own commit so the restructure and the fix are reviewable
+  apart.
+- `combine_uncorrelated()` keeps the `if (max(...) > cov.cutoff) out <- NA`
+  shape rather than reducing to a logical predicate. `max()` of an all-`NA`
+  sub-matrix returns `NA`, and `if (NA)` raises an error; a `vapply()` over a
+  logical would silently drop the combination instead, which is a different
+  behaviour.
+
+`screen.both` holds each caller at its current triangle-screening behaviour.
+All 31 scenarios identical, suite green at 508.
+
+---
