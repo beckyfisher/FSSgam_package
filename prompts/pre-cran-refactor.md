@@ -1,0 +1,125 @@
+## Session: pre-CRAN refactor
+Date: 2026-08-31
+Model: Claude Opus 5 (claude-opus-5)
+
+### Prompts and Responses
+
+**User:** I want to refactor the package before getting it ready to submit to
+cran. We have built a comprehensive test suite, during which several issues
+were identified. Should we tackle the issues first? Or first build a plan for
+the refactor?
+
+**Claude:** Recommended planning first, on the grounds that the open issues are
+not independent of each other: FSSgam_package#8 (locale-dependent model names)
+and #13 (a supplied `cor.matrix` not governing `te()` construction) both change
+outputs the numerical snapshots pin, and fixing them in isolation would mean
+updating those snapshots twice.
+
+---
+
+**User:** can you review the full code base and let me know if there are
+improvements you would suggest as part of any pre-cran re-factor. I want to
+sort out as much as before before we submit to cran
+
+**Claude:** Read all 1,947 lines in `R/` at commit `a8235e2` and reported
+twenty-two items in six groups. Four defects that silently change or abort
+results (A1 unanchored `grep()` matching of `cyclic.vars`; A2 `fit_model_set()`
+failing on a single-predictor set; A3 `for(i in 2:n)` counting backwards at
+n = 1; A4 `.errorhandling` commented out on the unsaved parallel path), four
+arguments accepting invalid values without complaint (`r2.type`, `VI.mods`, the
+three deprecated `full_subsets_gam()` sentinels, and disagreeing `max.models`
+defaults), duplicated interaction-resolution code, unsafe idioms, and
+documentation errors.
+
+Each of the four defects and each validation gap was reproduced on this host
+before being reported.
+
+Recorded a correction in the process: the documentation items were first framed
+as CRAN concerns. `devtools::check()` had been run with
+`_R_CHECK_CRAN_INCOMING_ = FALSE`, which is where such checks surface, so
+`R CMD check --as-cran` was re-run on a built tarball with the local incoming
+checks enabled. It also returned Status: OK, so nothing in that group blocks
+submission; it is fixed because it is published on the pkgdown reference site.
+
+---
+
+**User:** The refactor should implement fixes for all the items identified and
+also restructure the interactio-resolution code.
+
+**Claude:** Wrote the two planning documents required by `CLAUDE.md` Section 13:
+`planning/pre-cran-refactor-human.md` (the collaborator-facing plan) and
+`planning/pre-cran-refactor-claude.md` (the implementation specification).
+Added `^planning$` to `.Rbuildignore`.
+
+Two invariants underpinning the design were verified empirically before being
+written down, rather than asserted from reading the code:
+
+- `cor.matrix` contains no `.te.` name (row names `depth, SCORE2, complexity`
+  against a candidate set containing `depth.te.SCORE2`), so
+  `build_predictor_correlation_matrix()` can be moved ahead of
+  `resolve_smooth_smooth_interactions()`.
+- the continuous-continuous block of the correlation matrix is identical
+  whether computed on the continuous subset or on the full predictor set, for
+  both `non.linear.correlations` settings, maximum absolute difference 0. So
+  subsetting the resolved matrix is behaviour-preserving for anyone not
+  supplying their own.
+
+The order of work puts the restructure at phase 3 and the behaviour changes at
+phase 4, so that the restructure is verifiable as a pure no-op by golden master
+and the behaviour changes then land on code that has already been simplified.
+
+---
+
+**User:** cor.matrix should also govern factor-factor column construction and
+smooth.smooth.interactions should retain the current behaviour.
+
+**Claude:** Recorded both decisions in the planning documents.
+
+The first extends FSSgam_package#13 to the third stage that uses correlations:
+`build_factor_interaction_columns()` will screen against a supplied
+`cor.matrix` when one is given and compute its own only when none is. It must
+use the *supplied* matrix rather than the resolved one, because the resolved
+matrix is built over `all.predictors`, which includes the interaction columns
+this stage is deciding whether to create.
+
+The second rejects the specification's own recommendation to fix both
+`smooth.smooth.interactions` branches at pairwise. `TRUE` builds bivariate
+`te()` terms and a character vector builds terms of size 2 up to
+`max.predictors`; the latter is a working capability nobody has asked to lose.
+The documentation is corrected to describe both forms instead. This moves the
+item out of phase 4, where it was a behaviour change, into phase 7, where it is
+a documentation correction.
+
+---
+
+### Phase 1 — defects and validation outside the interaction code
+
+**A2 — `fit_model_set()` fails on a single-predictor model set.**
+
+Reproduced first:
+
+```r
+tf <- gam(log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr"), data = d)
+ms <- generate_model_set(use.dat = d, test.fit = tf, pred.vars.cont = "depth",
+                         max.predictors = 1, k = 3)
+fit_model_set(ms)
+#> Error in colSums(mod.data.out[, included.vars]) :
+#>   'x' must be an array of at least two dimensions
+```
+
+`compute_variable_importance()` indexed `mod.data.out` by a character vector of
+column names without `drop = FALSE`, so a single predictor collapsed the result
+to a vector. Fixed at all three `colSums()` sites.
+
+A second defect was found in the same function while fixing it and corrected in
+the same commit. `min.mods` is 0 when some predictor appears in no surviving
+model, and the `VI.mods = 'min.n'` branch indexed the sorted weights with
+`[1:min.mods]`. `1:0` is `c(1, 0)`, so it selected the single largest weight
+rather than none. Replaced with `seq_len(min.mods)`, which is empty at 0.
+
+Both are pinned by new tests in `test-fit_model_set_options.R`. Confirmed they
+fail against the unmodified function — the first with the error above, the
+second reporting weights of `1.0 0.0 NA` where `0 0 0` is expected — and pass
+after.
+
+---

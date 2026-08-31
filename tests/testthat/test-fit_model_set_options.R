@@ -206,3 +206,46 @@ test_that("fit_model_set reports partially failing model sets in failed.models",
   expect_equal(nrow(out$mod.data.out), length(out$success.models))
   expect_false("ZONE+depth" %in% out$mod.data.out$modname)
 })
+
+# ---- single-predictor model sets --------------------------------------------
+
+test_that("a single-predictor model set reaches variable importance", {
+  # compute_variable_importance() indexed mod.data.out with a single column
+  # name and no drop = FALSE, so colSums() received a vector and errored.
+  # generate_model_set() was fixed for the single-predictor case in Phase 13;
+  # fit_model_set() was not.
+  model.set <- fixture_cs1_model_set(
+    pred.vars.cont = "depth", pred.vars.fact = NA, max.predictors = 1
+  )
+  expect_equal(model.set$included.vars, "depth")
+
+  for (vi in c("min.n", "all")) {
+    out <- fit_quietly(model.set, parallel = FALSE, VI.mods = vi)
+    for (ic in c("aic", "bic")) {
+      w <- out$variable.importance[[ic]]$variable.weights.raw
+      expect_length(w, 1)
+      expect_named(w, "depth")
+      expect_true(is.finite(w), info = paste(vi, ic))
+    }
+  }
+})
+
+test_that("a predictor present in no surviving model contributes no weight", {
+  # min.mods is 0 in that case, and 1:min.mods is c(1, 0), which selects the
+  # single largest weight instead of none. seq_len() is empty at 0.
+  model.set <- fixture_cs1_model_set(max.predictors = 1)
+  model.set <- break_one_candidate(model.set, modname = "ZONE")
+
+  out <- fit_quietly(model.set, parallel = FALSE)
+
+  expect_false("ZONE" %in% out$mod.data.out$modname)
+  expect_equal(min(colSums(out$mod.data.out[, model.set$included.vars])), 0)
+  expect_equal(
+    unname(out$variable.importance$aic$variable.weights.raw),
+    rep(0, length(model.set$included.vars))
+  )
+  expect_equal(
+    unname(out$variable.importance$bic$variable.weights.raw),
+    rep(0, length(model.set$included.vars))
+  )
+})

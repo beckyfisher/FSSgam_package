@@ -269,30 +269,35 @@ compute_model_weights=function(mod.data.out,report.unique.r2){
 # (cbind(mod.data.out, var.inclusions)) and the wi.AICc/wi.BIC columns.
 compute_variable_importance=function(mod.data.out,included.vars,VI.mods){
    # find the min number of models for each variable
-  min.mods <- min(colSums(mod.data.out[,included.vars]))
+  # drop=FALSE throughout: with a single predictor the [ , ] would otherwise
+  # return a vector and colSums() would fail.
+  min.mods <- min(colSums(mod.data.out[,included.vars,drop=FALSE]))
 
   if(VI.mods=='min.n'){
+    # seq_len() rather than 1:min.mods -- a predictor present in no surviving
+    # model gives min.mods of 0, and 1:0 is c(1,0), which would take the single
+    # best weight instead of none.
     # first for AICc
     var.weights <- unlist(lapply(included.vars,FUN=function(x){
-           sum(sort(mod.data.out$wi.AICc[which(mod.data.out[,x]==1)],decreasing=TRUE)[1:min.mods])}))
+           sum(sort(mod.data.out$wi.AICc[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)])}))
     names(var.weights) <- included.vars
     variable.weights.raw <- var.weights
     aic.var.weights <- list(variable.weights.raw=variable.weights.raw)
 
     # next for BIC
     var.weights <- unlist(lapply(included.vars,FUN=function(x){
-      sum(sort(mod.data.out$wi.BIC[which(mod.data.out[,x]==1)],decreasing=TRUE)[1:min.mods])}))
+      sum(sort(mod.data.out$wi.BIC[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)])}))
     names(var.weights) <- included.vars
     variable.weights.raw <- var.weights
     bic.var.weights <- list(variable.weights.raw=variable.weights.raw)
   }
   if(VI.mods=='all'){
     # first for AICc
-    variable.weights.raw <- colSums(mod.data.out[,included.vars]*mod.data.out$wi.AICc)
+    variable.weights.raw <- colSums(mod.data.out[,included.vars,drop=FALSE]*mod.data.out$wi.AICc)
     aic.var.weights <- list(variable.weights.raw=variable.weights.raw)
 
     # next for BIC
-    variable.weights.raw <- colSums(mod.data.out[,included.vars]*mod.data.out$wi.BIC)
+    variable.weights.raw <- colSums(mod.data.out[,included.vars,drop=FALSE]*mod.data.out$wi.BIC)
     bic.var.weights <- list(variable.weights.raw=variable.weights.raw)
   }
 
