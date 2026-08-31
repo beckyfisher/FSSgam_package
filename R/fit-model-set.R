@@ -29,6 +29,8 @@
 #'
 #' @param  report.unique.r2 The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.
 #'
+#' @param progress Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.
+#'
 #' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.
 #'
 #' @details The function constructs and fits a complete model set based on the supplied arguments.
@@ -78,7 +80,8 @@ fit_model_set=function(model.set.list,
                           n.cores=4,
                           r2.type="r2.lm.est",
                           report.unique.r2=FALSE,
-                          VI.mods='min.n'){
+                          VI.mods='min.n',
+                          progress=interactive()){
 
   # An unrecognised r2.type used to reach extract_mod_dat(), which matches it
   # against three literals and leaves the value at NA when none matches, so the
@@ -108,11 +111,11 @@ fit_model_set=function(model.set.list,
   if(save.model.fits==TRUE){
     summary.l=fit_and_summarise_saved_models(mod.formula=mod.formula,test.fit=test.fit,
                           use.dat=use.datModSet,n.mods=n.mods,included.vars=included.vars,
-                          r2.type=r2.type,parallel=parallel,n.cores=n.cores)
+                          r2.type=r2.type,parallel=parallel,n.cores=n.cores,progress=progress)
   }else{
     summary.l=fit_and_summarise_unsaved_models(mod.formula=mod.formula,test.fit=test.fit,
                           use.dat=use.datModSet,n.mods=n.mods,included.vars=included.vars,
-                          r2.type=r2.type,parallel=parallel,n.cores=n.cores)
+                          r2.type=r2.type,parallel=parallel,n.cores=n.cores,progress=progress)
   }
   mod.data.out=summary.l$mod.data.out
   failed.models=summary.l$failed.models
@@ -168,9 +171,13 @@ normalise_mod_dat_rows=function(mod.dat){
 # fitted model objects, then builds mod.data.out/failed.models/success.models
 # from those fits. Used when save.model.fits=TRUE.
 fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
-                          included.vars,r2.type,parallel,n.cores){
-  pb <- utils::txtProgressBar(max = length(mod.formula), style = 3)
-  progress <- function(n) utils::setTxtProgressBar(pb, n)
+                          included.vars,r2.type,parallel,n.cores,progress){
+  # progress=FALSE leaves pb NULL and passes no .options.snow callback, so
+  # nothing reaches stdout at all (FSSgam_package#9). update_pb() rather than
+  # reusing the name 'progress' for the callback, which now shadows the
+  # argument.
+  pb <- if(progress) utils::txtProgressBar(max = length(mod.formula), style = 3) else NULL
+  update_pb <- function(n) if(!is.null(pb)) utils::setTxtProgressBar(pb, n)
 
   # Resolved once per candidate, here, before any parallel workers are
   # started -- not lazily inside fit_mod_l() on whatever process ends up
@@ -187,14 +194,13 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
   if(parallel==TRUE){
    cl=parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
-   opts <- list(progress = progress)
+   opts <- if(progress) list(progress = update_pb) else list()
    out.dat<-foreach::foreach(l = 1:length(mod.formula),
                    .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                    .errorhandling='pass',
                    .options.snow = opts)%dopar%{
      fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
   }
-   close(pb)
    parallel::stopCluster(cl)
    foreach::registerDoSEQ()
            }else{
@@ -202,10 +208,10 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
       for(l in 1:length(mod.formula)){
          mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
          out.dat[[l]]=mod.l
-        utils::setTxtProgressBar(pb,l)
+        update_pb(l)
          }
   }
-  close(pb)
+  if(!is.null(pb)) close(pb)
   names(out.dat) <- names(mod.formula)[1:n.mods]
 
   # find all the models that didn't fit and extract the error messages
@@ -233,9 +239,13 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
 # the model fits themselves are never held in memory. Used when
 # save.model.fits=FALSE (i.e. the candidate set is large).
 fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
-                          included.vars,r2.type,parallel,n.cores){
-  pb <- utils::txtProgressBar(max = length(mod.formula), style = 3)
-  progress <- function(n) utils::setTxtProgressBar(pb, n)
+                          included.vars,r2.type,parallel,n.cores,progress){
+  # progress=FALSE leaves pb NULL and passes no .options.snow callback, so
+  # nothing reaches stdout at all (FSSgam_package#9). update_pb() rather than
+  # reusing the name 'progress' for the callback, which now shadows the
+  # argument.
+  pb <- if(progress) utils::txtProgressBar(max = length(mod.formula), style = 3) else NULL
+  update_pb <- function(n) if(!is.null(pb)) utils::setTxtProgressBar(pb, n)
 
   #for all models make a table indicating which variables are included
   var.inclusions <- build_inclusion_mat(included.vars=included.vars,formula.list=mod.formula)
@@ -251,7 +261,7 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
   if(parallel==TRUE){
    cl <- parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
-   opts <- list(progress = progress)
+   opts <- if(progress) list(progress = update_pb) else list()
    mod.dat <- foreach::foreach(l = 1:length(mod.formula),
                    .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                    .errorhandling='pass',
@@ -260,7 +270,6 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
                              r2.type.=r2.type))
 
    }
-   close(pb)
    parallel::stopCluster(cl)
    foreach::registerDoSEQ()
            }else{
@@ -269,10 +278,10 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
         mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
         out=unlist(extract_mod_dat(mod.l,r2.type.=r2.type))
         mod.dat[[l]]=out
-        utils::setTxtProgressBar(pb,l)
+        update_pb(l)
         }
   }
-  close(pb)
+  if(!is.null(pb)) close(pb)
   names(mod.dat) <- names(mod.formula[1:n.mods])
 
   mod.dat <- normalise_mod_dat_rows(mod.dat)

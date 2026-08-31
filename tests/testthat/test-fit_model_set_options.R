@@ -335,3 +335,61 @@ test_that("a predictor present in no surviving model contributes no weight", {
     rep(0, length(model.set$included.vars))
   )
 })
+
+# ---- progress ---------------------------------------------------------------
+
+test_that("progress = FALSE writes nothing to stdout", {
+  # FSSgam_package#9: the txtProgressBar was unconditional, so every call wrote
+  # to stdout and the only way to keep it out of a report or a test reporter
+  # was to wrap the call in capture.output().
+  model.set <- fixture_cs1_model_set()
+
+  for (save in c(TRUE, FALSE)) {
+    out <- utils::capture.output(
+      res <- fit_model_set(model.set, parallel = FALSE, progress = FALSE,
+                           save.model.fits = save)
+    )
+    expect_equal(out, character(0), info = paste("save.model.fits =", save))
+    # the fit itself is unaffected
+    expect_equal(nrow(res$mod.data.out), model.set$n.mods, info = paste(save))
+  }
+})
+
+test_that("progress = TRUE writes a progress bar to stdout", {
+  model.set <- fixture_cs1_model_set()
+
+  for (save in c(TRUE, FALSE)) {
+    out <- utils::capture.output(
+      fit_model_set(model.set, parallel = FALSE, progress = TRUE,
+                    save.model.fits = save)
+    )
+    expect_true(any(grepl("=", out, fixed = TRUE)),
+                info = paste("save.model.fits =", save))
+  }
+})
+
+test_that("progress defaults to interactive()", {
+  # so the bar appears at the console but not in scripts, reports or checks
+  expect_identical(formals(fit_model_set)$progress, quote(interactive()))
+  expect_identical(formals(full_subsets_gam)$progress, quote(interactive()))
+})
+
+test_that("full_subsets_gam forwards progress", {
+  fit <- fixture_cs1_gaussian()
+  args <- list(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
+  quiet <- utils::capture.output(
+    res <- do.call(full_subsets_gam, c(args, list(progress = FALSE)))
+  )
+  noisy <- utils::capture.output(
+    do.call(full_subsets_gam, c(args, list(progress = TRUE)))
+  )
+
+  expect_equal(quiet, character(0))
+  expect_true(any(grepl("=", noisy, fixed = TRUE)))
+  expect_equal(nrow(res$mod.data.out), do.call(generate_model_set, args)$n.mods)
+})

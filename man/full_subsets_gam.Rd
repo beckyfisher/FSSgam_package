@@ -21,15 +21,17 @@ full_subsets_gam(
   k = 5,
   bs.arg = "'cr'",
   null.terms = "",
-  max.models = 500,
+  max.models = 200,
   save.model.fits = TRUE,
   parallel = FALSE,
   n.cores = 4,
   r2.type = "r2.lm.est",
   report.unique.r2 = FALSE,
-  factor.interactions = "previous.arg",
-  smooth.interactions = "previous.arg",
-  size = "previous.arg"
+  VI.mods = "min.n",
+  progress = interactive(),
+  factor.interactions,
+  smooth.interactions,
+  size
 )
 }
 \arguments{
@@ -69,7 +71,7 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 
 \item{null.terms}{A character vector indicating the form of any re smooths to be included in gam [e.g. s(site,bs=re)] or any other fixed terms or smooths that the user wants to include in the null model. Use of bs=re is an alternative way of fitting simple random structures that avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used. see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.}
 
-\item{max.models}{The total number of models allowed to be fit and still save the model fits. If the candidate set is bigger than this value, a warning will be returned indicating that model fits will not be saved.}
+\item{max.models}{The total number of models allowed to be fit and still save the model fits. Defaults to 200. If the candidate set is bigger than this value, a warning will be returned indicating that model fits will not be saved.}
 
 \item{save.model.fits}{Are the model fits to be saved in the output list? If TRUE this will be overriten if the model candidate set is bigger than max.models. If FALSE only model output data are saved.}
 
@@ -80,6 +82,10 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 \item{r2.type}{The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note gamm4 does not currently return a deviance.}
 
 \item{report.unique.r2}{The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.}
+
+\item{VI.mods}{The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.}
+
+\item{progress}{Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.}
 
 \item{factor.interactions}{Deprecated. Superseded by factor.factor.interactions; retained only so older code does not break, and will warn if used.}
 

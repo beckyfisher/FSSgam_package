@@ -294,3 +294,40 @@ that the models beyond the fourth carry non-zero weight. A second test uses a
 differ, and that `'all'` is never smaller than `'min.n'`.
 
 ---
+
+**FSSgam_package#9 — the progress bar could not be suppressed.**
+
+`fit_model_set()` wrote a `txtProgressBar` to stdout unconditionally, so the
+only way to keep it out of a report, a script or a test reporter was to wrap
+the call in `capture.output()` — which is what the suite's `fit_quietly()`
+helper exists to do.
+
+Added `progress = interactive()` to `fit_model_set()` and
+`full_subsets_gam()`, forwarded into both fitting helpers. When `FALSE`, `pb`
+is left `NULL` and `.options.snow` is passed an empty list, so no callback is
+registered and nothing reaches stdout at all. The default means the bar
+appears at the console but not in scripts, reports or `R CMD check`.
+
+The progress callback was renamed from `progress` to `update_pb()`, since the
+old name now shadows the argument.
+
+This also removes the double `close(pb)` in the parallel branch of both
+fitting helpers: the bar was closed inside the `if (parallel)` block and again
+after it.
+
+`fit_quietly()`/`full_subsets_quietly()` were left as they are. They remain
+correct with the bar off, and Phase 13 records four groups of tests that
+deliberately keep their direct call form.
+
+**A note on `DESCRIPTION`.** `devtools::document()` was run once at the end of
+the phase rather than after each commit, so `man/fit_model_set.Rd` and
+`man/full_subsets_gam.Rd` are regenerated here for all of the phase's
+documentation changes. The roxygen2 installed in this environment is 8.0.0,
+which rewrote `RoxygenNote: 7.3.2` to `Config/roxygen2/version: 8.0.0`. That
+change was reverted: it reflects the toolchain on this machine rather than a
+decision about the package, and adopting a major roxygen2 version is a
+separate matter. The generated `.Rd` content itself shows no structural
+difference attributable to the version — the diff contains only the intended
+argument and text changes.
+
+---

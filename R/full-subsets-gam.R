@@ -68,6 +68,8 @@
 #'
 #' @param  report.unique.r2 The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.
 #'
+#' @param progress Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.
+#'
 #' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.
 #'
 #' @param factor.interactions Deprecated. Superseded by factor.factor.interactions; retained only so older code does not break, and will warn if used.
@@ -137,6 +139,7 @@ full_subsets_gam=function(use.dat,
                           r2.type="r2.lm.est",
                           report.unique.r2=FALSE,
                           VI.mods='min.n',
+                          progress=interactive(),
                           factor.interactions,
                           smooth.interactions,
                           size){
@@ -200,7 +203,8 @@ full_subsets_gam=function(use.dat,
                           n.cores=n.cores,
                           r2.type=r2.type,
                           report.unique.r2=report.unique.r2,
-                          VI.mods=VI.mods)
+                          VI.mods=VI.mods,
+                          progress=progress)
 
   # now return the list of outputs
   return(list(mod.data.out=out.dat$mod.data.out,
