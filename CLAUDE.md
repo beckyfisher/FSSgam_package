@@ -743,16 +743,46 @@ passing once it is exactly 1.
 That asymmetry is deliberate: an expectation that fails when a defect is
 corrected is worse than a comment. Do not read the comments as coverage.
 
-**Caution for next time:** doSNOW cluster startup stalled repeatedly while
-this work was done, including for a trivial `foreach()` containing no
-FSSgam code, and including on an otherwise idle machine. Measured on this
-WSL host: `test-fit_model_set_parallel.R` completed cleanly on two of four
-consecutive attempts (14 expectations, 0 failures) and stalled past 180
-seconds on the other two; the same file's contents run from a plain script
-completed six times out of six. This is a wider version of the symptom
-recorded in the Phase 6b caution. Before concluding that a
-`parallel = TRUE` path is broken, check `ps` for other R processes, re-run
-in isolation, and re-run more than once.
+**Caution for next time:** doSNOW stalled repeatedly while this work was
+done, including for a trivial `foreach()` containing no FSSgam code.
+Measured on this WSL host: `test-fit_model_set_parallel.R` completed
+cleanly on two of four consecutive attempts (14 expectations, 0 failures)
+and stalled past 180 seconds on the other two. Before concluding that a
+`parallel = TRUE` path is broken, re-run in isolation and re-run more than
+once.
+
+**Three statements this caution originally carried were wrong, and were
+corrected on 2026-09-01 after the stall was measured properly. Do not
+re-derive them.** Each one sent a later session down a blind alley. See
+FSSgam_package#14, which holds the measurements and a reprex.
+
+- *"cluster startup stalled"*. Startup completes. Instrumenting
+  `fit_and_summarise_unsaved_models()` and running until a stall showed
+  `parallel::makeCluster()` and `doSNOW::registerDoSNOW()` both returning;
+  the last marker reached is immediately before the `%dopar%`. The stall is
+  in the dispatch, and during it both workers are alive at 1-2% CPU.
+- *"the same file's contents run from a plain script completed six times
+  out of six"*. A plain script stalls at the same rate as the test file.
+  The distinction that matters is not script against test file but **one
+  cluster per fresh R process**: six consecutive clusters inside a single
+  session complete 6/6, because after the first the packages are already
+  loaded on the workers. Any measurement of this must use a fresh process
+  per repetition.
+- *"resource contention, not a real bug"* (the Phase 6b caution). It
+  reproduces on an idle machine.
+
+What it actually is: loading `gamm4` onto the workers. With a loop body of
+`i * 2` and no FSSgam code executed, `.packages` alone moves the rate from
+1 stall in 50 runs to 21 in 50. A stall was seen once without `gamm4`, so
+it is a strong predictor rather than a precondition. Not established:
+whether this is specific to WSL2 or to this lme4/Matrix build, and the
+mechanism.
+
+Consequence for anything touching the parallel path: a stall is not
+evidence that the code under test is broken, and a single clean run is not
+evidence that it works. Both were concluded during the pre-CRAN refactor
+from one observation each, and both were wrong. Measure a rate across fresh
+processes.
 
 ---
 
