@@ -117,3 +117,48 @@ run of both arms timed out, 10 of 10 each.
 The `dsm` finding was raised as FSSgam_package#30.
 
 ---
+
+#### Issue #14, review round 2 (fresh session)
+
+**Claude (reviewer):** No blocking findings; every non-timing claim reproduces,
+including `R CMD check` with `gamm4` hidden returning Status OK. Three
+substantive points, all about the recorded account rather than the code. The
+stated reason for keeping `MuMIn` in `worker_packages()` is wrong: `MuMIn`
+registers `update.gamm`, whose body calls `update.default` from inside the
+`MuMIn` namespace, so `uGamm` is never resolved from the search path and a
+`uGamm` model set refits 8 of 8 with `.packages = "FSSgam"` alone; `mgcv` is
+genuinely required, 0 of 4 without it. "No longer loaded onto the workers" holds
+only for a non-`gamm4` test.fit: unserialising a `uGamm(lme4 = TRUE)` object
+loads `gamm4` and `lme4` by itself, and `doSNOW` sends the export environment in
+the same `clusterCall` that carries the package vector, before the `library()`
+loop runs, so the comment claiming that naming `gamm4` "would only move that load
+forward to the dispatch" is reversed. And the dependency change is user-visible
+in a way `NEWS.md` did not state: a fresh install no longer brings `gamm4` or
+`lme4`, so a case-study-2 style call errors on a clean machine.
+
+The reviewer also recorded, unprompted, that the change is justified on
+dependency-hygiene grounds alone and should stand even if the stall result never
+replicates.
+
+**Claude:** All three corrected. `worker_packages()` now records what is
+necessary and what is defensive, with the measured figures. `NEWS.md` leads with
+the install consequence in bold and states the `uGamm(lme4 = TRUE)` qualification
+explicitly, so the 44-in-140 figure is not read as extending to those users.
+
+The reviewer's finding that it was the `@importFrom` directive rather than the
+`Imports` field that loaded `gamm4` was taken as well: the earlier wording
+implied that `MuMIn`, `nnet` and `doSNOW` are loaded on a worker by the `FSSgam`
+namespace, which they are not. The two had to change together regardless, since
+an `Imports` entry with no `NAMESPACE` import raises "All declared Imports should
+be used", and that is what covers the other half of the invariant the test
+asserts.
+
+One unclaimed beneficiary was added to `NEWS.md`: `check_correlations(parallel =
+TRUE)` dispatches with `.packages = c('nnet')`, but its workers load the `FSSgam`
+namespace and so used to load `gamm4` through it.
+
+The mismatch between `Depends: R (>= 3.5)` and `MuMIn`'s `R (>= 4.4.0)` was
+raised as FSSgam_package#31. It weakens the reason given for rejecting
+`setup_strategy = "sequential"`, which is recorded there.
+
+---

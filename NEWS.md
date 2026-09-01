@@ -1,24 +1,34 @@
 # FSSgam (development version)
 
-* `gamm4` moves from `Imports` to `Suggests`, and is no longer loaded onto the
-  `doSNOW` workers by `fit_model_set(parallel = TRUE)`. Nothing in this package
-  calls `gamm4`; the only uses are `inherits(x, "gamm4")` class tests, which need
-  no package, and an `@importFrom` directive for a function never called. Loading
-  the `FSSgam` namespace on a worker loads its imports, so the declaration and
-  the `.packages` vector had to change together for either to have an effect. A
-  `uGamm(lme4 = TRUE)` refit is unaffected: `MuMIn::uGamm()` calls
-  `require("gamm4")` itself, so the worker attaches it inside the task when it is
-  needed. Anyone fitting such a model already has `gamm4` installed.
+* `gamm4` moves from `Imports` to `Suggests`. **A fresh install of this package
+  no longer installs `gamm4` or `lme4`. If you fit through
+  `MuMIn::uGamm(lme4 = TRUE)`, as the companion repository's case study 2 does,
+  install `gamm4` yourself.** Nothing in this package calls it: the only uses are
+  `inherits(x, "gamm4")` class tests, which need no package, and an
+  `@importFrom gamm4 gamm4` directive for a function never called. That directive
+  is what made every parallel worker load `gamm4` and `lme4`, through the
+  `FSSgam` namespace, for every model set regardless of the family fitted.
 
-  This is also the only direction recorded on FSSgam_package#14 that measured as
-  helping. Running `fit_model_set(parallel = TRUE)` on `case_study1` from
-  installed copies of each version, alternating in blocks of ten so that both saw
-  the same machine load, one cluster per fresh R process, gave 44 stalls in 140
-  runs before the change and 25 in 140 after (chi-squared p = 0.013, this host,
-  2026-09-01). That is a reduction and not a removal, and it is one session's
-  measurement: an independent replication of a smaller comparison, a `foreach()`
-  executing no package code, did not separate the two arms. FSSgam_package#14
-  stays open.
+* `fit_model_set(parallel = TRUE)` no longer names `gamm4` in the packages it
+  attaches on the `doSNOW` workers. Together with the change above this is the
+  only direction recorded on FSSgam_package#14 that measured as reducing the
+  dispatch stall, in which the call hangs indefinitely with no output and no
+  error. Running `fit_model_set(parallel = TRUE)` on `case_study1` from installed
+  copies of each version, alternating in blocks of ten so that both saw the same
+  machine load, one cluster per fresh R process, gave 44 stalls in 140 runs
+  before and 25 in 140 after (chi-squared p = 0.013, this host, 2026-09-01).
+
+  Three qualifications. That is a reduction and not a removal, and
+  FSSgam_package#14 stays open. It is one session's measurement of a rate on one
+  host; an independent replication of a smaller comparison did not separate the
+  two arms. And it does not extend to a `uGamm(lme4 = TRUE)` test.fit:
+  unserialising such an object loads `gamm4` and `lme4` on the worker by itself,
+  before the packages are attached, so for those users the worker side is
+  substantially unchanged.
+
+  `check_correlations(parallel = TRUE)` benefits as well, without any change of
+  its own: its workers load the `FSSgam` namespace and so used to load `gamm4`
+  through it.
 
 # FSSgam 1.1.0
 

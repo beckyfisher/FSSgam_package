@@ -220,14 +220,14 @@ test_that("compute_variable_importance sums every model for 'all'", {
 # ---- worker_packages() ------------------------------------------------------
 
 test_that("worker_packages carries what update() needs and not gamm4", {
-  # FSSgam_package#14. Loading gamm4 onto the doSNOW workers is the largest
-  # measured contributor to the dispatch stall, and naming it here buys nothing:
-  # MuMIn::uGamm() calls require("gamm4") itself when lme4 = TRUE, so a gamm4
-  # refit attaches it inside the task body regardless.
+  # FSSgam_package#14. mgcv is necessary: fit_mod_l() refits through
+  # stats::update(), which for a gam() test.fit resolves the stored call's
+  # `gam` symbol by lexical lookup ending at the worker's search path. MuMIn is
+  # not necessary and is kept defensively, since a uGamm test.fit dispatches to
+  # MuMIn's own update.gamm method, whose body runs inside that namespace.
   #
-  # mgcv and MuMIn are required: fit_mod_l() refits through stats::update(),
-  # which resolves the stored call's function symbol, gam or uGamm, by lexical
-  # lookup ending at the worker's search path.
+  # gamm4 is absent because nothing in this package calls it and naming it would
+  # attach it on every worker for every model set.
   pkgs <- FSSgam:::worker_packages()
 
   expect_true(all(c("mgcv", "MuMIn", "FSSgam") %in% pkgs))
@@ -235,10 +235,12 @@ test_that("worker_packages carries what update() needs and not gamm4", {
 })
 
 test_that("gamm4 is not a hard dependency of this package", {
-  # The invariant that makes the above effective. Loading the FSSgam namespace
-  # on a worker loads its imports, so leaving gamm4 out of the .packages vector
-  # achieves nothing while gamm4 is also a hard dependency. Nothing in R/ calls
-  # gamm4; only inherits(x, "gamm4"), which needs no package.
+  # The invariant that makes the above effective. An @importFrom directive makes
+  # the FSSgam namespace load gamm4 wherever it is loaded, workers included, so
+  # leaving gamm4 out of the .packages vector achieves nothing on its own. The
+  # directive and the DESCRIPTION entry had to go together: an Imports entry
+  # with no NAMESPACE import raises "All declared Imports should be used", which
+  # is what covers the other half of this invariant.
   desc <- utils::packageDescription("FSSgam")
   hard <- paste(desc$Depends, desc$Imports, desc$LinkingTo)
   expect_false(grepl("gamm4", hard, fixed = TRUE))
