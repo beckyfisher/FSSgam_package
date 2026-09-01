@@ -429,25 +429,27 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
         if(max(is.na(match(factor.factor.interactions,colnames(use.dat))))==1){
             stop("Not all specified factor.factor.interactions are supplied in use.dat")}
       factor.correlations=check_correlations(use.dat[,factor.factor.interactions])
-      # This outer guard has no counterpart in the logical branch. It counts
-      # cells of the correlation matrix below the cutoff, not pairs, so with
-      # two factors whose two off-diagonal cells straddle cov.cutoff the count
-      # is 1 and the whole block is skipped in silence. Preserved as-is here.
-      if(length(which(factor.correlations<cov.cutoff))>1){
-        fact.sizes=combination_sizes(factor.factor.interactions,max.predictors)
-        if(length(fact.sizes)==0){
-          warning(paste0("max.predictors is ",max.predictors,", so no interaction of
+      # An outer guard here, if(length(which(factor.correlations<cov.cutoff))>1),
+      # used to skip this whole block in silence. It counted cells of the
+      # correlation matrix below the cutoff rather than pairs, so two factors
+      # whose two off-diagonal estimates straddle cov.cutoff gave a count of 1
+      # and no interaction was built and nothing was reported. The logical
+      # branch had no such guard. Removed: combine_uncorrelated() already
+      # rejects a combination that exceeds the cutoff, and an empty result is
+      # now warned about below.
+      fact.sizes=combination_sizes(factor.factor.interactions,max.predictors)
+      if(length(fact.sizes)==0){
+        warning(paste0("max.predictors is ",max.predictors,", so no interaction of
                 two or more of the specified factors can be included. No
                 factor-factor interaction terms were generated."))}
-        fact.combns=combine_uncorrelated(vars=factor.factor.interactions,
+      fact.combns=combine_uncorrelated(vars=factor.factor.interactions,
                           sizes=fact.sizes,
                           cor.matrix=factor.correlations,cov.cutoff=cov.cutoff)
-        if(length(fact.sizes)>0 & length(fact.combns)==0){
-          warn_no_factor_interactions(cov.cutoff)}
-        cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns)
-        use.dat=cols.l$use.dat
-        pred.vars.fact=c(pred.vars.fact,cols.l$factor.interaction.terms)
-      }
+      if(length(fact.sizes)>0 & length(fact.combns)==0){
+        warn_no_factor_interactions(cov.cutoff)}
+      cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns)
+      use.dat=cols.l$use.dat
+      pred.vars.fact=c(pred.vars.fact,cols.l$factor.interaction.terms)
     }
    }
    # make sure the factors are factors

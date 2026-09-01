@@ -574,3 +574,30 @@ test_that("both factor.factor.interactions forms screen both triangles alike", {
   # and the two forms now agree entirely
   expect_equal(names(character.set$mod.formula), names(logical.set$mod.formula))
 })
+
+test_that("a character factor.factor.interactions reports a fully screened pair", {
+  # An outer guard, length(which(factor.correlations < cov.cutoff)) > 1, used to
+  # skip the whole block in silence. It counted matrix cells rather than pairs,
+  # so two factors whose two off-diagonal estimates straddle cov.cutoff gave a
+  # count of 1: no interaction was built and nothing was said. The logical
+  # branch had no such guard.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE3 <- factor(
+    ifelse(fit$use.dat$complexity > stats::median(fit$use.dat$complexity), "hi", "lo")
+  )
+  fit$use.dat$ZONE5 <- factor(
+    ifelse(fit$use.dat$rugosity > stats::median(fit$use.dat$rugosity), "r1", "r2")
+  )
+
+  expect_warning(
+    model.set <- suppress_nnet_nans(fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE3", "ZONE5"),
+      factor.factor.interactions = c("ZONE3", "ZONE5"),
+      cov.cutoff = 0.543, max.predictors = 2
+    )),
+    "exceeded cov.cutoff"
+  )
+
+  expect_false(any(grepl(".I.", colnames(model.set$used.data), fixed = TRUE)))
+})

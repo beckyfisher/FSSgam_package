@@ -166,6 +166,12 @@
   model set containing such a pair will now exclude the interaction it
   previously included.
 
+* `factor.factor.interactions` given as a character vector no longer skips
+  silently when every named pair exceeds `cov.cutoff`. An internal guard
+  counted cells of the correlation matrix rather than pairs, so no interaction
+  was built and nothing was reported; it now warns, as the `TRUE` form does.
+  The model set produced is unchanged.
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.
