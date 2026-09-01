@@ -1,100 +1,68 @@
-# Pre-CRAN refactor — where this stands
+# Pre-CRAN refactor — complete
 
-Branch `pre-cran-refactor`, off `master` at `a8235e2`. Last session
-2026-08-31/09-01. Nothing is pushed; nothing is merged.
+Branch `pre-cran-refactor`, off `master` at `a8235e2`. All seven phases of
+`pre-cran-refactor-human.md` are done. Nothing is pushed; nothing is merged.
 
-## Done
+## State
 
-Phases 1, 2 and 3 of `pre-cran-refactor-human.md`. Eighteen commits, one per
-item, each with its regression test in the same commit.
-
-| Phase | Items | State |
+| | baseline | now |
 |---|---|---|
-| 1 | A2, A4, B1, B2, B3, B4, FSSgam_package#7, #9 | complete |
-| 2 | FSSgam_package#10, #12, redundant null refits | complete |
-| 3 | restructure interaction resolution, no behaviour change | complete |
+| `testthat` | 438 passing, 11 skipped | 546 passing, 12 skipped |
+| `devtools::check()` | 0 errors, 0 warnings, 0 notes | unchanged |
+| `R CMD check --as-cran`, incoming checks on | Status OK | Status OK |
+| `resolve_factor_interactions()` | 161 lines | 109 |
+| `resolve_smooth_smooth_interactions()` | 73 lines | 55 |
 
-Suite: 508 passing, 0 failing, 12 skipped (baseline was 438/0/11).
-`devtools::check()` after phase 1: 0 errors, 0 warnings, 0 notes. Not re-run
-after phases 2 and 3 — do that first on resuming.
+Thirty-three commits, one per item, each behaviour fix carrying its regression
+test in the same commit. Two exceptions, both recorded in their commit
+messages: A3 is committed with the second branch divergence because fixing one
+made the other reachable, and `NEWS.md` is written per phase rather than per
+commit, being a per-release document.
 
-## Next
+## What was verified, and how
 
-Phase 4, then 5, 6 and 7. Specification sections 6, 7, 8 and 9 of
-`pre-cran-refactor-claude.md`.
+Phases 3 to 5 were checked against a golden master of 31 `generate_model_set()`
+scenarios, compared with `identical()`. The scripts are in
+`planning/golden-master/`, with a README explaining why four of the scenarios
+exist — the obvious ones do not discriminate between the duplicated branches,
+and each of the four was built against a measured correlation value.
 
-Phase 4 applies A1 (cyclic variables matched by unanchored `grep()`), A3
-(`for(i in 2:n)` counting backwards at n = 1), FSSgam_package#8 (locale-dependent
-candidate names) and #13 (a supplied `cor.matrix` governing all three stages).
-It also resolves the two branch divergences that phase 3 deliberately held at
-their current behaviour behind arguments:
+Phase 2 used a separate 14-scenario master over `check_correlations()` and
+`check_non_linear_correlations()`.
 
-- `screen.both` in `combine_uncorrelated()` — resolve in favour of screening
-  both triangles, then remove the argument;
-- `warn.when.empty` in `build_factor_interaction_columns()` — resolve in favour
-  of warning, then remove the argument. The `FALSE` path currently reaches
-  `cbind(use.dat, <0-column data.frame>)` and raises "arguments imply differing
-  number of rows".
+Every behaviour change was confirmed to fail before the fix, except
+FSSgam_package#10, where the warning being removed is not reproducible on
+nnet 7.3-20 — stated on the face of the test so it is not mistaken for a
+regression test.
 
-Two further divergences found during phase 3 and not yet decided:
+## Open issues raised during the work
 
-- the character `factor.factor.interactions` branch has an outer guard,
-  `length(which(factor.correlations < cov.cutoff)) > 1`, that counts matrix
-  cells rather than pairs and silently skips the whole block. The logical
-  branch has no counterpart. Decide whether to keep, fix or remove it.
-- the `te()` arity difference is retained by decision (2026-08-31) and needs
-  only the documentation rewrite in phase 7, specification 6.3.
+- **FSSgam_package#14** — `parallel = TRUE` stalls on roughly half of runs when
+  `gamm4` is loaded on the doSNOW workers. Not a defect in this package: a
+  `foreach()` with a body of `i * 2` reproduces it. Pre-existing; `master` stalls
+  at the same rate. Includes a reprex and the measurements.
+- **FSSgam_package#15** — a supplied `cor.matrix` must now name the hard coded
+  factor interaction columns, which a user cannot know in advance. Follows from
+  #13 and is a usability problem rather than a defect; three options given.
+- **FSSgam_package#16** — `check_correlations()` compares a pair deviance
+  computed on complete cases against a null deviance computed on the whole
+  column. Long-standing, reachable only by calling the function directly, since
+  `generate_model_set()` rejects predictors with `NA`.
 
-**Before changing anything in phase 4**, re-capture the golden master on the
-current branch tip and keep it as the reference:
+Still open from Phase 13 and unaffected by this work: #6, #9 (now fixed by the
+`progress` argument — close it), #12 (fixed here — close it).
 
-```
-Rscript planning/golden-master/capture.R /tmp/gm_before.rds
-```
+## Before submitting to CRAN
 
-`planning/golden-master/README.md` lists which scenarios are expected to change
-and why, and why four of them exist at all.
-
-## Open, needing a decision from the maintainer
-
-**The `gamm4` worker stall.** `fit_model_set(parallel = TRUE)` stalls on roughly
-half of runs on this host, on `master` as well as on this branch. Measured, all
-n = 10 or 12: a `foreach()` with a trivial body and no FSSgam code reproduces
-it purely from `.packages` — `mgcv` 10/10, `mgcv, MuMIn` 10/10, `gamm4` 7/10,
-`mgcv, gamm4` 3/10, `mgcv, FSSgam` 6/10, all four 8/10. Every set that loads
-gamm4 stalls; no set without it does, 20/20 against 24/40. Instrumenting a
-stall shows `makeCluster()` and `registerDoSNOW()` both complete and the stall
-is inside the `%dopar%` dispatch.
-
-This is not a defect in this package, it predates the refactor, and it is
-outside the plan's scope. Nothing was changed. Two follow-ups were proposed and
-are awaiting a decision:
-
-1. correct `CLAUDE.md`, whose Phase 13 caution states that the stall is in
-   cluster startup, that a plain script completed six times out of six, and
-   that it is contention from another process — all three are now known to be
-   wrong. A drafted correction with the measurements is in the last session's
-   prompt log.
-2. raise it as an issue in `FSSgam_package`.
-
-Not established: whether this is specific to WSL2 or to this lme4/Matrix build,
-and the mechanism.
-
-**One environment note.** roxygen2 here is 8.0.0, and `devtools::document()`
-rewrites `DESCRIPTION`'s `RoxygenNote: 7.3.2` to
-`Config/roxygen2/version: 8.0.0`. That line was reverted each time, since it
-reflects this machine rather than a decision about the package. The generated
-`.Rd` files show no structural difference from the version change. Decide
-whether to adopt roxygen2 8 deliberately.
-
-## Working notes for whoever resumes
-
-- Four files in `R/` use CRLF line endings — `data.R`, `FSSgam.R`,
-  `full-subsets-gam.R`, `functions_supporting.R`. An editor that rewrites them
-  as LF turns a three-line change into a whole-file diff. Check
-  `git diff --numstat` after editing those four.
-- The parallel tests need `R CMD INSTALL .` first; a `pkgload` copy tests
-  nothing, because a doSNOW worker loads the installed package. Expect to
-  retry: see the stall above.
-- Every measurement quoted in the prompt log was taken on this WSL host under
-  R 4.6.1. Re-measure rather than comparing against those numbers.
+1. Re-run the parallel suite. It is opt-in and stalls intermittently through
+   FSSgam_package#14, so it needs retrying rather than one attempt:
+   `R CMD INSTALL .` then `FSSGAM_TEST_PARALLEL=true NOT_CRAN=true` on
+   `test-fit_model_set_parallel.R`.
+2. Decide whether the behaviour changes warrant `1.1.0` rather than `1.0.0`.
+   Four are user-visible and two change output: candidate model names in a
+   non-C locale, and which interaction terms are built when a `cor.matrix` is
+   supplied. `NEWS.md` describes each.
+3. Update `cran-comments.md`.
+4. Open a pull request against `master`. Every measurement quoted in the prompt
+   log was taken on this WSL host under R 4.6.1; re-measure rather than citing
+   those numbers.
