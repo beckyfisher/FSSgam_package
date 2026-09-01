@@ -630,3 +630,69 @@ All 31 golden-master scenarios identical at every step; suite green at 508
 throughout.
 
 ---
+
+### Phases 4 to 7
+
+**Phase 4 — the behaviour changes.** Applied on the restructured code, each
+against a golden master recaptured at the phase 3 tip.
+
+*A3, and the divergence it dragged with it.* Fixing `for(i in 2:n)` counting
+backwards at n = 1 turned out to be inseparable from the second branch
+divergence. Making the empty-combination case reachable also made reachable the
+`cbind(use.dat, <0-column data.frame>)` that the character branch performed --
+the path recorded in phase 3 as "appears unreachable in practice". It was, until
+A3 reached it. Committing A3 alone would have left the tree broken, so the two
+are one commit, which the message states.
+
+Effects on a two-factor set at `max.predictors = 1`: `used.data` goes from 35
+columns with 34 duplicated names to 32 with none, and four "no non-missing
+arguments to max" warnings become one naming `max.predictors`. Both
+`factor.factor.interactions` forms now warn through one shared function, and the
+two reasons for an empty result get separate messages -- the old one blamed
+`cov.cutoff` even when nothing had been screened.
+
+*Divergences 1 and 3.* Both triangles of the correlation matrix are now screened
+everywhere, and the character branch's cell-counting guard is removed. One
+golden-master scenario changed for each, in both cases the scenario constructed
+to expose it.
+
+*A1.* The smoothing basis is chosen from the variable names as each term is
+built. This removed both post-hoc rewrite blocks, and with them a latent defect:
+the second block took only the first two variables of a `te()` term, so a
+three-way `te()` received two `bs` values. mgcv warns "bs wrong length and
+ignored" and substitutes its own default, so `bs.arg` and any `cyclic.vars` were
+being discarded for that term. Confirmed at the console before being written
+down.
+
+*FSSgam_package#8.* Verified by generating the same model set under
+`LC_COLLATE=C` and `LC_COLLATE=en_US.UTF-8` and comparing names. The committed
+tests could not have caught this, because testthat forces C collation, so the
+new test sets the locale itself. It was confirmed to fail without the fix --
+accidentally, when a botched restore reverted the one-line change and the new
+test reported exactly the expected difference.
+
+*FSSgam_package#13.* 29 of 31 scenarios byte-identical. The supplied-cor.matrix
+scenario gains `depth.te.complexity`, which is the defect; the factor variant
+builds the interaction the supplied matrix permits and then correctly reports
+that the matrix must also carry it.
+
+**Phase 5 — idioms.** Golden master identical throughout. Two checked rather
+than assumed: `class(x)[1] == "gam"` and `inherits(x, "gam")` agree for all four
+fit types the package accepts, measured; and `wi()` was compared against its
+previous implementation on nine inputs including all-NA, length zero, ties and
+large values, identical throughout.
+
+**Phase 6.** `fit_mod_l()` unexported, verified against an installed copy rather
+than a pkgload one, with `pkgdown::check_pkgdown()` clean.
+
+**Phase 7.** Twenty-six spelling corrections, three of which affected meaning.
+The sixteen argument descriptions duplicated between `generate_model_set()` and
+`full_subsets_gam()` are now inherited; they had already drifted during this
+work, which is the argument for inheriting them.
+
+**Final state.** `R CMD check --as-cran` on the built tarball with local CRAN
+incoming checks enabled: Status OK, 0 errors, 0 warnings, 0 notes. Suite 546
+passing, 0 failing, 12 skipped, from a baseline of 438/0/11.
+`resolve_factor_interactions()` is 109 lines against 161 at the start.
+
+---
