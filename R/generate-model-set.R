@@ -41,7 +41,7 @@
 #'
 #' @param  cov.cutoff A numeric value between 0 and 1 indicating the correlation cutoff value to use for excluding collinear models, based on the cor.matrix (see below). The default value is 0.28 (see Graham MH (2003). It is highly recommended to keep this value low, as correlation among predictors can yield spurious results. Note that predictors with a correlation greater than the specified value will still appear in the model set but will never appear in the same model. Including highly correlated predictors can make interpreting variable importance values difficult.
 #'
-#' @param cor.matrix  A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor named in pred.vars.cont, pred.vars.fact and linear.vars; any that are missing are reported by name. The hard coded factor interaction columns that setting factor.factor.interactions causes to be created are the exception, because which of them exist depends on the supplied matrix itself and so cannot be known in advance. Rows and columns for any of those the matrix does not carry are computed from use.dat and appended, leaving every supplied value as supplied. Computing them reads the data of every predictor, so this is the one case in which a predictor of a class check_correlations cannot classify has to be named in the supplied matrix along with the interaction columns. When supplied it replaces the automatic estimate rather than overriding it: except in the interaction case above, check_correlations is not called at all, and a predictor of a class it does not accept can be used. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square root of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square root of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
+#' @param cor.matrix  A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor named in pred.vars.cont, pred.vars.fact and linear.vars; any that are missing are reported by name. The hard coded factor interaction columns that setting factor.factor.interactions causes to be created are the exception, because which of them exist depends on the supplied matrix itself and so cannot be known in advance. Rows and columns for any of those the matrix does not carry are computed from use.dat and appended, leaving every supplied value as supplied. Each dimension is treated separately, so a name supplied as a column and not as a row keeps the column given for it and has only its row computed; because collinearity is screened in both directions, a value supplied in one dimension alone can tighten a screen but never loosen it. Computing them reads the data of every predictor, so this is the one case in which a predictor of a class check_correlations cannot classify has to be named in the supplied matrix along with the interaction columns. When supplied it replaces the automatic estimate rather than overriding it: except in the interaction case above, check_correlations is not called at all, and a predictor of a class it does not accept can be used. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square root of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square root of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
 #'
 #' @param non.linear.correlations Set this argument to TRUE if you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.
 #'
@@ -294,9 +294,15 @@ combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff){
   for(i in sizes){
     combns=c(combns,utils::combn(vars,i,simplify=FALSE))}
   combns=lapply(combns,FUN=function(x){
-          row.index=which(match(rownames(cor.matrix),x)>0)
-          col.index=which(match(colnames(cor.matrix),x)>0)
-          cor.mat.m=cor.matrix[row.index,col.index]
+          # Indexed by name, both dimensions in the order of x, so that the
+          # sub-matrix holds the pairs it is meant to. which(match(rownames, x))
+          # returns positions in rowname order and which(match(colnames, x)) in
+          # colname order, so where a matrix carries the same names in different
+          # orders in its two dimensions the diagonal of the sub-matrix held
+          # cross correlations and the triangles held the 1s of the original
+          # diagonal, dropping the combination whatever its correlation.
+          cor.mat.m=cor.matrix[x[x %in% rownames(cor.matrix)],
+                               x[x %in% colnames(cor.matrix)],drop=FALSE]
           out=x
           if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
           if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){out=NA}
@@ -615,8 +621,13 @@ build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.co
       # governs a screen depends on how the sub-matrix is indexed, and the
       # augmentation below keeps only one of them. Reported rather than
       # resolved arbitrarily.
-      duplicated.names=unique(c(rownames(cor.matrix)[duplicated(rownames(cor.matrix))],
-                                colnames(cor.matrix)[duplicated(colnames(cor.matrix))]))
+      # Only a duplicated name that is a predictor of this model set, since only
+      # those are indexed. A matrix carrying a duplicated name nothing reads is
+      # accepted, as it is without a supplied matrix at all.
+      duplicated.names=intersect(unique(c(
+                                rownames(cor.matrix)[duplicated(rownames(cor.matrix))],
+                                colnames(cor.matrix)[duplicated(colnames(cor.matrix))])),
+                                all.predictors)
       if(length(duplicated.names)>0){
             stop(paste("Supplied cor.matrix has duplicated names: ",
             paste(duplicated.names,collapse=", "),".",sep=""))}
@@ -770,9 +781,10 @@ enumerate_candidate_models=function(pred.vars.cont,pred.vars.fact,linear.vars,
 
     # remove the model if the predictors are correlated
     if(length(mod.terms)>1){
-     row.index=which(match(rownames(cor.matrix),unique(mod.terms))>0)
-     col.index=which(match(colnames(cor.matrix),unique(mod.terms))>0)
-     cor.mat.m=cor.matrix[row.index,col.index]
+     # see the matching comment in combine_uncorrelated()
+     terms.m=unique(mod.terms)
+     cor.mat.m=cor.matrix[terms.m[terms.m %in% rownames(cor.matrix)],
+                          terms.m[terms.m %in% colnames(cor.matrix)],drop=FALSE]
      if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){use.mods[[m]]=NA}
      if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){use.mods[[m]]=NA}
     }

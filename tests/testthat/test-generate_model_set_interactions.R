@@ -1054,3 +1054,62 @@ test_that("a supplied cor.matrix with a duplicated name is reported", {
     "duplicated names"
   )
 })
+
+test_that("where a supplied derived name sits in its dimension does not change the model set", {
+  # The derived names are appended to the end of each dimension, so a user who
+  # supplied one as a column anywhere other than last gets a resolved matrix
+  # whose two dimnames hold the same set in different orders. The screens used
+  # to index the sub-matrix by position in each dimension separately, so the
+  # cells they compared were not the pairs they intended and the candidate set
+  # moved. Both are now indexed by name in one order.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+  rows <- c("depth", "complexity", facts)
+
+  make.cm <- function(cols) {
+    cm <- matrix(0, length(rows), length(cols), dimnames = list(rows, cols))
+    cm[cbind(rows, rows)] <- 1
+    cm[, "ZONE.I.ZONE.copy"] <- c(0.11, 0.12, 0.22, 0.33)
+    cm
+  }
+  run <- function(cm) {
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = c("depth", "complexity"),
+      pred.vars.fact = facts, factor.factor.interactions = TRUE,
+      factor.smooth.interactions = NA, max.predictors = 3, cor.matrix = cm
+    )
+  }
+  last <- run(make.cm(c(rows, "ZONE.I.ZONE.copy")))
+  first <- run(make.cm(c("ZONE.I.ZONE.copy", rows)))
+
+  expect_identical(names(last$mod.formula), names(first$mod.formula))
+})
+
+test_that("a complete supplied matrix screens the same however its columns are ordered", {
+  # The same defect without any interaction column: a square matrix whose
+  # colnames are a permutation of its rownames used to drop candidates whose
+  # correlation was well below cov.cutoff.
+  fit <- fixture_cs1_gaussian()
+  vars <- c("depth", "complexity", "ZONE")
+  cm <- matrix(0, 3, 3, dimnames = list(vars, vars))
+  diag(cm) <- 1
+  permuted <- cm[, c("ZONE", "depth", "complexity")]
+
+  plain <- fixture_cs1_model_set(fit = fit, cor.matrix = cm)
+  shuffled <- fixture_cs1_model_set(fit = fit, cor.matrix = permuted)
+
+  expect_identical(names(shuffled$mod.formula), names(plain$mod.formula))
+})
+
+test_that("a duplicated name that is not a predictor is accepted", {
+  # Only a duplicated name the model set indexes is ambiguous. One nothing reads
+  # is left alone, as it is when no matrix is supplied at all.
+  fit <- fixture_cs1_gaussian()
+  vars <- c("depth", "complexity", "ZONE", "spare", "spare")
+  cm <- matrix(0, 5, 5, dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  model.set <- fixture_cs1_model_set(fit = fit, cor.matrix = cm)
+  expect_gt(model.set$n.mods, 1)
+})

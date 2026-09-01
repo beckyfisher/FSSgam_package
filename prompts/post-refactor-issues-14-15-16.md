@@ -128,3 +128,32 @@ matrix failing with a message naming nothing. Both reproduce unchanged on
 `master`.
 
 ---
+
+#### Issue #15, review round 3 (fresh session)
+
+**Claude (reviewer):** Every claim verified, including the round 2 correction
+about the candidate set, which the previous review had asserted the opposite of.
+Two substantive findings. The derived names are appended to the end of each
+dimension, so a user who supplied one as a column anywhere other than last gets a
+resolved matrix whose two dimnames hold the same set in different orders;
+`combine_uncorrelated()` and `enumerate_candidate_models()` index the sub-matrix
+by position in each dimension separately, so the cells screened are not the pairs
+intended and the candidate set moves. Measured, 18 candidates with the derived
+column last and 16 with it first, from matrices with identical numeric content.
+And the duplicated-name error is broader than its justification: a duplicate
+among names the model set never indexes stops a call that succeeds on `master`.
+
+**Claude:** Both fixed. The two screens now index by name, both dimensions in one
+order. The defect is pre-existing -- a complete supplied matrix with its columns
+permuted returns 5 candidates on `master` where the unpermuted matrix returns 7 --
+but the partial supply this change accepts is what produces the divergence from a
+matrix the user wrote consistently, so it is fixed here rather than deferred. The
+golden master is 31 of 31 identical across the change, which is what makes it
+safe: every scenario there supplies dimnames in one order, so the fix is a no-op
+for all of them. Three regression tests were added, and all three fail against
+the previous commit.
+
+The duplicated-name check now reports only names in `all.predictors`, since those
+are the only ones indexed.
+
+---

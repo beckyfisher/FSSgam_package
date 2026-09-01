@@ -1,5 +1,16 @@
 # FSSgam (development version)
 
+* Bug fix: `generate_model_set()` screened the wrong pairs for collinearity when
+  a supplied `cor.matrix` carried the same names in a different order in its rows
+  and its columns. The correlation sub-matrix for a candidate was built from two
+  positional indices, one in rowname order and one in colname order, so where the
+  two orders differed the diagonal of that sub-matrix held cross correlations and
+  the triangles held the ones from the original diagonal, and the candidate was
+  dropped whatever its predictors' correlation. Both sites now index by name in
+  one order. Measured on a supplied matrix over `depth`, `complexity` and `ZONE`
+  with its columns permuted, this returned 5 candidates where the same matrix
+  unpermuted returned 7 (FSSgam_package#15).
+
 * `generate_model_set()` no longer requires a user-supplied `cor.matrix` to name
   the hard coded factor interaction columns that `factor.factor.interactions`
   causes to be created. Which of those columns exist depends on the supplied
