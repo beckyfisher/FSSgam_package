@@ -1,3 +1,20 @@
+## Session: post-refactor issues 14, 15 and 16
+Date: 2026-09-01
+Model: Claude Opus 5 (claude-opus-5)
+
+### Prompts and Responses
+
+**User:** We just finished a major refactor. This raised three new issues. Work
+through each issue sequentially, in a loop: address the problem and post a PR,
+then have an independent session draft a review comment, address what it raises,
+draft a summary comment, and have a fresh session review that. Repeat for up to
+10 cycles or until the review finds nothing substantive. Genuine issues outside
+the scope of the one being worked on are raised on GitHub as new issues.
+
+**Claude:** Identified the three issues as FSSgam_package#14, #15 and #16, and
+put the behaviour decisions in #15 and #16 to the user before writing any code,
+since each was raised with more than one candidate resolution and none recorded.
+This branch carries the work on #15 alone.
 
 ### Issue #15 -- a supplied cor.matrix had to name columns the user cannot know
 
