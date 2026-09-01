@@ -97,3 +97,43 @@ FSSgam_package#19 rather than fixed here.
 and the declared version agree.
 
 ---
+
+#### Review round 2 (fresh session)
+
+**Claude (reviewer):** No blocking defect. The three claims singled out in the
+round-1 response were re-measured and hold: the warning count is 3 and matches
+`master`, the third test block fails under two independent breaks of the
+shortcut, and the suite figures reproduce. Four points were raised: the new test
+block's comment misstates which of its six pairs take the retained value (two,
+not four); the pull request body still described the state at the first commit;
+no test reaches the parallel copy of the changed lines, because the only
+`parallel = TRUE` fixture is built from `case_study1`, which has no missing
+values; and where every factor is missing in rows the others are not, none of the
+hoisted nulls is used, so 15 `multinom()` calls are made where refitting per pair
+with no hoist would be 12.
+
+**Claude:** The comment was corrected against the block's own counts. The
+`parallel = TRUE` fixture now gives `ZONE2` missing values, so both copies of the
+refit condition are compared; verified against an installed copy with
+`FSSGAM_TEST_PARALLEL=true`, two runs completing and agreeing and a third
+stalling, which is FSSgam_package#14.
+
+The hoisted nulls are now fitted only for the factors some pair retains, decided
+from the missingness pattern before anything is fitted rather than lazily, which
+a cache could not do across doSNOW workers. A factor's null is read only by a
+pair that drops none of the rows on which that factor is present, so the
+condition is exact. Measured with `trace(nnet::multinom)` on three three-level
+factors over 90 rows: 9 calls with no missing values, matching `master`, and 12
+with disjoint missingness, down from 15 and equal to the no-hoist minimum. The
+unread fits' warnings go with them: the no-overlap frame now raises 2 warnings
+where `master` raises 3.
+
+The version bump was kept and `cran-comments.md` was corrected instead. It now
+records that a development version is carried between releases, that this adds
+the "Version contains large components" NOTE under `R CMD check --as-cran`, that
+`devtools::check()` does not run that check at all, and that the version is set
+to the release number before a submission is built.
+
+The redirecting `DESCRIPTION` URLs were raised as FSSgam_package#20.
+
+---

@@ -9,7 +9,15 @@
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes
+0 errors | 0 warnings | 0 notes, for the 1.1.0 release.
+
+Between releases `DESCRIPTION` carries a development version (currently
+1.1.0.9000) to match the development section of `NEWS.md`. While it does,
+`R CMD check --as-cran` adds one NOTE under checking CRAN incoming
+feasibility, "Version contains large components". `devtools::check()` does not
+report it, because it sets `_R_CHECK_CRAN_INCOMING_=FALSE`. The version is set
+to the release number before a submission is built, at which point the NOTE
+does not arise.
 
 ## Notes for CRAN reviewers
 

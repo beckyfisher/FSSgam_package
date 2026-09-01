@@ -87,12 +87,21 @@ test_that("check_correlations parallel = TRUE matches the sequential result", {
   dat$ZONE2 <- factor(
     ifelse(dat$SCORE2 > stats::median(dat$SCORE2), "high", "low")
   )
+  # ZONE2 is given missing values so that the two branches are compared on the
+  # conditional null refit as well (FSSgam_package#16). The condition is
+  # written once in the %dopar% body and once in the sequential loop, and
+  # case_study1 alone has no missing values, so without this every pair takes
+  # the retained path and the parallel copy is never reached.
+  dat$ZONE2[seq(1, nrow(dat), by = 5)] <- NA
   use.dat <- dat[, c("depth", "ZONE", "ZONE2")]
 
   sequential <- check_correlations(use.dat)
   parallel <- check_correlations(use.dat, parallel = TRUE, n.cores = 2)
 
   expect_equal(parallel, sequential, tolerance = 1e-8)
+  # the refit path is what this fixture adds: ZONE as the response against
+  # ZONE2 drops rows that ZONE's own column does not
+  expect_false(is.na(sequential["ZONE", "ZONE2"]))
 })
 
 test_that("two exactly balanced factors are reported as uncorrelated", {
@@ -220,10 +229,13 @@ test_that("the retained per-factor null agrees with refitting it for every pair"
   # own. This block asserts the property that justifies it: the matrix is what
   # refitting the null for every pair, with no shortcut at all, would give.
   #
-  # Three factors with missingness in different rows, so that each ordered pair
-  # falls on a different side of the condition: f1 as response against f2 or f3
-  # drops rows and refits, f2 and f3 as responses against each other or against
-  # f1 drop only their own missing rows and take the retained value.
+  # Three factors with missingness in different rows, so that the six ordered
+  # pairs fall on both sides of the condition. f2 and f3 are missing in disjoint
+  # blocks, giving complete-case counts of 90, 65 and 69 and pair counts of 65
+  # for f1 with f2, 69 for f1 with f3 and 44 for f2 with f3. Two pairs retain
+  # the per-factor null, f2 against f1 and f3 against f1, because a pair in
+  # which the only NA-bearing column is the response drops nothing extra. The
+  # other four refit.
   shift <- c(a = "b", b = "c", c = "a")
   f1 <- factor(rep(c("a", "b", "c"), each = 30))
   f2 <- as.character(f1)

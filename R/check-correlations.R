@@ -137,11 +137,28 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
   # fitted model failed does not pay for a null whose value is never read, and
   # does not emit that fit's warnings. try() suppresses errors but not
   # warnings.
+  #
+  # null.deviances[[v]] is NULL for a factor that no pair retains. That value is
+  # never used: such a factor refits for every pair in which it is the response,
+  # and the refit is skipped only when `fit` itself failed, in which case the
+  # guard below short-circuits on `fit` before the null is examined.
+  present=lapply(fact.vars,function(v){!is.na(dat[,v])})
+  names(present)=fact.vars
+  complete.counts=lapply(present,sum)
+
+  # A factor's own null is read only by a pair that drops none of the rows on
+  # which that factor is present, so it is fitted only where such a pair
+  # exists. Where every factor is missing in rows the others are not, no pair
+  # retains, and fitting all n of them would add n discarded fits, and any
+  # warnings they raise, to the n(n-1) refits.
+  retains=vapply(fact.vars,function(v){
+    any(vapply(setdiff(fact.vars,v),function(w){
+      sum(present[[v]]&present[[w]])==complete.counts[[v]]},logical(1)))},logical(1))
+  names(retains)=fact.vars
   null.deviances=lapply(fact.vars,function(v){
+    if(!retains[[v]]){return(NULL)}
     try(nnet::multinom(dat[,v] ~ 1,trace=FALSE)$deviance,silent=TRUE)})
   names(null.deviances)=fact.vars
-  complete.counts=lapply(fact.vars,function(v){sum(!is.na(dat[,v]))})
-  names(complete.counts)=fact.vars
   if(parallel==TRUE){
    cl=parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
