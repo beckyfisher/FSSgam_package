@@ -1,4 +1,4 @@
-# FSSgam (development version)
+# FSSgam 1.1.0
 
 * Completed the snake_case rename across the public API.
   `full.subsets.gam()` is now a deprecated wrapper around the new
