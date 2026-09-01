@@ -262,19 +262,20 @@ combination_sizes=function(vars,max.size){
 # sub-matrix of `cor.matrix` exceeds `cov.cutoff` off the diagonal. Returns a
 # list of character vectors, possibly empty.
 #
-# screen.both distinguishes the two historical copies of this block: the
-# logical factor.factor.interactions branch tested upper.tri and lower.tri,
-# every other caller tested upper.tri alone. check_correlations() fits
-# multinom() separately in each direction, so its factor block is not quite
-# symmetric and the two can disagree. The argument exists to keep each caller
-# at its current behaviour through this restructure; the divergence is resolved
-# separately.
+# Both triangles are screened, not just the upper one. The correlation
+# matrices this is given are not necessarily symmetric: check_correlations()
+# estimates a factor-factor value by fitting multinom() separately in each
+# direction, and check_non_linear_correlations() is asymmetric by construction,
+# its rows being responses and its columns predictors. Screening the upper
+# triangle alone therefore accepted a pair whose correlation exceeded the
+# cutoff in the other direction. Three of the four callers used to do exactly
+# that.
 #
 # The `if (max(...) > cov.cutoff) out <- NA` shape is kept rather than reduced
 # to a logical vector: max() of an all-NA sub-matrix returns NA, and `if (NA)`
 # raises an error, which is the existing behaviour. A vapply() over a logical
 # predicate would silently drop the combination instead.
-combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff,screen.both){
+combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff){
   combns=list()
   for(i in sizes){
     combns=c(combns,utils::combn(vars,i,simplify=FALSE))}
@@ -284,8 +285,7 @@ combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff,screen.both){
           cor.mat.m=cor.matrix[row.index,col.index]
           out=x
           if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-          if(screen.both){
-            if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){out=NA}}
+          if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){out=NA}
           return(out)})
   combns[which(is.na(combns))]=NULL
   combns
@@ -414,8 +414,7 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
                 included. No factor-factor interaction terms were generated."))}
       fact.combns=combine_uncorrelated(vars=pred.vars.fact,
                           sizes=fact.sizes,
-                          cor.matrix=factor.correlations,cov.cutoff=cov.cutoff,
-                          screen.both=TRUE)
+                          cor.matrix=factor.correlations,cov.cutoff=cov.cutoff)
       if(length(fact.sizes)>0 & length(fact.combns)==0){
         warn_no_factor_interactions(cov.cutoff)}
       cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns)
@@ -442,8 +441,7 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
                 factor-factor interaction terms were generated."))}
         fact.combns=combine_uncorrelated(vars=factor.factor.interactions,
                           sizes=fact.sizes,
-                          cor.matrix=factor.correlations,cov.cutoff=cov.cutoff,
-                          screen.both=FALSE)
+                          cor.matrix=factor.correlations,cov.cutoff=cov.cutoff)
         if(length(fact.sizes)>0 & length(fact.combns)==0){
           warn_no_factor_interactions(cov.cutoff)}
         cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns)
@@ -509,8 +507,7 @@ resolve_smooth_smooth_interactions=function(use.dat,pred.vars.cont,smooth.smooth
       # above has already rejected fewer than two continuous predictors.
       cont.combns=combine_uncorrelated(vars=pred.vars.cont,
                           sizes=combination_sizes(pred.vars.cont,2),
-                          cor.matrix=continuous.correlations,cov.cutoff=cov.cutoff,
-                          screen.both=FALSE)
+                          cor.matrix=continuous.correlations,cov.cutoff=cov.cutoff)
       smooth.smooth.interaction.terms=unlist(lapply(cont.combns,FUN=paste,collapse=".te."))
      }
     }
@@ -526,8 +523,7 @@ resolve_smooth_smooth_interactions=function(use.dat,pred.vars.cont,smooth.smooth
 
       cont.combns=combine_uncorrelated(vars=smooth.smooth.interactions,
                           sizes=combination_sizes(smooth.smooth.interactions,max.predictors),
-                          cor.matrix=continuous.correlations,cov.cutoff=cov.cutoff,
-                          screen.both=FALSE)
+                          cor.matrix=continuous.correlations,cov.cutoff=cov.cutoff)
       smooth.smooth.interaction.terms=unlist(lapply(cont.combns,FUN=paste,collapse=".te."))
     }
 

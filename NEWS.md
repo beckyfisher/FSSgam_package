@@ -153,6 +153,19 @@
   did. The warning text for both forms now names `cov.cutoff` and its value,
   replacing a message that referred to a non-existent `cor.cuttoff`.
 
+* Behaviour change: the collinearity screen that decides which interaction
+  terms are built now tests both halves of the correlation matrix in every
+  case. Three of the four places that perform it tested only the upper
+  triangle, so a pair could be admitted whose correlation exceeded
+  `cov.cutoff` in the other direction. The matrices are not symmetric:
+  `check_correlations()` estimates a factor-factor value by fitting
+  `multinom()` separately in each direction, and
+  `check_non_linear_correlations()` is asymmetric by construction. In
+  practice this affects only a pair whose two estimates straddle
+  `cov.cutoff`, which for factor pairs means a difference of under 0.001; a
+  model set containing such a pair will now exclude the interaction it
+  previously included.
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.

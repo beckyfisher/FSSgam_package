@@ -530,3 +530,47 @@ test_that("a character factor.factor.interactions warns when the screen leaves n
 
   expect_false(any(grepl(".I.", colnames(model.set$used.data), fixed = TRUE)))
 })
+
+test_that("both factor.factor.interactions forms screen both triangles alike", {
+  # The logical branch screened upper.tri and lower.tri; the character branch
+  # screened upper.tri alone, so it admitted a pair whose correlation exceeded
+  # the cutoff in the other direction. check_correlations() fits multinom()
+  # separately in each direction, so its factor block is not symmetric.
+  #
+  # ZONE3 and ZONE5 below measure about 0.5425 one way and 0.5434 the other, so
+  # cov.cutoff = 0.543 falls between them. The third factor is needed because
+  # the character branch is otherwise skipped by its own guard.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE3 <- factor(
+    ifelse(fit$use.dat$complexity > stats::median(fit$use.dat$complexity), "hi", "lo")
+  )
+  fit$use.dat$ZONE5 <- factor(
+    ifelse(fit$use.dat$rugosity > stats::median(fit$use.dat$rugosity), "r1", "r2")
+  )
+  facts <- c("ZONE", "ZONE3", "ZONE5")
+
+  # the asymmetry the test depends on is real, and the cutoff sits inside it
+  cm <- suppress_nnet_nans(check_correlations(fit$use.dat[, facts]))
+  expect_lt(cm["ZONE3", "ZONE5"], 0.543)
+  expect_gt(cm["ZONE5", "ZONE3"], 0.543)
+
+  args <- list(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    cov.cutoff = 0.543, max.predictors = 2
+  )
+  logical.set <- suppress_nnet_nans(do.call(
+    fixture_cs1_model_set, c(args, list(factor.factor.interactions = TRUE))
+  ))
+  character.set <- suppress_nnet_nans(do.call(
+    fixture_cs1_model_set, c(args, list(factor.factor.interactions = facts))
+  ))
+
+  # the straddling pair is rejected by both
+  expect_false("ZONE3.I.ZONE5" %in% colnames(logical.set$used.data))
+  expect_false("ZONE3.I.ZONE5" %in% colnames(character.set$used.data))
+  # the uncorrelated pairs are still built
+  expect_true("ZONE.I.ZONE3" %in% colnames(logical.set$used.data))
+  expect_true("ZONE.I.ZONE3" %in% colnames(character.set$used.data))
+  # and the two forms now agree entirely
+  expect_equal(names(character.set$mod.formula), names(logical.set$mod.formula))
+})
