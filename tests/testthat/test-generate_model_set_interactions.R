@@ -758,3 +758,147 @@ test_that("a supplied cor.matrix covers a predictor check_correlations cannot cl
   expect_true("depth+when" %in% names(model.set$mod.formula))
   expect_identical(model.set$predictor.correlations, cm)
 })
+
+# ---- a supplied cor.matrix and the interaction columns it causes -------------
+
+test_that("a supplied cor.matrix need not name the interaction columns it causes", {
+  # FSSgam_package#15. With factor.factor.interactions set, the hard coded
+  # interaction columns are named by resolve_factor_interactions() from the
+  # combinations that survive the screen, and that screen reads the supplied
+  # matrix. A user therefore cannot know which of them to supply, and the call
+  # used to stop partway through construction demanding them by name.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts)
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  pc <- model.set$predictor.correlations
+
+  expect_false("ZONE.I.ZONE.copy" %in% colnames(fit$use.dat))
+  expect_true("ZONE.I.ZONE.copy" %in% colnames(model.set$used.data))
+  expect_true("ZONE.I.ZONE.copy" %in% rownames(pc))
+
+  # every cell the user supplied is kept as supplied
+  expect_equal(pc[vars, vars], cm)
+
+  # the derived row and column are what check_correlations gives for that column
+  computed <- check_correlations(
+    model.set$used.data[, c("depth", facts, "ZONE.I.ZONE.copy")]
+  )
+  expect_equal(
+    unname(pc["ZONE.I.ZONE.copy", vars]),
+    unname(computed["ZONE.I.ZONE.copy", vars]),
+    tolerance = 1e-6
+  )
+  expect_equal(
+    unname(pc[vars, "ZONE.I.ZONE.copy"]),
+    unname(computed[vars, "ZONE.I.ZONE.copy"]),
+    tolerance = 1e-6
+  )
+})
+
+test_that("a supplied value for an interaction column is used, not recomputed", {
+  # Supplying the derived names is still honoured: the pasted column is
+  # perfectly predicted by each of its components, so computing would give 1,
+  # and a supplied 0 has to survive. This passes against the pre-fix code as
+  # well; it pins behaviour the fix must not take away, rather than the fix.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts, "ZONE.I.ZONE.copy")
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  expect_equal(model.set$predictor.correlations, cm)
+  # and with the components declared uncorrelated with the interaction, the
+  # candidate set contains a model holding both, which the computed matrix
+  # would have excluded
+  expect_true("ZONE+ZONE.I.ZONE.copy" %in% names(model.set$mod.formula))
+})
+
+test_that("only the predictors the user named are reported as missing", {
+  # A misspelled or forgotten predictor of the user's own is still an error.
+  # The interaction column absent from the same matrix is not named in it,
+  # because supplying it was never possible. This also passes against the
+  # pre-fix code, where resolve_factor_interactions() rejects the named factor
+  # before any interaction column exists; it is here so that the fallback
+  # cannot start swallowing a user's own missing predictor.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  cm <- matrix(c(1, 0, 0, 1), 2, 2,
+               dimnames = list(c("depth", "ZONE"), c("depth", "ZONE")))
+
+  err <- expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE", "ZONE.copy"),
+      factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+    )
+  )
+  expect_match(conditionMessage(err), "ZONE\\.copy")
+  expect_false(grepl("ZONE.I.ZONE.copy", conditionMessage(err), fixed = TRUE))
+})
+
+test_that("the interaction rows are computed under non.linear.correlations too", {
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts)
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2,
+    non.linear.correlations = TRUE, cor.matrix = cm
+  )
+  pc <- model.set$predictor.correlations
+  expect_true("ZONE.I.ZONE.copy" %in% rownames(pc))
+  expect_equal(pc[vars, vars], cm)
+
+  computed <- check_non_linear_correlations(
+    model.set$used.data[, c("depth", facts, "ZONE.I.ZONE.copy")]
+  )
+  expect_equal(
+    unname(pc["ZONE.I.ZONE.copy", vars]),
+    unname(computed["ZONE.I.ZONE.copy", vars]),
+    tolerance = 1e-6
+  )
+})
+
+test_that("an unclassifiable predictor and a missing interaction column report both", {
+  # A supplied cor.matrix lets a predictor of a class check_correlations rejects
+  # be used (FSSgam_package#13), but computing rows for an interaction column
+  # needs every predictor's data, so the two cannot be combined. The error says
+  # so rather than reporting the class on its own.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  fit$use.dat$when <- as.Date("2020-01-01") + seq_len(nrow(fit$use.dat))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", "when", facts)
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+      linear.vars = "when", factor.factor.interactions = TRUE,
+      max.predictors = 2, cor.matrix = cm
+    ),
+    "could not be computed from use.dat"
+  )
+})

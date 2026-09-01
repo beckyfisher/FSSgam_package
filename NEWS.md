@@ -1,3 +1,17 @@
+# FSSgam (development version)
+
+* `generate_model_set()` no longer requires a user-supplied `cor.matrix` to name
+  the hard coded factor interaction columns that `factor.factor.interactions`
+  causes to be created. Which of those columns exist depends on the supplied
+  matrix itself, through the collinearity screen that decides which factor
+  combinations survive, so a user could not know in advance which names to
+  supply; the call stopped partway through model set construction demanding
+  them. Rows and columns for any interaction column the matrix does not carry
+  are now computed from `use.dat` and appended, and every value the user
+  supplied is kept as supplied. A predictor the user named and did not supply is
+  still an error, so a misspelled name is still reported rather than quietly
+  computed (FSSgam_package#15).
+
 # FSSgam 1.1.0
 
 * Completed the snake_case rename across the public API.
