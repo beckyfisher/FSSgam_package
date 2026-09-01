@@ -192,11 +192,10 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
   # resolve_candidate_family() in R/utils.R.
   family.list <- lapply(seq_len(length(mod.formula)),function(i.) resolve_candidate_family(test.fit))
 
-  # gamm4 is loaded onto the workers only for a test.fit that needs it
-  # (FSSgam_package#14). See worker_packages() in R/utils.R.
-  worker.packages <- worker_packages(test.fit)
-
   if(parallel==TRUE){
+   # gamm4 is not loaded onto the workers (FSSgam_package#14). See
+   # worker_packages() in R/utils.R for what is, and why.
+   worker.packages <- worker_packages()
    cl=parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
    opts <- if(progress) list(progress = update_pb) else list()
@@ -263,10 +262,9 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
   # issues beckyfisher/FSSgam#10 and #12).
   family.list <- lapply(seq_len(length(mod.formula)),function(i.) resolve_candidate_family(test.fit))
 
-  # see the matching comment in fit_and_summarise_saved_models() above
-  worker.packages <- worker_packages(test.fit)
-
   if(parallel==TRUE){
+   # see the matching comment in fit_and_summarise_saved_models() above
+   worker.packages <- worker_packages()
    cl <- parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
    opts <- if(progress) list(progress = update_pb) else list()

@@ -1,3 +1,20 @@
+## Session: post-refactor issues 14, 15 and 16
+Date: 2026-09-01
+Model: Claude Opus 5 (claude-opus-5)
+
+### Prompts and Responses
+
+**User:** We just finished a major refactor. This raised three new issues. Work
+through each issue sequentially, in a loop: address the problem and post a PR,
+then have an independent session draft a review comment, address what it raises,
+draft a summary comment, and have a fresh session review that. Repeat for up to
+10 cycles or until the review finds nothing substantive. Genuine issues outside
+the scope of the one being worked on are raised on GitHub as new issues.
+
+**Claude:** Identified the three issues as FSSgam_package#14, #15 and #16, and
+put the behaviour decisions in #15 and #16 to the user before writing any code,
+since each was raised with more than one candidate resolution and none recorded.
+This branch carries the work on #14 alone.
 
 ### Issue #14 -- parallel = TRUE stalls when gamm4 is loaded on the workers
 
@@ -52,5 +69,51 @@ Three tests were added: that `worker_packages()` omits `gamm4` for a `gam()` and
 for a `uGamm(lme4 = FALSE)` test.fit and includes it for a `gamm4` one, and that
 `gamm4` is absent from `Imports`. The last is the invariant that makes the other
 two effective, and it fails if anyone moves `gamm4` back.
+
+---
+
+#### Issue #14, review round 1 (independent session)
+
+**Claude (reviewer):** One blocking finding, two substantive. Eight test blocks
+build a `test.fit` with `MuMIn::uGamm(lme4 = TRUE)`, which fails outright when
+`gamm4` is not installed; while `gamm4` was under `Imports` that could not
+happen, and CRAN requires a package to check successfully with its suggested
+packages absent. `R CMD check` on the branch tarball with `gamm4` hidden from
+the library path reports 2 ERRORs, tests failing 8. The headline measurement did
+not reproduce: run on the reviewing session's copy, the trivial-body reprex gave
+5 stalls in 40 with `gamm4` against 11 in 40 without, in the opposite direction,
+at a much lower overall rate than either the pull request or the issue records.
+And the `gamm4` branch of `worker_packages()` is redundant, because
+`MuMIn::uGamm()` calls `require("gamm4")` itself, so a worker given
+`.packages = c("mgcv", "MuMIn", "FSSgam")` refits a `uGamm(lme4 = TRUE)` model
+set with no failures and ends with `gamm4` and `lme4` loaded.
+
+**Claude:** All three addressed.
+
+`skip_if_not_installed("gamm4")` was added to `fixture_coral_ugamm()` and to the
+one direct `uGamm(lme4 = TRUE)` call. Verified against a library view built by
+symlinking every package in the site library except `gamm4`: 547 passing, 0
+failing, 0 errors, 14 skipped, against 571 and 7 with `gamm4` present.
+
+The `gamm4` branch was removed rather than defended. It buys no correctness, and
+on this change's own account of the mechanism it restores the condition the
+change identifies as harmful, for exactly the users who fit `gamm4` models.
+`worker_packages()` now takes no argument and returns `c("mgcv", "MuMIn",
+"FSSgam")`, with the reason for each recorded on the face of it: `update()`
+resolves the stored call's function symbol, `gam` or `uGamm`, by lexical lookup
+ending at the worker's search path, so neither `mgcv` nor `MuMIn` is reached
+without being attached.
+
+The measurement claim was withdrawn rather than defended. The trivial-body arms
+were run one after the other rather than interleaved, so they are confounded with
+time and with machine load, and a failure to reproduce them is the expected
+result. The interleaved end-to-end comparison, 44 stalls in 140 against 25 in
+140 with the two versions alternating in blocks of ten, is the measurement that
+survives, and `NEWS.md` now carries that one alone, attributed to this host and
+date. An attempt to re-run the trivial-body comparison interleaved was abandoned:
+an unrelated job had taken the host's load average above 20 on 22 cores and every
+run of both arms timed out, 10 of 10 each.
+
+The `dsm` finding was raised as FSSgam_package#30.
 
 ---

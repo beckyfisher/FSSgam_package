@@ -144,6 +144,10 @@ fixture_cs3_cyclic <- function() {
 # "grouping factors must have > 1 sampled level". Any gamm4 fixture therefore
 # needs k >= 4.
 fixture_coral_ugamm <- function() {
+  # gamm4 is a Suggests, not an Import (FSSgam_package#14), so a check run
+  # without it installed must skip rather than fail. MuMIn::uGamm(lme4 = TRUE)
+  # calls require("gamm4") and stops outright when it is missing.
+  testthat::skip_if_not_installed("gamm4")
   use.dat <- fixture_coral_data()
   list(
     use.dat = use.dat,

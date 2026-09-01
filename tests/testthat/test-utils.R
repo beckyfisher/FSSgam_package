@@ -219,33 +219,27 @@ test_that("compute_variable_importance sums every model for 'all'", {
 
 # ---- worker_packages() ------------------------------------------------------
 
-test_that("worker_packages omits gamm4 for a test.fit that does not need it", {
-  # FSSgam_package#14. Loading gamm4 onto the doSNOW workers is what triggers
-  # the dispatch stall, and a gam() or uGamm(lme4 = FALSE) test.fit never
-  # reaches gamm4, so it does not need to be there.
-  gaussian.fit <- fixture_cs1_gaussian()$test.fit
-  expect_false("gamm4" %in% FSSgam:::worker_packages(gaussian.fit))
-  expect_true(all(c("mgcv", "MuMIn", "FSSgam") %in%
-                    FSSgam:::worker_packages(gaussian.fit)))
+test_that("worker_packages carries what update() needs and not gamm4", {
+  # FSSgam_package#14. Loading gamm4 onto the doSNOW workers is the largest
+  # measured contributor to the dispatch stall, and naming it here buys nothing:
+  # MuMIn::uGamm() calls require("gamm4") itself when lme4 = TRUE, so a gamm4
+  # refit attaches it inside the task body regardless.
+  #
+  # mgcv and MuMIn are required: fit_mod_l() refits through stats::update(),
+  # which resolves the stored call's function symbol, gam or uGamm, by lexical
+  # lookup ending at the worker's search path.
+  pkgs <- FSSgam:::worker_packages()
 
-  gamm.fit <- fixture_coral_gamm()$test.fit
-  expect_false(inherits(gamm.fit, "gamm4"))
-  expect_false("gamm4" %in% FSSgam:::worker_packages(gamm.fit))
-})
-
-test_that("worker_packages includes gamm4 for a gamm4 test.fit", {
-  gamm4.fit <- fixture_coral_ugamm()$test.fit
-  expect_true(inherits(gamm4.fit, "gamm4"))
-  expect_true("gamm4" %in% FSSgam:::worker_packages(gamm4.fit))
+  expect_true(all(c("mgcv", "MuMIn", "FSSgam") %in% pkgs))
+  expect_false("gamm4" %in% pkgs)
 })
 
 test_that("gamm4 is not a hard dependency of this package", {
-  # The invariant that makes worker_packages() effective. Loading the FSSgam
-  # namespace on a worker loads its imports, so leaving gamm4 out of the
-  # .packages vector achieves nothing while gamm4 is also under Imports.
-  # Nothing in R/ calls gamm4; only inherits(x, "gamm4"), which needs no
-  # package. Moving it back to Imports would silently reinstate
-  # FSSgam_package#14 for every model set.
-  imports <- utils::packageDescription("FSSgam")$Imports
-  expect_false(grepl("gamm4", imports, fixed = TRUE))
+  # The invariant that makes the above effective. Loading the FSSgam namespace
+  # on a worker loads its imports, so leaving gamm4 out of the .packages vector
+  # achieves nothing while gamm4 is also a hard dependency. Nothing in R/ calls
+  # gamm4; only inherits(x, "gamm4"), which needs no package.
+  desc <- utils::packageDescription("FSSgam")
+  hard <- paste(desc$Depends, desc$Imports, desc$LinkingTo)
+  expect_false(grepl("gamm4", hard, fixed = TRUE))
 })

@@ -107,19 +107,26 @@ clone_independent_family=function(fam){
 
 # The packages a doSNOW worker needs loaded to refit one candidate.
 #
-# gamm4 is included only for a test.fit that is one, because loading it onto the
-# workers is what triggers the dispatch stall of FSSgam_package#14: measured
-# there, a foreach() executing no FSSgam code at all completed 49 times in 50
-# without gamm4 on the workers and 29 times in 50 with it. A test.fit built by
-# gam(), or by uGamm(lme4 = FALSE), never reaches gamm4, so it does not need to
-# be loaded to refit one.
+# mgcv and MuMIn are here because fit_mod_l() refits through stats::update(),
+# which evaluates the stored call by ordinary lexical lookup ending at the
+# worker's search path. The function symbol in that call is gam or uGamm, never
+# a namespaced one, so neither is reached without being attached.
 #
-# It is not enough to leave gamm4 out of this vector while it is also in
-# DESCRIPTION's Imports: loading the FSSgam namespace on the worker loads its
-# imports, gamm4 among them. It is declared under Suggests for that reason, and
-# nothing in R/ calls it -- only inherits(x, "gamm4"), which needs no package.
-worker_packages=function(test.fit){
-  pkgs=c("mgcv","MuMIn","FSSgam")
-  if(inherits(test.fit,"gamm4")){pkgs=c(pkgs,"gamm4")}
-  pkgs
+# gamm4 is deliberately absent, including for a test.fit that is a gamm4 fit.
+# Loading it onto the workers is the largest measured contributor to the
+# dispatch stall of FSSgam_package#14, and it buys nothing here:
+# MuMIn::uGamm() calls require("gamm4") itself when lme4 = TRUE, so a gamm4
+# refit attaches it inside the task body regardless. Naming it in .packages
+# would only move that load forward to the dispatch, which is the condition the
+# stall is associated with.
+#
+# It is not enough to leave gamm4 out of this vector alone: loading the FSSgam
+# namespace on a worker loads its imports, so gamm4 is declared under Suggests
+# rather than Imports. Nothing in R/ calls it -- only inherits(x, "gamm4"),
+# which needs no package.
+#
+# A dsm test.fit is not covered, and was not covered by the hard coded vector
+# this replaced either (FSSgam_package#30).
+worker_packages=function(){
+  c("mgcv","MuMIn","FSSgam")
 }

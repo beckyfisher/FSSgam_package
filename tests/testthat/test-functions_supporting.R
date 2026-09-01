@@ -291,6 +291,10 @@ test_that("fit_mod_l with family. = NULL leaves update() to its own behaviour", 
 test_that("extract_mod_dat computes r2.lm.est for a non-binomial gamm4 fit", {
   # the binomial branch reconstructs a proportion from cbind(successes,
   # failures); every other family takes the model frame's response directly
+  #
+  # uGamm(lme4 = TRUE) is called directly here rather than through
+  # fixture_coral_ugamm(), so it needs its own skip (FSSgam_package#14)
+  skip_if_not_installed("gamm4")
   use.dat <- fixture_coral_data()
   use.dat$prop <- use.dat$allcoral / use.dat$totalpoints
   fit <- MuMIn::uGamm(
