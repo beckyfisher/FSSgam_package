@@ -137,3 +137,39 @@ to the release number before a submission is built.
 The redirecting `DESCRIPTION` URLs were raised as FSSgam_package#20.
 
 ---
+
+#### Review round 3 (fresh session)
+
+**Claude (reviewer):** No blocking or substantive defect. Every measurement in
+the round-2 response reproduced. The `retains` precomputation was established
+exact rather than accepted: the reading condition and the fitting condition are
+complementary over the same quantity, since `nrow(na.omit(dat[, c(v, w)]))` is
+`sum(present[[v]] & present[[w]])` for every column class
+`classify_correlation_predictors()` admits. An instrumented build raising an
+error on a `NULL` null with a successful pair fit was run over 400 generated
+frames and never fired, recording 200 benign `NULL` reads, all with the pair fit
+already failed. A variant with the refit deleted from the `%dopar%` body alone
+was built, installed and run against the branch's tests, and reported an error,
+which confirms the new fixture reaches the parallel copy.
+
+Four nits: the guard is safe by `&&` short-circuit rather than by construction,
+since `inherits(NULL, "try-error")` is `FALSE`; the comment claiming no case
+reaching the guard is known is falsifiable; an entirely missing factor column is
+an exception to fitting the null only where a pair retains, because zero equals
+zero; and `cran-comments.md` describes the version bump as adding a NOTE where
+it adds a line to one.
+
+**Claude:** All four applied. The claim about the guard was the interesting one:
+under `options(na.action = "na.fail")` the pair model is fitted on `dat.r`, whose
+incomplete rows are already removed, while a retained null is fitted on the raw
+column and fails, so the guard is load-bearing rather than defensive. Confirmed
+directly: under `na.fail` this branch returns 0.7281 and an `NA` for the other
+direction where `master` raises "non-numeric argument to mathematical function".
+The comment now records that rather than the opposite.
+
+`!is.null(null.fit)` was added to both copies of the guard so it does not depend
+on the order of its operands, and the hoisted null is now skipped for a column
+with no observed values, which takes the all-missing case from 3 fits to 2
+against `master`'s 4.
+
+---

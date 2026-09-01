@@ -138,10 +138,12 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
   # does not emit that fit's warnings. try() suppresses errors but not
   # warnings.
   #
-  # null.deviances[[v]] is NULL for a factor that no pair retains. That value is
-  # never used: such a factor refits for every pair in which it is the response,
-  # and the refit is skipped only when `fit` itself failed, in which case the
-  # guard below short-circuits on `fit` before the null is examined.
+  # null.deviances[[v]] is NULL for a factor that no pair retains, and for one
+  # with no observed values at all. Neither is read as a deviance: the first
+  # refits for every pair in which it is the response, and the second reaches
+  # the guard only with `fit` already failed, because its pairs have no rows.
+  # The guard tests for NULL as well, so it does not rely on the order in which
+  # its operands are evaluated.
   present=lapply(fact.vars,function(v){!is.na(dat[,v])})
   names(present)=fact.vars
   complete.counts=lapply(present,sum)
@@ -155,8 +157,12 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
     any(vapply(setdiff(fact.vars,v),function(w){
       sum(present[[v]]&present[[w]])==complete.counts[[v]]},logical(1)))},logical(1))
   names(retains)=fact.vars
+  # complete.counts of zero satisfies the equality above for every pair, so a
+  # column with no observed values at all would otherwise be fitted once for a
+  # null that cannot converge and is never read, since every pair it appears in
+  # has no rows.
   null.deviances=lapply(fact.vars,function(v){
-    if(!retains[[v]]){return(NULL)}
+    if(!retains[[v]]||complete.counts[[v]]==0){return(NULL)}
     try(nnet::multinom(dat[,v] ~ 1,trace=FALSE)$deviance,silent=TRUE)})
   names(null.deviances)=fact.vars
   if(parallel==TRUE){
@@ -174,13 +180,16 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
     null.fit=null.deviances[[var.1]]
     if(!inherits(fit,"try-error")&&nrow(dat.r)<complete.counts[[var.1]]){
       null.fit=try(nnet::multinom(dat.r[,var.1] ~ 1,trace=FALSE)$deviance,silent=TRUE)}
-    # The null.fit half of this guard is defensive and no case reaching it is
-    # known: both models are fitted on the same rows and multinom()'s relevant
-    # failure ("need two or more classes") depends only on the response, which
-    # they share. Without it a failed null would reach round() as the character
-    # vector try() returns rather than leaving the cell NA, which is how a
-    # failed `fit` is already handled.
-    if(!inherits(fit,"try-error")&&!inherits(null.fit,"try-error")){
+    # The null.fit half of this guard is reached under a non-default
+    # na.action. Under options(na.action = "na.fail") the pair fit succeeds,
+    # because dat.r has already had its incomplete rows removed, while a
+    # retained null was fitted on the raw column and fails. Without the guard
+    # that failed null reaches round() as the character vector try() returns;
+    # with it the cell is left NA, which is how a failed `fit` is already
+    # handled. It is not reachable under the default na.action, where both
+    # models are fitted on the same rows.
+    if(!inherits(fit,"try-error")&&!is.null(null.fit)&&
+       !inherits(null.fit,"try-error")){
        if(round(fit,4)==round(null.fit,4)){r.est=0}else{
       r.est=sqrt(1-(fit/null.fit))}
       c(var.1,var.2,r.est)}}
@@ -199,7 +208,8 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
           if(!inherits(fit,"try-error")&&nrow(dat.r)<complete.counts[[var.1]]){
             null.fit=try(nnet::multinom(dat.r[,var.1] ~ 1,trace=FALSE)$deviance,silent=TRUE)}
           out=NA
-          if(!inherits(fit,"try-error")&&!inherits(null.fit,"try-error")){
+          if(!inherits(fit,"try-error")&&!is.null(null.fit)&&
+       !inherits(null.fit,"try-error")){
            if(round(fit,4)==round(null.fit,4)){r.est=0}else{
                    r.est=sqrt(1-(fit/null.fit))}
                    out=c(var.1,var.2,r.est)}
