@@ -761,7 +761,7 @@ of its correlations.
 re-measured.** The branch reported 546 passing and 12 skipped against a baseline
 of 438 and 11. Measured at the branch head on this host (Debian WSL2, R 4.6.1,
 testthat 3.3.2) with `testthat::test_local()` and
-`sum(as.data.frame(res)$passed)`: 567 passing, 0 failing, 7 skipped blocks, from
+`sum(as.data.frame(res)$passed)`: 568 passing, 0 failing, 7 skipped blocks, from
 447 and 6 on `master`. The differences are constant, 9 expectations and 5
 blocks, at both ends, which points at a run that was regenerating
 `tests/testthat/_snaps/numerical-regression.md`: creating a snapshot skips the

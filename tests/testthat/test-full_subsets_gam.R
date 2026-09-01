@@ -342,15 +342,38 @@ test_that("the VI.mods full_subsets_gam forwards changes the result", {
   )
 })
 
-test_that("full_subsets_gam rejects an unrecognised VI.mods", {
+test_that("full_subsets_gam rejects an unrecognised VI.mods, before building the set", {
+  # r2.type is validated at entry so that an unrecognised value is reported
+  # before the candidate set is built; VI.mods was not, although it is read
+  # only after every candidate has been fitted. Building the set is not free:
+  # with several factors it fits a multinom() per ordered pair.
+  #
+  # A model set that cannot be built at all is what makes the ordering visible.
+  # Reaching generate_model_set() gives its own error, so seeing the match.arg()
+  # message instead is evidence that VI.mods was checked first.
   fit <- fixture_cs1_gaussian()
+  args <- list(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
   expect_error(
-    full_subsets_quietly(
-      use.dat = fit$use.dat, test.fit = fit$test.fit,
-      pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
-      null.terms = "s(site,bs='re')", max.predictors = 2, k = 3,
-      VI.mods = "alll"
-    ),
+    do.call(full_subsets_quietly, c(args, list(VI.mods = "alll"))),
+    "'arg' should be one of"
+  )
+
+  unbuildable <- args
+  unbuildable$use.dat$depth[1] <- NA
+  # on its own the model set is what fails
+  expect_error(
+    do.call(full_subsets_quietly, unbuildable),
+    "Predictor variables contain NA"
+  )
+  # with an invalid VI.mods as well, the argument is reported and the set is
+  # never built
+  expect_error(
+    do.call(full_subsets_quietly, c(unbuildable, list(VI.mods = "alll"))),
     "'arg' should be one of"
   )
 })

@@ -400,22 +400,6 @@ test_that("progress must be a single TRUE or FALSE", {
   )
 })
 
-test_that("full_subsets_gam rejects an unrecognised VI.mods before fitting", {
-  # r2.type was already validated at entry for this reason; VI.mods was not,
-  # and it is only read after every candidate has been fitted. Building the
-  # candidate set is not free either.
-  fit <- fixture_cs1_gaussian()
-  expect_error(
-    full_subsets_gam(
-      use.dat = fit$use.dat, test.fit = fit$test.fit,
-      pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
-      null.terms = "s(site,bs='re')", max.predictors = 2, k = 3,
-      VI.mods = "alll"
-    ),
-    "'arg' should be one of"
-  )
-})
-
 test_that("progress defaults to interactive()", {
   # so the bar appears at the console but not in scripts, reports or checks
   expect_identical(formals(fit_model_set)$progress, quote(interactive()))

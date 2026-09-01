@@ -853,7 +853,7 @@ places the expectation count is written applies, and was broken again here:
 the figures in the first PR body (546 passing, 12 skipped; baseline 438, 11)
 reproduced nowhere. Measured at the branch head on this host (Debian WSL2,
 R 4.6.1, testthat 3.3.2) with `testthat::test_local()` and
-`sum(as.data.frame(res)$passed)`: 567 passing, 0 failing, 7 skipped blocks,
+`sum(as.data.frame(res)$passed)`: 568 passing, 0 failing, 7 skipped blocks,
 against 447 and 6 on `master`. The most likely cause of the earlier figures is
 a run that was regenerating `tests/testthat/_snaps/numerical-regression.md`,
 which skips five blocks and the nine expectations inside them. Re-measure on a
