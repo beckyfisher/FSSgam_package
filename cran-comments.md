@@ -9,7 +9,20 @@
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes
+0 errors | 0 warnings | 0 notes, under `devtools::check()`, for the 1.1.0
+release.
+
+`devtools::check()` sets `_R_CHECK_CRAN_INCOMING_=FALSE`, so it does not run
+the CRAN incoming feasibility check and that figure does not cover it.
+`R CMD check --as-cran` on the built tarball raises one incoming feasibility
+NOTE, whose body lists "New submission" together with any other item that check
+finds.
+
+Between releases `DESCRIPTION` carries a development version (currently
+1.1.0.9000) to match the development section of `NEWS.md`, which adds "Version
+contains large components" to that NOTE's body. The version is set to the
+release number before a submission is built, at which point that line does not
+arise.
 
 ## Notes for CRAN reviewers
 

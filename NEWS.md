@@ -1,3 +1,30 @@
+# FSSgam (development version)
+
+* `fit_model_set(parallel = TRUE)` no longer loads `gamm4` onto the parallel
+  workers unless `test.fit` is a `gamm4` fit. Loading it is the largest measured
+  contributor to the `doSNOW` dispatch stall of FSSgam_package#14, in which the
+  call hangs indefinitely with no output and no error. A `test.fit` built by
+  `gam()`, or by `uGamm(lme4 = FALSE)`, never reaches `gamm4`, so it does not
+  need to be loaded to refit one. Two measurements on this host, one cluster per
+  fresh R process:
+
+  - a `foreach()` whose body executes no package code at all stalled 23 times in
+    60 runs with `gamm4` on the workers and 0 times in 60 without;
+  - `fit_model_set(parallel = TRUE)` on `case_study1`, 8 candidates, run
+    alternately from an installed copy of each version, stalled 44 times in 140
+    before the change and 25 times in 140 after (chi-squared p = 0.013).
+
+  The stall is therefore reduced rather than removed: something other than
+  `gamm4` still accounts for the remaining rate, and what that is has not been
+  established. Nothing in this package is involved in either case.
+* `gamm4` moves from `Imports` to `Suggests`. Nothing in the package calls it;
+  the only uses are `inherits(x, "gamm4")` class tests, which need no package.
+  This is required for the change above rather than incidental to it: loading the
+  `FSSgam` namespace on a worker loads its imports, so leaving `gamm4` out of the
+  `.packages` vector achieves nothing while it is also under `Imports`. Anyone
+  fitting a `uGamm(lme4 = TRUE)` test.fit already has `gamm4` installed, since
+  they needed it to fit that model.
+
 # FSSgam 1.1.0
 
 * Completed the snake_case rename across the public API.

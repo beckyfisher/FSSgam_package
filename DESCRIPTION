@@ -1,6 +1,6 @@
 Package: FSSgam
 Title: Full Subsets Multiple Regression in R Using GAMs
-Version: 1.1.0
+Version: 1.1.0.9000
 Authors@R:
     person("Rebecca", "Fisher",
            email = "r.fisher@aims.gov.au",
@@ -25,7 +25,6 @@ LazyData: true
 Imports:
     doSNOW,
     foreach,
-    gamm4,
     mgcv,
     MuMIn,
     nnet,
@@ -36,6 +35,7 @@ URL: https://github.com/beckyfisher/FSSgam_package, https://beckyfisher.github.i
 BugReports: https://github.com/beckyfisher/FSSgam_package/issues
 Suggests:
     covr,
+    gamm4,
     testthat (>= 3.1.5)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0

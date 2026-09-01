@@ -104,3 +104,22 @@ clone_independent_family=function(fam){
   },fam[is.fn][local.idx],match.idx)
   fam
 }
+
+# The packages a doSNOW worker needs loaded to refit one candidate.
+#
+# gamm4 is included only for a test.fit that is one, because loading it onto the
+# workers is what triggers the dispatch stall of FSSgam_package#14: measured
+# there, a foreach() executing no FSSgam code at all completed 49 times in 50
+# without gamm4 on the workers and 29 times in 50 with it. A test.fit built by
+# gam(), or by uGamm(lme4 = FALSE), never reaches gamm4, so it does not need to
+# be loaded to refit one.
+#
+# It is not enough to leave gamm4 out of this vector while it is also in
+# DESCRIPTION's Imports: loading the FSSgam namespace on the worker loads its
+# imports, gamm4 among them. It is declared under Suggests for that reason, and
+# nothing in R/ calls it -- only inherits(x, "gamm4"), which needs no package.
+worker_packages=function(test.fit){
+  pkgs=c("mgcv","MuMIn","FSSgam")
+  if(inherits(test.fit,"gamm4")){pkgs=c(pkgs,"gamm4")}
+  pkgs
+}
