@@ -27,6 +27,11 @@
 #' among a continuous variable and a factor variable through the call lm(continuous~factor),
 #' and nnet to approximate the correlation among factor variables using a multinomial
 #' model fit.
+#'
+#' Missing values are handled pairwise: each pair of predictors is evaluated on
+#' the rows for which both are present. For a factor-factor pair this applies to
+#' the intercept-only model as well as the fitted one, so the two deviances the
+#' estimate is a ratio of are always computed on the same rows.
 #' @export
 #' @return a correlation matrix
 #' @examples
@@ -114,21 +119,22 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
   lm.grid=expand.grid(list(fact.var1=fact.vars,fact.var2=fact.vars))
   lm.grid=lm.grid[as.character(lm.grid$fact.var1)!=as.character(lm.grid$fact.var2),,drop=FALSE]
 
-  # The null model depends only on fact.var1 and was already fitted on the
-  # whole dat column rather than on the pair's complete cases, so refitting it
-  # inside the loop recomputed the same value n-1 times per factor. Fitted once
-  # per factor here instead. Values are unchanged, which was checked rather
-  # than assumed.
+  # r.est is sqrt(1 - fit/null.fit), so both deviances have to be computed on
+  # the same rows. `fit` below is fitted on na.omit() of the pair, so the null
+  # has to be too (FSSgam_package#16). Fitting the null per pair
+  # unconditionally would undo the reduction from n(n-1) null fits to n, so the
+  # per-factor value is kept and refitted only for a pair that drops rows the
+  # factor's own column does not.
   #
-  # The asymmetry it exposes is pre-existing and deliberately left alone: the
-  # null deviance comes from the whole column while `fit` below comes from
-  # na.omit() of the pair, so for a factor carrying NAs the two are computed on
-  # different row sets. Changing that would change reported correlations.
-  # generate_model_set() rejects predictors containing NA, so it is reachable
-  # only through a direct call to check_correlations().
+  # multinom() applies na.action itself, so the per-factor null is already
+  # fitted on that factor's own complete cases, and complete.counts records how
+  # many rows that is. The pair's rows are a subset of them, so equal counts
+  # mean an identical row set and the per-factor value is exact.
   null.deviances=lapply(fact.vars,function(v){
     try(nnet::multinom(dat[,v] ~ 1,trace=FALSE)$deviance,silent=TRUE)})
   names(null.deviances)=fact.vars
+  complete.counts=lapply(fact.vars,function(v){sum(!is.na(dat[,v]))})
+  names(complete.counts)=fact.vars
   if(parallel==TRUE){
    cl=parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
@@ -142,7 +148,9 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
     # the spurious "NaNs produced" warnings came from (FSSgam_package#10).
     fit <- try(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE)$deviance,silent=TRUE)
     null.fit=null.deviances[[var.1]]
-    if(!inherits(fit,"try-error")){
+    if(nrow(dat.r)<complete.counts[[var.1]]){
+      null.fit=try(nnet::multinom(dat.r[,var.1] ~ 1,trace=FALSE)$deviance,silent=TRUE)}
+    if(!inherits(fit,"try-error")&!inherits(null.fit,"try-error")){
        if(round(fit,4)==round(null.fit,4)){r.est=0}else{
       r.est=sqrt(1-(fit/null.fit))}
       c(var.1,var.2,r.est)}}
@@ -157,8 +165,11 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
           # see the matching comment in the parallel branch above
           fit <- try(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE)$deviance,silent=TRUE)
           null.fit=null.deviances[[var.1]]
+          # see the matching comment on complete.counts above
+          if(nrow(dat.r)<complete.counts[[var.1]]){
+            null.fit=try(nnet::multinom(dat.r[,var.1] ~ 1,trace=FALSE)$deviance,silent=TRUE)}
           out=NA
-          if(!inherits(fit,"try-error")){
+          if(!inherits(fit,"try-error")&!inherits(null.fit,"try-error")){
            if(round(fit,4)==round(null.fit,4)){r.est=0}else{
                    r.est=sqrt(1-(fit/null.fit))}
                    out=c(var.1,var.2,r.est)}

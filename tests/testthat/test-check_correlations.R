@@ -154,3 +154,60 @@ test_that("the factor-factor diagonal is exactly one and no self pairs are fitte
   # the continuous block still comes from cor(), which is 1 on its diagonal
   expect_identical(unname(cm["depth", "depth"]), 1)
 })
+
+test_that("a factor-factor pair with missing values compares deviances on one row set", {
+  # FSSgam_package#16. r.est is sqrt(1 - fit/null.fit). The pair model is
+  # fitted on the pair's complete cases; the null used to be fitted on the
+  # whole column, so for a factor carrying NAs the ratio was taken between
+  # deviances computed on different numbers of rows.
+  #
+  # f2 reproduces f1 on three rows in four and is missing for most of level
+  # "a", so the two row sets differ by 25 of 90 rows and the estimate moves
+  # from 0.848 (whole-column null) to 0.728 (pair null).
+  f1 <- factor(rep(c("a", "b", "c"), each = 30))
+  f2 <- as.character(f1)
+  shift <- c(a = "b", b = "c", c = "a")
+  idx <- seq(1, 90, by = 4)
+  f2[idx] <- shift[f2[idx]]
+  dat <- data.frame(f1 = f1, f2 = factor(f2))
+  dat$f2[1:25] <- NA
+
+  dat.r <- stats::na.omit(dat[, c("f1", "f2")])
+  fit <- nnet::multinom(dat.r$f1 ~ dat.r$f2, trace = FALSE)$deviance
+  null.matched <- nnet::multinom(dat.r$f1 ~ 1, trace = FALSE)$deviance
+  null.whole <- nnet::multinom(dat$f1 ~ 1, trace = FALSE)$deviance
+
+  cm <- check_correlations(dat)
+
+  expect_equal(unname(cm["f1", "f2"]), sqrt(1 - (fit / null.matched)),
+               tolerance = 1e-6)
+  # the value the unfixed code returned, asserted as absent so that reverting
+  # the fix fails here rather than only in the equality above
+  expect_false(isTRUE(all.equal(unname(cm["f1", "f2"]),
+                                sqrt(1 - (fit / null.whole)),
+                                tolerance = 1e-6)))
+})
+
+test_that("the null model is not refitted when a pair drops no extra rows", {
+  # The per-factor null is kept for any pair whose complete-case row set is the
+  # factor's own, which is every pair when nothing is missing and, for the
+  # direction in which the NA-bearing factor is the response, also when
+  # something is. Asserted by value: fitting the null on those same rows must
+  # give the same answer as the hoisted one.
+  f1 <- factor(rep(c("a", "b", "c"), each = 30))
+  f2 <- as.character(f1)
+  shift <- c(a = "b", b = "c", c = "a")
+  f2[seq(1, 90, by = 4)] <- shift[f2[seq(1, 90, by = 4)]]
+  dat <- data.frame(f1 = f1, f2 = factor(f2))
+  dat$f2[1:25] <- NA
+
+  dat.r <- stats::na.omit(dat[, c("f1", "f2")])
+  fit <- nnet::multinom(dat.r$f2 ~ dat.r$f1, trace = FALSE)$deviance
+  # f2 is the response here, so the pair's rows are exactly f2's own complete
+  # cases and the hoisted per-factor null is already on the right row set
+  null.fit <- nnet::multinom(dat$f2 ~ 1, trace = FALSE)$deviance
+
+  cm <- check_correlations(dat)
+  expect_equal(unname(cm["f2", "f1"]), sqrt(1 - (fit / null.fit)),
+               tolerance = 1e-6)
+})
