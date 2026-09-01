@@ -142,8 +142,12 @@ full_subsets_gam=function(use.dat,
      }
 
   # Validated here as well as in fit_model_set(), so an unrecognised value is
-  # reported before the candidate set is built rather than after.
+  # reported before the candidate set is built rather than after. Building the
+  # set is not free: with several factors it fits a multinom() per ordered pair,
+  # and with non.linear.correlations it fits a gam() per pair.
   r2.type <- match.arg(r2.type, c("r2.lm.est", "r2", "dev"))
+  VI.mods <- match.arg(VI.mods, c("min.n", "all"))
+  validate_progress(progress)
 
   model.set=generate_model_set(use.dat=use.dat,
                           test.fit=test.fit,

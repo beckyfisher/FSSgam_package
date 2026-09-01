@@ -267,14 +267,21 @@ test_that("normalise_mod_dat_rows leaves a fully successful list untouched", {
 })
 
 test_that("fit_model_set errors when no model in the set can be fitted", {
-  model.set <- fixture_cs1_model_set()
-  # an all-NA response makes every candidate, including the null model, fail
-  model.set$used.data$log.Herbivore.biomass <- NA_real_
+  # On both paths, not just the saved one. With save.model.fits = FALSE this
+  # used to return a table of NA instead: compute_model_weights() took min() of
+  # an all-NA column and filled delta.AICc and wi.AICc with NaN. Which of the
+  # two happened depended only on a memory setting.
+  for (save in c(TRUE, FALSE)) {
+    model.set <- fixture_cs1_model_set()
+    # an all-NA response makes every candidate, including the null model, fail
+    model.set$used.data$log.Herbivore.biomass <- NA_real_
 
-  expect_error(
-    fit_quietly(model.set, parallel = FALSE),
-    "None of your models fitted successfully"
-  )
+    expect_error(
+      fit_quietly(model.set, parallel = FALSE, save.model.fits = save),
+      "None of your models fitted successfully",
+      info = paste("save.model.fits =", save)
+    )
+  }
 })
 
 test_that("fit_model_set reports partially failing model sets in failed.models", {
@@ -366,6 +373,47 @@ test_that("progress = TRUE writes a progress bar to stdout", {
     expect_true(any(grepl("=", out, fixed = TRUE)),
                 info = paste("save.model.fits =", save))
   }
+})
+
+test_that("progress must be a single TRUE or FALSE", {
+  # the only new argument in this release without a validation rule of its own;
+  # an invalid value used to fail inside a helper, naming neither the argument
+  # nor the function
+  model.set <- fixture_cs1_model_set()
+
+  for (bad in list(NA, "yes", c(TRUE, FALSE), NULL)) {
+    expect_error(
+      fit_model_set(model.set, parallel = FALSE, progress = bad),
+      "progress must be a single TRUE or FALSE"
+    )
+  }
+
+  fit <- fixture_cs1_gaussian()
+  expect_error(
+    full_subsets_gam(
+      use.dat = fit$use.dat, test.fit = fit$test.fit,
+      pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+      null.terms = "s(site,bs='re')", max.predictors = 2, k = 3,
+      progress = NA
+    ),
+    "progress must be a single TRUE or FALSE"
+  )
+})
+
+test_that("full_subsets_gam rejects an unrecognised VI.mods before fitting", {
+  # r2.type was already validated at entry for this reason; VI.mods was not,
+  # and it is only read after every candidate has been fitted. Building the
+  # candidate set is not free either.
+  fit <- fixture_cs1_gaussian()
+  expect_error(
+    full_subsets_gam(
+      use.dat = fit$use.dat, test.fit = fit$test.fit,
+      pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+      null.terms = "s(site,bs='re')", max.predictors = 2, k = 3,
+      VI.mods = "alll"
+    ),
+    "'arg' should be one of"
+  )
 })
 
 test_that("progress defaults to interactive()", {

@@ -314,12 +314,24 @@ test_that("smooth.smooth.interactions errors when fewer than two predictors are 
   )
 })
 
-test_that("smooth.smooth.interactions errors when a named predictor is not in use.dat", {
+test_that("smooth.smooth.interactions errors when a named variable is not a predictor", {
   expect_error(
     fixture_cs1_model_set(
       smooth.smooth.interactions = c("depth", "not_a_column")
     ),
-    "Not all specified smooth.smooth.interactions are supplied in use.dat"
+    "not_a_column"
+  )
+
+  # A column that is in use.dat but not in pred.vars.cont has no row in the
+  # correlation matrix, so it cannot be screened. It used to be admitted --
+  # combine_uncorrelated() took max() of an empty sub-matrix, warned "no
+  # non-missing arguments to max" and returned -Inf, which is below any
+  # cov.cutoff -- and the te() term was built regardless of its correlations.
+  expect_error(
+    fixture_cs1_model_set(
+      smooth.smooth.interactions = c("depth", "SCORE2")
+    ),
+    "SCORE2.*are not predictors"
   )
 })
 

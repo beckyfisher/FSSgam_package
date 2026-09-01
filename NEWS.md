@@ -69,9 +69,10 @@
   `.t.` term came from the list form of `factor.smooth.interactions` naming a
   linear predictor absent from `linear.vars`. The model table then reported two
   identical fits under different names.
-* Substantially expanded the `testthat` suite, from 105 passing expectations to
-  447, and from 71.33% to 94.27% line coverage (FSSgam_package#5). New coverage
-  includes: every non-default argument of `generate_model_set()`,
+* Substantially expanded the `testthat` suite, from 105 passing expectations at
+  1.0.0 to 567 at this release, and from 71.33% to 94.3% line coverage
+  (FSSgam_package#5 covered the first 447 of those; the rest accompany the fixes
+  below). New coverage includes: every non-default argument of `generate_model_set()`,
   `fit_model_set()` and `full_subsets_gam()`; the `save.model.fits = FALSE`
   fitting path; `gamm4`, `uGamm` and `gamm` test.fits; the `cyclic.vars`,
   `linear.vars` and `bs.arg` formula construction; the bundled datasets; every
@@ -212,6 +213,30 @@
   hard coded factor interaction it causes to be created, which
   `?generate_model_set` already required; missing predictors are reported by
   name.
+
+* Bug fix: a user-supplied `cor.matrix` did not replace the automatic estimate,
+  it only overrode it. `check_correlations()` (or
+  `check_non_linear_correlations()`) was called over every predictor and its
+  result discarded whenever a matrix was supplied, so supplying one neither
+  avoided the `multinom()` and `gam()` fits nor allowed a predictor of a class
+  those functions reject -- a `Date` column, say -- to be used at all. The
+  estimate is now computed only when no matrix is supplied (FSSgam_package#13).
+* Bug fix: with `save.model.fits = FALSE`, a run in which no candidate fitted
+  returned a model table of `NA` with `delta.AICc` and `wi.AICc` filled with
+  `NaN`, rather than the "None of your models fitted successfully" error raised
+  on the `save.model.fits = TRUE` path. Which of the two happened depended only
+  on a memory setting. Both paths now raise the error.
+* `fit_model_set()` and `full_subsets_gam()` reject a `progress` value that is
+  not a single `TRUE` or `FALSE`, and `full_subsets_gam()` now validates
+  `VI.mods` at entry as it already did `r2.type`, so an unrecognised value is
+  reported before the candidate set is built rather than after.
+* `smooth.smooth.interactions` naming a column of `use.dat` that is not among
+  the predictors is now reported as such. It was previously screened against an
+  empty sub-matrix of the correlation matrix, so `combine_uncorrelated()` took
+  `max()` of nothing, warned "no non-missing arguments to max", and built the
+  `te()` term regardless of its correlations. The error message names the
+  variable and the requirement (it previously said the variable was not supplied
+  in `use.dat`, which was not what was being checked).
 
 * `fit_mod_l()` is no longer exported. It is an internal helper documented as
   not called directly, and its arguments changed as recently as the family

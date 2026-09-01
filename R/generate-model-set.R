@@ -550,8 +550,18 @@ resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interac
     if(inherits(smooth.smooth.interactions,"character")){
         if(length(smooth.smooth.interactions)<2){
             stop("You specified less than 2 variables as smooth.smooth.interactions.")}
-        if(anyNA(match(smooth.smooth.interactions,rownames(cor.matrix)))){
-            stop("Not all specified smooth.smooth.interactions are supplied in use.dat")}
+        # Checked against the resolved correlation matrix, which is built over
+        # the predictors, not against colnames(use.dat) as it used to be. A
+        # column of use.dat that is not a predictor has no row in the matrix,
+        # so it cannot be screened; it previously reached combine_uncorrelated()
+        # with an empty sub-matrix and was admitted on a max() of nothing. The
+        # message names the real requirement rather than repeating the old one.
+        missing.cont=smooth.smooth.interactions[
+                          which(is.na(match(smooth.smooth.interactions,rownames(cor.matrix))))]
+        if(length(missing.cont)>0){
+            stop(paste("Variable(s) ",paste(missing.cont,collapse=", "),
+                 " named in smooth.smooth.interactions are not predictors. Each must",
+                 " appear in pred.vars.cont (or linear.vars).",sep=""))}
       # see the matching comment in the logical branch above
       continuous.correlations=cor.matrix[smooth.smooth.interactions,
                                          smooth.smooth.interactions,drop=FALSE]
@@ -569,16 +579,23 @@ resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interac
 # model exclusion: either computed from use.dat, or validated if the caller
 # supplied their own cor.matrix.
 build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.correlations,cor.matrix){
-  # drop=FALSE matters: with a single predictor use.dat[,all.predictors] would
-  # otherwise collapse to a bare vector, and both check_* functions require a
-  # data.frame (they classify columns via sapply(dat,class) and compare against
-  # ncol(dat)). Without it, any model set with exactly one predictor failed
-  # with an unrelated "argument is of length zero" error.
-  if(non.linear.correlations==TRUE){
-   cc=check_non_linear_correlations(use.dat[,all.predictors,drop=FALSE])}else{
-   cc=check_correlations(use.dat[,all.predictors,drop=FALSE])}
   if(length(cor.matrix)==1){
-   cor.matrix=cc
+   # Computed only when the caller supplied nothing. It used to be computed
+   # either way and then discarded in the else branch below, which meant a
+   # supplied cor.matrix did not actually replace the automatic estimate: the
+   # multinom() and gam() fits still ran, and a predictor of a class
+   # check_correlations() rejects (a Date, say) still aborted the call even
+   # though its correlations had been supplied. Nothing else in the function
+   # reads it (FSSgam_package#13).
+   #
+   # drop=FALSE matters: with a single predictor use.dat[,all.predictors] would
+   # otherwise collapse to a bare vector, and both check_* functions require a
+   # data.frame (they classify columns via sapply(dat,class) and compare against
+   # ncol(dat)). Without it, any model set with exactly one predictor failed
+   # with an unrelated "argument is of length zero" error.
+   if(non.linear.correlations==TRUE){
+    cor.matrix=check_non_linear_correlations(use.dat[,all.predictors,drop=FALSE])}else{
+    cor.matrix=check_correlations(use.dat[,all.predictors,drop=FALSE])}
    # Replace NA and NaN with zero. is.na() is TRUE for NaN as well, so this is
    # one pass rather than two; the NaN pass was written as
    # which(cor.matrix == "NaN"), which coerces the matrix to character and

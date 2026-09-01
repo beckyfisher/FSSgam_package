@@ -704,3 +704,57 @@ test_that("supplying no cor.matrix leaves te() selection unchanged", {
     expect_setequal(te.terms, expected)
   }
 })
+
+test_that("a supplied cor.matrix replaces the automatic estimate rather than adding to it", {
+  # FSSgam_package#13. build_predictor_correlation_matrix() used to compute
+  # check_correlations() either way and discard it when a matrix was supplied,
+  # so supplying one did not avoid the multinom()/gam() fits and did not let a
+  # user past check_correlations()'s restriction on column classes.
+  fit <- fixture_cs1_gaussian()
+  preds <- c("complexity", "depth", "ZONE")
+  cm <- check_correlations(fit$use.dat[, preds])
+
+  calls <- 0
+  ns <- asNamespace("FSSgam")
+  real <- get("check_correlations", envir = ns)
+  # the binding is locked in an installed package and unlocked under pkgload,
+  # so its original state is recorded rather than assumed
+  was.locked <- bindingIsLocked("check_correlations", ns)
+  if (was.locked) unlockBinding("check_correlations", ns)
+  assign("check_correlations",
+         function(...) { calls <<- calls + 1; real(...) }, envir = ns)
+  on.exit({
+    assign("check_correlations", real, envir = ns)
+    if (was.locked) lockBinding("check_correlations", ns)
+  }, add = TRUE)
+
+  fixture_cs1_model_set(fit = fit, cor.matrix = cm)
+  expect_identical(calls, 0)
+
+  # and the same call with no matrix supplied does reach it, so the counter is
+  # measuring something
+  calls <- 0
+  fixture_cs1_model_set(fit = fit)
+  expect_gt(calls, 0)
+})
+
+test_that("a supplied cor.matrix covers a predictor check_correlations cannot classify", {
+  # a Date column is not one of the four classes classify_correlation_predictors()
+  # accepts, so the automatic estimate cannot be formed for it -- which is one
+  # reason to supply a matrix in the first place
+  fit <- fixture_cs1_gaussian()
+  use.dat <- fit$use.dat
+  use.dat$when <- as.Date("2020-01-01") + seq_len(nrow(use.dat))
+  preds <- c("depth", "when")
+  cm <- matrix(0, 2, 2, dimnames = list(preds, preds))
+  diag(cm) <- 1
+
+  model.set <- generate_model_set(
+    use.dat = use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = "depth", linear.vars = "when",
+    null.terms = "s(site,bs='re')", cor.matrix = cm, max.predictors = 2, k = 3
+  )
+
+  expect_true("depth+when" %in% names(model.set$mod.formula))
+  expect_identical(model.set$predictor.correlations, cm)
+})

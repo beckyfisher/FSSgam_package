@@ -93,6 +93,7 @@ fit_model_set=function(model.set.list,
   # unrecognised VI.mods left both weight objects unassigned and the failure
   # surfaced as "object 'aic.var.weights' not found".
   VI.mods <- match.arg(VI.mods, c("min.n", "all"))
+  validate_progress(progress)
 
   use.datModSet <- model.set.list$used.data
   n.mods=length(model.set.list$mod.formula)#model.set.list$n.mods
@@ -289,6 +290,14 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
 
   failed.models <- mod.formula[which(is.na(mod.data.out$AICc)==TRUE)]
   success.models <- mod.formula[which(is.na(mod.data.out$AICc)==FALSE)]
+
+  # The same guard the saved path has always carried, and the same message.
+  # Without it a run in which nothing fitted returned a table of NA rather than
+  # reporting the failure: compute_model_weights() then took min() of an
+  # all-NA column and filled delta.AICc and wi.AICc with NaN. Which of the two
+  # happened depended only on save.model.fits, which is a memory setting.
+  if(length(success.models)==0){
+        stop("None of your models fitted successfully. Please check your input objects.")}
 
   return(list(mod.data.out=mod.data.out,failed.models=failed.models,
               success.models=success.models,var.inclusions=var.inclusions))
