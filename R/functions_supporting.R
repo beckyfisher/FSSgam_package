@@ -27,9 +27,7 @@
 wi <- function(AIC.vals){# This function calculate the Aikaike weights:
  # wi=(exp(-1/2*AICc.vals.adj))/Sum.wi=1 to r (exp(-1/2*AICc.vals.adj))
  AICc.vals.adj=AIC.vals-min(stats::na.omit(AIC.vals))
- wi.den=rep(NA,length(AICc.vals.adj))
- for(i in seq_along(AICc.vals.adj)){
-  wi.den[i]=exp(-1/2*AICc.vals.adj[i])}
+ wi.den=exp(-0.5*AICc.vals.adj)
  wi.den.sum=sum(stats::na.omit(wi.den))
  wi=wi.den/wi.den.sum
  return(wi)}
