@@ -240,17 +240,22 @@ check_predictor_missingness=function(use.dat,all.predictors){
 # all factor predictors to class factor, and resolves the factor-smooth (.by.
 # / .t.) interaction term names. Returns list(use.dat=, pred.vars.fact=,
 # interaction.terms=, linear.interaction.terms=).
-# The combination sizes the historical `for(i in 2:n)` loops actually visit.
+# The combination sizes to enumerate: every size from 2 up to max.size, capped
+# at the number of variables available.
 #
-# At n = 1 that sequence counts backwards to c(2, 1), so a size-1
-# "combination" is enumerated as well -- which is where the duplicated columns
-# and the "no non-missing arguments to max" warnings at max.predictors = 1 come
-# from. Reproduced exactly here: this commit changes no behaviour, and the
-# defect is corrected separately so the two are reviewable apart.
+# The explicit empty case is the fix for a defect. This was written as
+# `for(i in 2:n)`, and at n = 1 that sequence counts backwards to c(2, 1), so a
+# size-1 "combination" was enumerated as well. Its pasted name is just the
+# original variable name, so cbind() appended a duplicate column, and taking
+# max() of the empty off-diagonal of a 1x1 sub-matrix warned "no non-missing
+# arguments to max; returning -Inf" once per variable.
+#
+# n is min(max.size, length(vars)), so 2:n can never exceed the number of
+# variables and needs no further filtering.
 combination_sizes=function(vars,max.size){
   n=min(max.size,length(vars))
-  sizes=2:n
-  sizes[sizes<=length(vars)]
+  if(n<2){return(integer(0))}
+  2:n
 }
 
 # Every combination of `vars` at each size in `sizes`, dropping any whose
@@ -289,35 +294,31 @@ combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff,screen.both){
 # Pastes each surviving combination of factors into a new column named a.I.b
 # and appends them to use.dat. Returns the extended data and the new names.
 #
-# warn.when.empty separates the two callers when the collinearity screen leaves
-# nothing. The logical factor.factor.interactions branch warns and carries on.
-# The character branch reached cbind() unconditionally, and
-# cbind(use.dat, <0-column data.frame>) raises "arguments imply differing
-# number of rows", so it fails with an error that names neither the argument
-# nor the cutoff. That is reproduced here rather than repaired, because this
-# restructure changes no behaviour.
-#
-# No scenario exercises the empty character case, and it appears unreachable in
-# practice: the guard above it requires at least two cells of the correlation
-# matrix below the cutoff, while every combination being screened out requires
-# every upper-triangle cell above it. check_correlations() is asymmetric by
-# less than 1e-3, so the two conditions cannot both hold.
-build_factor_interaction_columns=function(use.dat,fact.combns,warn.when.empty){
-  tt=data.frame(lapply(fact.combns,FUN=function(x){
-             do.call("paste",as.list(use.dat[,x]))}))
+# Nothing is appended when there are no combinations. Reaching cbind() with a
+# zero-column data.frame raises "arguments imply differing number of rows",
+# which is what the character factor.factor.interactions branch used to do; the
+# logical branch guarded against it. Warning about an empty result is left to
+# the callers, which are the only place that can tell the two reasons for it
+# apart.
+build_factor_interaction_columns=function(use.dat,fact.combns){
   factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
-  colnames(tt)=factor.interaction.terms
 
-  if(ncol(tt)>0){
-    use.dat=cbind(use.dat,tt)
-  }else{
-    if(warn.when.empty){
-      warning("You have set factor.factor.interactions to 'TRUE' but there are no
-                factors to interaction at your specified cor.cuttoff value.")
-    }else{
-      use.dat=cbind(use.dat,tt)}}
+  if(length(fact.combns)>0){
+    tt=data.frame(lapply(fact.combns,FUN=function(x){
+               do.call("paste",as.list(use.dat[,x]))}))
+    colnames(tt)=factor.interaction.terms
+    use.dat=cbind(use.dat,tt)}
 
   list(use.dat=use.dat,factor.interaction.terms=factor.interaction.terms)
+}
+
+# The warning for a collinearity screen that left nothing. Shared so the two
+# factor.factor.interactions branches cannot drift apart again: the character
+# branch used to be silent here.
+warn_no_factor_interactions=function(cov.cutoff){
+  warning(paste0("No factor-factor interaction terms were generated: every
+                combination of the specified factors exceeded cov.cutoff (",
+                cov.cutoff,")."))
 }
 
 # Normalises factor.smooth.interactions to one triple of variable sets.
@@ -401,12 +402,23 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
         if(length(pred.vars.fact)<2){
             stop("You have less than 2 factors. Please reset 'factor.factor.interactions' to 'False'")}
       factor.correlations=check_correlations(use.dat[,pred.vars.fact])
+      # Two different reasons for building nothing, which need different
+      # messages: max.predictors leaves no room for an interaction of two or
+      # more factors, or combinations were enumerated and every one exceeded
+      # cov.cutoff. warn.when.empty covers the second; the first is reported
+      # here, because only this point knows max.predictors.
+      fact.sizes=combination_sizes(pred.vars.fact,max.predictors)
+      if(length(fact.sizes)==0){
+        warning(paste0("factor.factor.interactions is TRUE but max.predictors is ",
+                max.predictors,", so no interaction of two or more factors can be
+                included. No factor-factor interaction terms were generated."))}
       fact.combns=combine_uncorrelated(vars=pred.vars.fact,
-                          sizes=combination_sizes(pred.vars.fact,max.predictors),
+                          sizes=fact.sizes,
                           cor.matrix=factor.correlations,cov.cutoff=cov.cutoff,
                           screen.both=TRUE)
-      cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns,
-                          warn.when.empty=TRUE)
+      if(length(fact.sizes)>0 & length(fact.combns)==0){
+        warn_no_factor_interactions(cov.cutoff)}
+      cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns)
       use.dat=cols.l$use.dat
       pred.vars.fact=c(pred.vars.fact,cols.l$factor.interaction.terms)
       }
@@ -423,12 +435,18 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
       # two factors whose two off-diagonal cells straddle cov.cutoff the count
       # is 1 and the whole block is skipped in silence. Preserved as-is here.
       if(length(which(factor.correlations<cov.cutoff))>1){
+        fact.sizes=combination_sizes(factor.factor.interactions,max.predictors)
+        if(length(fact.sizes)==0){
+          warning(paste0("max.predictors is ",max.predictors,", so no interaction of
+                two or more of the specified factors can be included. No
+                factor-factor interaction terms were generated."))}
         fact.combns=combine_uncorrelated(vars=factor.factor.interactions,
-                          sizes=combination_sizes(factor.factor.interactions,max.predictors),
+                          sizes=fact.sizes,
                           cor.matrix=factor.correlations,cov.cutoff=cov.cutoff,
                           screen.both=FALSE)
-        cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns,
-                          warn.when.empty=FALSE)
+        if(length(fact.sizes)>0 & length(fact.combns)==0){
+          warn_no_factor_interactions(cov.cutoff)}
+        cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns)
         use.dat=cols.l$use.dat
         pred.vars.fact=c(pred.vars.fact,cols.l$factor.interaction.terms)
       }

@@ -134,7 +134,7 @@ test_that("factor-factor interactions are excluded when the factors exceed cov.c
       pred.vars.fact = c("ZONE", "ZONE.copy"),
       factor.factor.interactions = TRUE
     ),
-    "no\\s+factors to interaction"
+    "exceeded cov.cutoff"
   )
 
   expect_false(any(grepl(".I.", names(model.set$mod.formula), fixed = TRUE)))
@@ -418,7 +418,7 @@ test_that("factor-factor interactions are screened in both triangles too", {
       pred.vars.fact = c("fine", "ZONE"), factor.factor.interactions = TRUE,
       cov.cutoff = 0.8, max.predictors = 2
     )),
-    "no\\s+factors to interaction"
+    "exceeded cov.cutoff"
   )
 
   # the only available pair is collinear, so no interaction column is built
@@ -459,4 +459,74 @@ test_that("smooth-smooth interactions are pairwise, whatever max.predictors allo
     max(lengths(strsplit(terms., ".te.", fixed = TRUE)))
   }, integer(1))
   expect_true(all(n.joined == 2))
+})
+
+test_that("max.predictors = 1 builds no interaction columns and warns why", {
+  # A3. The enumeration was written as for(i in 2:n), and at n = 1 that counts
+  # backwards to c(2, 1), so a size-1 "combination" was enumerated too. Its
+  # pasted name is just the original variable name, so cbind() appended a
+  # duplicate column, and taking max() of the empty off-diagonal of a 1x1
+  # sub-matrix warned "no non-missing arguments to max" once per variable.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  expect_warning(
+    model.set <- fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE", "ZONE2"),
+      factor.factor.interactions = TRUE, max.predictors = 1
+    ),
+    "max.predictors is 1"
+  )
+
+  expect_equal(anyDuplicated(colnames(model.set$used.data)), 0)
+  expect_false(any(grepl(".I.", colnames(model.set$used.data), fixed = TRUE)))
+  expect_false(any(grepl(".I.", names(model.set$mod.formula), fixed = TRUE)))
+  # the correlation matrix covers the three real predictors, not a duplicated set
+  expect_equal(dim(model.set$predictor.correlations), c(3, 3))
+})
+
+test_that("max.predictors = 1 emits no 'no non-missing arguments to max' warning", {
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  warnings.seen <- character(0)
+  withCallingHandlers(
+    model.set <- fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE", "ZONE2"),
+      factor.factor.interactions = TRUE, max.predictors = 1
+    ),
+    warning = function(w) {
+      warnings.seen <<- c(warnings.seen, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  expect_false(any(grepl("no non-missing arguments to max", warnings.seen)))
+})
+
+test_that("a character factor.factor.interactions warns when the screen leaves nothing", {
+  # The character branch used to reach cbind() with a zero-column data.frame and
+  # fail with "arguments imply differing number of rows", naming neither the
+  # argument nor the cutoff, where the logical branch warned. Both now warn.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  expect_warning(
+    model.set <- fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE", "ZONE2"),
+      factor.factor.interactions = c("ZONE", "ZONE2"), max.predictors = 1
+    ),
+    "max.predictors is 1"
+  )
+
+  expect_false(any(grepl(".I.", colnames(model.set$used.data), fixed = TRUE)))
 })

@@ -138,6 +138,21 @@
   factor was regressed on itself (FSSgam_package#12). Off-diagonal values are
   unchanged.
 
+* Bug fix: `max.predictors = 1` with `factor.factor.interactions` built
+  interaction columns it should not have. The enumeration was written as
+  `for (i in 2:n)`, and at `n = 1` that sequence counts backwards to
+  `c(2, 1)`, so a size-1 "combination" was enumerated as well. Its pasted name
+  is just the original variable name, so `used.data` gained a duplicate column
+  per factor, and four "no non-missing arguments to max; returning -Inf"
+  warnings were emitted. No interaction terms are now generated at
+  `max.predictors = 1`, with a warning that says so; on a two-factor set
+  `used.data` loses three spurious columns.
+* Bug fix: `factor.factor.interactions` given as a character vector failed with
+  `arguments imply differing number of rows` when every named combination
+  exceeded `cov.cutoff`. It now warns and continues, as the `TRUE` form always
+  did. The warning text for both forms now names `cov.cutoff` and its value,
+  replacing a message that referred to a non-existent `cor.cuttoff`.
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.
