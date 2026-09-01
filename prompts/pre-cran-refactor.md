@@ -777,6 +777,11 @@ figures above. Its one item not recorded elsewhere, that the parallel path must
 be checked with a single-cluster script rather than with
 `test-fit_model_set_parallel.R`, moved into `CLAUDE.md` Phase 14.
 
+Each of the six changes carries a regression test, and all six were run
+against the branch as it stood before this review (`0666ca6`), where all six
+fail. The 31-scenario golden master is identical across the review round, so
+none of the changes moves an output that was not the point of the change.
+
 `R CMD check`: 0 errors, 0 warnings, 0 notes, before and after.
 
 ---
