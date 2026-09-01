@@ -188,6 +188,16 @@
   `smooth.smooth.interactions` given as a character vector with
   `max.predictors >= 3`.
 
+* Behaviour change: candidate model names are now sorted in byte order, via
+  `sort(method = "radix")`, and no longer depend on the session's collation
+  locale (FSSgam_package#8). A model named `complexity+ZONE` in an
+  `en_US.UTF-8` session was named `ZONE+complexity` in a C-locale one, so a
+  saved analysis was not reproducible across machines with different locales.
+  Names are now the C-locale form everywhere. The fitted results are
+  identical, but `modname` values and the row order of `mod.data.out` change
+  for anyone working in a non-C locale; a saved model table matched on
+  `modname` needs regenerating.
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.

@@ -625,7 +625,12 @@ enumerate_candidate_models=function(pred.vars.cont,pred.vars.fact,linear.vars,
 
   use.mods[which(is.na(use.mods))]=NULL
 
-  use.mods=unique(lapply(use.mods,FUN=sort))
+  # method="radix" sorts in byte order regardless of the session's LC_COLLATE.
+  # Candidate names are built by sorting term names, so without it the same
+  # analysis produced "complexity+ZONE" in an en_US.UTF-8 session and
+  # "ZONE+complexity" in a C-locale one, and mod.data.out came back in a
+  # different row order (FSSgam_package#8).
+  use.mods=unique(lapply(use.mods,FUN=sort,method="radix"))
 
   return(use.mods)
 }
