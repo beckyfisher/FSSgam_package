@@ -198,6 +198,21 @@
   for anyone working in a non-C locale; a saved model table matched on
   `modname` needs regenerating.
 
+* Behaviour change: a user-supplied `cor.matrix` now governs every stage that
+  screens on correlation, not only the exclusion of assembled candidate models
+  (FSSgam_package#13). There are three such stages: which factor-factor
+  interaction columns are built, which `te()` smooth-smooth interaction terms
+  are built, and which candidates survive. The first two previously recomputed
+  correlations from `use.dat` and ignored the supplied matrix, so a user who
+  supplied a matrix saying two predictors were uncorrelated still found their
+  `te()` term absent. Users who do not supply a `cor.matrix` see no change: the
+  continuous-continuous block does not depend on which other predictors are
+  present, verified against both `check_correlations()` and
+  `check_non_linear_correlations()`. A supplied matrix must now include any
+  hard coded factor interaction it causes to be created, which
+  `?generate_model_set` already required; missing predictors are reported by
+  name.
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.

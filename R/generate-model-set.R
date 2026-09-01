@@ -41,7 +41,7 @@
 #'
 #' @param  cov.cutoff A numeric value between 0 and 1 indicating the correlation cutoff value to use for excluding collinear models, based on the cor.matrix (see below). The default value is 0.28 (see Graham MH (2003). It is highly recommended to keep this value low, as correlation among predictors can yield spurious results. Note that predictors with a correlation greater than the specified value will still appear in the model set but will never appear in the same model. Including highly correlated predictors can make interpreting variable importance values difficult.
 #'
-#' @param cor.matrix  By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square-route of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square-route of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
+#' @param cor.matrix  A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor, including any hard coded factor interactions that setting factor.factor.interactions causes to be created; missing names are reported by name. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square-route of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square-route of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
 #'
 #' @param non.linear.correlations Set this argument to TRUE of you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.
 #'
@@ -130,24 +130,35 @@ generate_model_set=function(use.dat,
                           linear.vars=linear.vars,
                           all.predictors=all.predictors,
                           max.predictors=max.predictors,
-                          cov.cutoff=cov.cutoff)
+                          cov.cutoff=cov.cutoff,
+                          cor.matrix=cor.matrix)
   use.dat=factors.l$use.dat
   pred.vars.fact=factors.l$pred.vars.fact
   interaction.terms=factors.l$interaction.terms
   linear.interaction.terms=factors.l$linear.interaction.terms
 
-  smooth.smooth.interaction.terms=resolve_smooth_smooth_interactions(
-                          use.dat=use.dat,
-                          pred.vars.cont=pred.vars.cont,
-                          smooth.smooth.interactions=smooth.smooth.interactions,
-                          non.linear.correlations=non.linear.correlations,
-                          cov.cutoff=cov.cutoff,
-                          max.predictors=max.predictors)
-
+  # The correlation matrix is resolved before the te() terms are chosen, not
+  # after, so that one matrix governs every stage that screens on correlation
+  # (FSSgam_package#13). resolve_smooth_smooth_interactions() used to compute
+  # its own from use.dat and ignore a supplied cor.matrix entirely, so a user
+  # who supplied a matrix saying two predictors were uncorrelated still found
+  # their te() term absent.
+  #
+  # The reorder is safe because this needs all.predictors including the
+  # factor-interaction columns, which resolve_factor_interactions() has already
+  # created, and does not need the te() term names: those are split into their
+  # components before the matrix is indexed.
   all.predictors=stats::na.omit(unique(c(all.predictors,pred.vars.fact)))
   cor.matrix=build_predictor_correlation_matrix(use.dat=use.dat,
                           all.predictors=all.predictors,
                           non.linear.correlations=non.linear.correlations,
+                          cor.matrix=cor.matrix)
+
+  smooth.smooth.interaction.terms=resolve_smooth_smooth_interactions(
+                          pred.vars.cont=pred.vars.cont,
+                          smooth.smooth.interactions=smooth.smooth.interactions,
+                          cov.cutoff=cov.cutoff,
+                          max.predictors=max.predictors,
                           cor.matrix=cor.matrix)
 
   use.mods=enumerate_candidate_models(pred.vars.cont=pred.vars.cont,
@@ -386,9 +397,23 @@ build_factor_smooth_terms=function(spec,pred.vars.fact){
        linear.interaction.terms=linear.interaction.terms)
 }
 
+# cor.matrix here is the raw user-supplied matrix, or NA, not the resolved one.
+# The resolved matrix is built over all.predictors, which includes the
+# interaction columns this function creates, so it cannot exist yet
+# (FSSgam_package#13).
 resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.interactions,
                           factor.smooth.interactions,pred.vars.cont,linear.vars,
-                          all.predictors,max.predictors,cov.cutoff){
+                          all.predictors,max.predictors,cov.cutoff,cor.matrix){
+  factor_correlations=function(vars){
+    if(length(cor.matrix)==1){
+      check_correlations(use.dat[,vars])
+    }else{
+      missing.vars=vars[which(is.na(match(vars,rownames(cor.matrix))))]
+      if(length(missing.vars)>0){
+        stop(paste("Supplied cor.matrix is missing required predictors: ",
+             paste(missing.vars,collapse=", "),".",sep=""))}
+      cor.matrix[vars,vars,drop=FALSE]}
+  }
   interaction.terms=NA
   linear.interaction.terms=NA
 
@@ -401,7 +426,7 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
      if(factor.factor.interactions==TRUE){
         if(length(pred.vars.fact)<2){
             stop("You have less than 2 factors. Please reset 'factor.factor.interactions' to 'False'")}
-      factor.correlations=check_correlations(use.dat[,pred.vars.fact])
+      factor.correlations=factor_correlations(pred.vars.fact)
       # Two different reasons for building nothing, which need different
       # messages: max.predictors leaves no room for an interaction of two or
       # more factors, or combinations were enumerated and every one exceeded
@@ -428,7 +453,7 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
             stop("You specified less than 2 factors as factor.factor.interactions.")}
         if(max(is.na(match(factor.factor.interactions,colnames(use.dat))))==1){
             stop("Not all specified factor.factor.interactions are supplied in use.dat")}
-      factor.correlations=check_correlations(use.dat[,factor.factor.interactions])
+      factor.correlations=factor_correlations(factor.factor.interactions)
       # An outer guard here, if(length(which(factor.correlations<cov.cutoff))>1),
       # used to skip this whole block in silence. It counted cells of the
       # correlation matrix below the cutoff rather than pairs, so two factors
@@ -485,8 +510,8 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
 # Builds the names of the te() smooth-smooth interaction terms to consider,
 # excluding any continuous-predictor pairs that exceed cov.cutoff. Returns a
 # character vector (or NA if smooth.smooth.interactions is not requested).
-resolve_smooth_smooth_interactions=function(use.dat,pred.vars.cont,smooth.smooth.interactions,
-                          non.linear.correlations,cov.cutoff,max.predictors){
+resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interactions,
+                          cov.cutoff,max.predictors,cor.matrix){
    smooth.smooth.interaction.terms=NA
     # for interactions amonst all continuous predictors
     if(inherits(smooth.smooth.interactions,"logical")){
@@ -494,9 +519,14 @@ resolve_smooth_smooth_interactions=function(use.dat,pred.vars.cont,smooth.smooth
         if(length(pred.vars.cont)<2){
             stop("You have less than 2 continuous predictors you wish interactions for.
             Please reset 'smooth.smooth.interactions' to 'False'")}
-       if(non.linear.correlations==TRUE){
-        continuous.correlations=check_non_linear_correlations(use.dat[,pred.vars.cont])}else{
-        continuous.correlations=check_correlations(use.dat[,pred.vars.cont])}
+       # Subset of the matrix the caller resolved, rather than a fresh one
+       # computed from use.dat. When no cor.matrix was supplied the two agree:
+       # the continuous-continuous block does not depend on which other
+       # predictors are present, checked against both check_correlations() and
+       # check_non_linear_correlations() with a maximum absolute difference of
+       # 0. When one was supplied, it now governs here too
+       # (FSSgam_package#13).
+       continuous.correlations=cor.matrix[pred.vars.cont,pred.vars.cont,drop=FALSE]
 
       # The size is fixed at 2 here while the character branch below goes up to
       # max.predictors. That difference is intentional, not an unfinished edit:
@@ -517,11 +547,11 @@ resolve_smooth_smooth_interactions=function(use.dat,pred.vars.cont,smooth.smooth
     if(inherits(smooth.smooth.interactions,"character")){
         if(length(smooth.smooth.interactions)<2){
             stop("You specified less than 2 variables as smooth.smooth.interactions.")}
-        if(max(is.na(match(smooth.smooth.interactions,colnames(use.dat))))==1){
+        if(max(is.na(match(smooth.smooth.interactions,rownames(cor.matrix))))==1){
             stop("Not all specified smooth.smooth.interactions are supplied in use.dat")}
-      if(non.linear.correlations==TRUE){
-       continuous.correlations=check_non_linear_correlations(use.dat[,smooth.smooth.interactions])}else{
-       continuous.correlations=check_correlations(use.dat[,smooth.smooth.interactions])}
+      # see the matching comment in the logical branch above
+      continuous.correlations=cor.matrix[smooth.smooth.interactions,
+                                         smooth.smooth.interactions,drop=FALSE]
 
       cont.combns=combine_uncorrelated(vars=smooth.smooth.interactions,
                           sizes=combination_sizes(smooth.smooth.interactions,max.predictors),

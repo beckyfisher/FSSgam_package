@@ -601,3 +601,106 @@ test_that("a character factor.factor.interactions reports a fully screened pair"
 
   expect_false(any(grepl(".I.", colnames(model.set$used.data), fixed = TRUE)))
 })
+
+# ---- a supplied cor.matrix governs every stage ------------------------------
+
+test_that("a supplied cor.matrix decides which te() terms are built", {
+  # FSSgam_package#13. resolve_smooth_smooth_interactions() computed its own
+  # correlations from use.dat and ignored cor.matrix entirely, so a user who
+  # supplied a matrix saying two predictors were uncorrelated still found their
+  # te() term absent.
+  fit <- fixture_cs1_gaussian()
+  cont <- c("depth", "complexity", "SCORE2")
+
+  # depth and complexity correlate at about 0.33 in the data, above the default
+  # cov.cutoff, so their te() term is excluded when the data decide
+  from.data <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = cont, pred.vars.fact = "ZONE",
+    smooth.smooth.interactions = TRUE, max.predictors = 2
+  )
+  expect_false("depth.te.complexity" %in% names(from.data$mod.formula))
+
+  vars <- c(cont, "ZONE")
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+  from.matrix <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = cont, pred.vars.fact = "ZONE",
+    smooth.smooth.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  expect_true("depth.te.complexity" %in% names(from.matrix$mod.formula))
+})
+
+test_that("a supplied cor.matrix decides which factor interaction columns are built", {
+  # The third stage that screens on correlation. ZONE.copy is a relabelling of
+  # ZONE, so the data say they are perfectly correlated and no interaction is
+  # built; a supplied matrix saying otherwise now governs, and must then also
+  # carry the interaction column it causes to exist.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  expect_warning(
+    from.data <- fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+      factor.factor.interactions = TRUE, max.predictors = 2
+    ),
+    "exceeded cov.cutoff"
+  )
+  expect_false("ZONE.I.ZONE.copy" %in% colnames(from.data$used.data))
+
+  vars <- c("depth", facts, "ZONE.I.ZONE.copy")
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+  from.matrix <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  expect_true("ZONE.I.ZONE.copy" %in% colnames(from.matrix$used.data))
+  expect_true("ZONE.I.ZONE.copy" %in% names(from.matrix$mod.formula))
+})
+
+test_that("a supplied cor.matrix missing a factor is reported by name", {
+  fit <- fixture_cs1_gaussian()
+  cm <- matrix(c(1, 0, 0, 1), 2, 2,
+               dimnames = list(c("depth", "complexity"), c("depth", "complexity")))
+
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = c("depth", "complexity"),
+      pred.vars.fact = c("ZONE", "ZONE"), factor.factor.interactions = TRUE,
+      max.predictors = 2, cor.matrix = cm
+    ),
+    "missing required predictors"
+  )
+})
+
+test_that("supplying no cor.matrix leaves te() selection unchanged", {
+  # The reorder subsets the resolved matrix instead of computing a fresh one
+  # over the continuous predictors alone. The two agree, which is the thing
+  # that makes the reorder safe for everyone not supplying a matrix.
+  fit <- fixture_cs1_gaussian()
+  cont <- c("depth", "complexity", "SCORE2")
+
+  for (nlc in c(FALSE, TRUE)) {
+    model.set <- suppress_nnet_nans(fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = cont, pred.vars.fact = "ZONE",
+      smooth.smooth.interactions = TRUE, non.linear.correlations = nlc,
+      max.predictors = 2
+    ))
+    te.terms <- grep(".te.", names(model.set$mod.formula), fixed = TRUE, value = TRUE)
+    # computed directly from the continuous predictors, the way the function
+    # used to do it
+    cc <- if (nlc) {
+      check_non_linear_correlations(fit$use.dat[, cont])
+    } else {
+      check_correlations(fit$use.dat[, cont])
+    }
+    expected <- combn(cont, 2, simplify = FALSE)
+    expected <- expected[vapply(expected, function(x) {
+      m <- cc[x, x]
+      max(abs(m[upper.tri(m)])) <= 0.28 && max(abs(m[lower.tri(m)])) <= 0.28
+    }, logical(1))]
+    expected <- vapply(expected, paste, character(1), collapse = ".te.")
+    expect_setequal(te.terms, expected)
+  }
+})
