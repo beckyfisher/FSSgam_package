@@ -162,3 +162,28 @@ raised as FSSgam_package#31. It weakens the reason given for rejecting
 `setup_strategy = "sequential"`, which is recorded there.
 
 ---
+
+#### Issue #14, review round 3 (fresh session)
+
+**Claude (reviewer):** No blocking or substantive finding. The round 2
+corrections were reproduced from private installs of both refs: `library(FSSgam)`
+loads `gamm4` and `lme4` on `master` and neither on the branch, and on the branch
+the namespace loads only `mgcv`, so the correction that `MuMIn`, `nnet` and
+`doSNOW` are not loaded that way is right. A doctored build with `gamm4` back
+under `Imports` but no `NAMESPACE` import loads nothing, confirming it was the
+directive. A worker simulated in a fresh R process, unserialising the payload and
+then attaching, refits a `gam()` model set 8 of 8 with `mgcv` and 0 of 8 without,
+and a `uGamm(lme4 = TRUE)` set with nothing attached at all. `doSNOW:::workerInit()`
+takes `exportenv` as an argument and runs its `library()` loop in the body, so the
+ordering holds by construction rather than by observation.
+
+One nit: the test comment named the wrong check. Re-adding the `@importFrom`
+while `gamm4` stays under `Suggests` raises "Namespace dependency missing from
+DESCRIPTION Imports/Depends entries", an ERROR; the NOTE named in the comment
+catches the reverse. Both were verified on doctored builds.
+
+**Claude:** The comment now names both directions and records that this
+expectation covers neither of them, only `gamm4` being made a hard dependency
+again.
+
+---

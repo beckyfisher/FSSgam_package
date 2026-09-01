@@ -238,9 +238,12 @@ test_that("gamm4 is not a hard dependency of this package", {
   # The invariant that makes the above effective. An @importFrom directive makes
   # the FSSgam namespace load gamm4 wherever it is loaded, workers included, so
   # leaving gamm4 out of the .packages vector achieves nothing on its own. The
-  # directive and the DESCRIPTION entry had to go together: an Imports entry
-  # with no NAMESPACE import raises "All declared Imports should be used", which
-  # is what covers the other half of this invariant.
+  # directive and the DESCRIPTION entry had to go together, and R CMD check
+  # covers each direction separately: an Imports entry with no NAMESPACE import
+  # raises the "All declared Imports should be used" NOTE, and a NAMESPACE
+  # import with no DESCRIPTION entry raises "Namespace dependency missing from
+  # DESCRIPTION Imports/Depends entries", which is an ERROR. This expectation
+  # covers neither; it covers gamm4 being made a hard dependency again.
   desc <- utils::packageDescription("FSSgam")
   hard <- paste(desc$Depends, desc$Imports, desc$LinkingTo)
   expect_false(grepl("gamm4", hard, fixed = TRUE))
