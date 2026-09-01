@@ -1,6 +1,6 @@
 Package: FSSgam
 Title: Full Subsets Multiple Regression in R Using GAMs
-Version: 1.0.0
+Version: 1.1.0
 Authors@R:
     person("Rebecca", "Fisher",
            email = "r.fisher@aims.gov.au",
@@ -11,17 +11,17 @@ Description:
     are being considered. This package provides functions that can be used to construct,
     fit, and compare a complete model set of possible ecological or environmental
     predictors for a given response variable of interest. Models are based on
-    Generalized Additive Models (GAMs) and build on the MuMIn package. Advantages include
+    Generalized Additive Models (GAMs) and build on the 'MuMIn' package. Advantages include
     the capacity to fit more predictors than there are replicates, automatic removal of
     models with correlated predictors, and support for model sets that include
     interactions between factors and smooth predictors, as well as smooth-by-smooth
-    interactions via te().
+    interactions via te(). Methods are described in
+    Fisher et al. (2018) <doi:10.1002/ece3.4134>.
 Depends:
     R (>= 3.5)
 License: Apache License (== 2.0)
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.3.2
 Imports:
     doSNOW,
     foreach,
@@ -38,3 +38,4 @@ Suggests:
     covr,
     testthat (>= 3.1.5)
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

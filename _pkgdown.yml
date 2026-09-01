@@ -55,7 +55,6 @@ reference:
   - wi
   - extract_mod_dat
   - build_inclusion_mat
-  - fit_mod_l
 
 - title: Deprecated aliases
   desc: >

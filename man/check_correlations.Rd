@@ -23,10 +23,10 @@ a correlation matrix
 generates a correlation matrix among all columns of a data.frame
 }
 \details{
-The function uses cor to calcualte the Pearson correlation coefficient
+The function uses cor to calculate the Pearson correlation coefficient
 among continuous variables, lm to approximate the correlation coefficient
 among a continuous variable and a factor variable through the call lm(continuous~factor),
-and nnet to apporoximate the correlation among factor variables using a multnomial
+and nnet to approximate the correlation among factor variables using a multinomial
 model fit.
 }
 \examples{

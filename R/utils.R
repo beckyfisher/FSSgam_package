@@ -35,6 +35,16 @@ classify_correlation_predictors=function(dat){
   return(list(fact.vars=fact.vars,cont.vars=cont.vars))
 }
 
+# Confirms progress is a single, non-missing TRUE/FALSE. Without this the
+# value reaches `if(progress)` inside the fitting helpers, where NA raises
+# "missing value where TRUE/FALSE needed" and a string raises "argument is not
+# interpretable as logical" -- neither of which names the argument at fault.
+validate_progress=function(progress){
+  if(!is.logical(progress) || length(progress)!=1 || is.na(progress)){
+    stop("progress must be a single TRUE or FALSE.")
+  }
+}
+
 # Resolves a fresh, independent family object to refit a candidate model
 # from test.fit, for use by fit_mod_l() (functions_supporting.R) and
 # fit_model_set()'s internal loops (fit-model-set.R). Re-evaluates the

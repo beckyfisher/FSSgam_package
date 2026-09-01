@@ -1,6 +1,8 @@
 ## Test environments
 
-* Local: Debian GNU/Linux (WSL2), R 4.5.2, via `devtools::check()`
+* Local: Debian GNU/Linux (WSL2), R 4.6.1, via `devtools::check()` and via
+  `R CMD check --as-cran` on the built tarball with `_R_CHECK_CRAN_INCOMING_=TRUE`
+  (remote incoming checks disabled, as they require network access)
 * GitHub Actions (`.github/workflows/R-CMD-check.yaml`): ubuntu-latest
   (release and devel), macos-latest (release), windows-latest (release)
 * R-hub was not used for this submission (not installed / not run).
@@ -24,7 +26,16 @@
   <https://github.com/beckyfisher/FSSgam>, which is cited in the package
   documentation (`@references`, `URL`).
 * All `@examples` are runnable (none are wrapped in `\donttest{}`); the
-  slowest, `full.subsets.gam()`, completes in well under 1 second.
+  slowest, `full_subsets_gam()`, completes in well under 1 second.
+* A small number of tests are skipped on CRAN. Those covering
+  `parallel = TRUE` start a real `doSNOW` cluster, and cluster dispatch has
+  been observed to stall indefinitely on at least one platform when `gamm4`
+  is loaded onto the workers. The stall is reproducible with a `foreach()`
+  loop containing no code from this package, so it is not a defect here, but
+  an unattended stall would consume the entire runtime of a check. Those
+  tests require an explicit opt-in environment variable and are run in a
+  dedicated workflow with its own timeout. The code paths they cover are
+  also exercised sequentially.
 
 ## Downstream dependencies
 

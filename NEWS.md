@@ -1,4 +1,4 @@
-# FSSgam (development version)
+# FSSgam 1.1.0
 
 * Completed the snake_case rename across the public API.
   `full.subsets.gam()` is now a deprecated wrapper around the new
@@ -69,9 +69,10 @@
   `.t.` term came from the list form of `factor.smooth.interactions` naming a
   linear predictor absent from `linear.vars`. The model table then reported two
   identical fits under different names.
-* Substantially expanded the `testthat` suite, from 105 passing expectations to
-  447, and from 71.33% to 94.27% line coverage (FSSgam_package#5). New coverage
-  includes: every non-default argument of `generate_model_set()`,
+* Substantially expanded the `testthat` suite, from 105 passing expectations at
+  1.0.0 to 568 at this release, and from 71.33% to 94.4% line coverage
+  (FSSgam_package#5 covered the first 447 of those; the rest accompany the fixes
+  below). New coverage includes: every non-default argument of `generate_model_set()`,
   `fit_model_set()` and `full_subsets_gam()`; the `save.model.fits = FALSE`
   fitting path; `gamm4`, `uGamm` and `gamm` test.fits; the `cyclic.vars`,
   `linear.vars` and `bs.arg` formula construction; the bundled datasets; every
@@ -80,6 +81,182 @@
 * Added a test-coverage GitHub Actions workflow
   (`.github/workflows/test-coverage.yaml`, using `covr` + Codecov) and a
   coverage badge to the README (FSSgam_package#3).
+
+* Bug fix: `fit_model_set()` (and `full_subsets_gam()`, which calls it)
+  failed on a model set with exactly one predictor, with `'x' must be an
+  array of at least two dimensions`. The variable importance calculation
+  indexed the model table by column name without `drop = FALSE`, so a single
+  predictor collapsed it to a vector before `colSums()`. `generate_model_set()`
+  was fixed for the single-predictor case earlier in this development cycle;
+  `fit_model_set()` was not.
+* Bug fix: with `VI.mods = 'min.n'`, a predictor present in no successfully
+  fitted model was given the weight of the single best model containing any
+  predictor, rather than none. The number of models to sum over is zero in
+  that case, and `1:0` counts backwards.
+* Bug fix: with `save.model.fits = FALSE` and `parallel = TRUE`, a single
+  candidate that could not be fitted aborted the whole run instead of being
+  recorded in `failed.models`. The `foreach()` on that path had its
+  `.errorhandling` disabled; the `save.model.fits = TRUE` path was unaffected.
+* Bug fix: an unrecognised `r2.type` was accepted silently and produced a
+  column of `NA` r2 values. `fit_model_set()` and `full_subsets_gam()` now
+  reject anything other than `"r2.lm.est"`, `"r2"` or `"dev"`. `extract_mod_dat()`
+  is unchanged, since it documents `r2.type.` as passed through.
+* Bug fix: an unrecognised `VI.mods` failed with `object 'aic.var.weights'
+  not found`. `fit_model_set()` and `full_subsets_gam()` now reject anything
+  other than `"min.n"` or `"all"`.
+* Bug fix: `full_subsets_gam()`'s deprecated `factor.interactions`,
+  `smooth.interactions` and `size` arguments raised an error on values they
+  are documented to accept. A character vector of length greater than one
+  gave `the condition has length > 1`, and `NA` gave `missing value where
+  TRUE/FALSE needed`. All three are now detected with `missing()`, which is
+  correct for every type, length and `NA`. As a result
+  `smooth.interactions = NA` now warns about the deprecation, which it did
+  not do reliably before.
+* Behaviour change: `full_subsets_gam()`'s `max.models` default changes from
+  500 to 200, matching `fit_model_set()`. The two disagreed and neither
+  documented its default, so a candidate set of between 201 and 500 models
+  saved its model fits through `full_subsets_gam()` but not through
+  `generate_model_set()` plus `fit_model_set()`. Anyone relying on the old
+  wrapper default for a set in that range will now receive the
+  "model fits will not be saved" warning and an empty `success.models`; pass
+  `max.models = 500` explicitly to keep the previous behaviour. The default
+  is now stated in the documentation of both functions.
+* `full_subsets_gam()` gains `VI.mods`, which it previously did not forward
+  to `fit_model_set()`, so `VI.mods = 'all'` was unreachable through the
+  wrapper (FSSgam_package#7).
+* `fit_model_set()` and `full_subsets_gam()` gain `progress`, defaulting to
+  `interactive()`. The progress bar was previously written to stdout
+  unconditionally, so suppressing it in a script or report required wrapping
+  the call in `capture.output()` (FSSgam_package#9).
+
+* `check_correlations()` and `check_non_linear_correlations()` no longer emit
+  spurious "NaNs produced" warnings when a factor-factor pair is perfectly
+  separated. The deviance is read directly off the `nnet::multinom()` fit
+  rather than from its `summary()`, which computes standard errors that were
+  discarded (FSSgam_package#10). Reported correlation values are unchanged.
+* `check_correlations()`'s factor-factor diagonal is now exactly 1. It was
+  previously a fitted multinomial pseudo-R2 of about 0.999999, because each
+  factor was regressed on itself (FSSgam_package#12). Off-diagonal values are
+  unchanged.
+
+* Bug fix: `max.predictors = 1` with `factor.factor.interactions` built
+  interaction columns it should not have. The enumeration was written as
+  `for (i in 2:n)`, and at `n = 1` that sequence counts backwards to
+  `c(2, 1)`, so a size-1 "combination" was enumerated as well. Its pasted name
+  is just the original variable name, so `used.data` gained a duplicate column
+  per factor, and four "no non-missing arguments to max; returning -Inf"
+  warnings were emitted. No interaction terms are now generated at
+  `max.predictors = 1`, with a warning that says so; on a two-factor set
+  `used.data` loses three spurious columns.
+* Bug fix: `factor.factor.interactions` given as a character vector failed with
+  `arguments imply differing number of rows` when every named combination
+  exceeded `cov.cutoff`. It now warns and continues, as the `TRUE` form always
+  did. The warning text for both forms now names `cov.cutoff` and its value,
+  replacing a message that referred to a non-existent `cor.cuttoff`.
+
+* Behaviour change: the collinearity screen that decides which interaction
+  terms are built now tests both halves of the correlation matrix in every
+  case. Three of the four places that perform it tested only the upper
+  triangle, so a pair could be admitted whose correlation exceeded
+  `cov.cutoff` in the other direction. The matrices are not symmetric:
+  `check_correlations()` estimates a factor-factor value by fitting
+  `multinom()` separately in each direction, and
+  `check_non_linear_correlations()` is asymmetric by construction. In
+  practice this affects only a pair whose two estimates straddle
+  `cov.cutoff`, which for factor pairs means a difference of under 0.001; a
+  model set containing such a pair will now exclude the interaction it
+  previously included.
+
+* `factor.factor.interactions` given as a character vector no longer skips
+  silently when every named pair exceeds `cov.cutoff`. An internal guard
+  counted cells of the correlation matrix rather than pairs, so no interaction
+  was built and nothing was reported; it now warns, as the `TRUE` form does.
+  The model set produced is unchanged.
+
+* Bug fix: a name in `cyclic.vars` was matched against the assembled model
+  terms with an unanchored `grep()`, so it captured every predictor whose name
+  contained it, and the name was used as a regular expression. Declaring
+  `depth` cyclic also fitted `depthx` with `bs = "cc"`, and a predictor name
+  containing a full stop matched any character in that position. The affected
+  models were fitted with the wrong smoothing basis, without error, under a
+  candidate name that looked correct. The basis is now chosen from the
+  variable names as each term is built.
+* Bug fix: a `te()` term over three or more predictors was given only two
+  `bs` values, because the code that assigned them took the first two
+  variables. mgcv warns "bs wrong length and ignored" and substitutes its own
+  default, so both `bs.arg` and any `cyclic.vars` were silently discarded for
+  that term. Each marginal now carries its own basis. Reachable through
+  `smooth.smooth.interactions` given as a character vector with
+  `max.predictors >= 3`.
+
+* Behaviour change: candidate model names are now sorted in byte order, via
+  `sort(method = "radix")`, and no longer depend on the session's collation
+  locale (FSSgam_package#8). A model named `complexity+ZONE` in an
+  `en_US.UTF-8` session was named `ZONE+complexity` in a C-locale one, so a
+  saved analysis was not reproducible across machines with different locales.
+  Names are now the C-locale form everywhere. The fitted results are
+  identical, but `modname` values and the row order of `mod.data.out` change
+  for anyone working in a non-C locale; a saved model table matched on
+  `modname` needs regenerating.
+
+* Behaviour change: a user-supplied `cor.matrix` now governs every stage that
+  screens on correlation, not only the exclusion of assembled candidate models
+  (FSSgam_package#13). There are three such stages: which factor-factor
+  interaction columns are built, which `te()` smooth-smooth interaction terms
+  are built, and which candidates survive. The first two previously recomputed
+  correlations from `use.dat` and ignored the supplied matrix, so a user who
+  supplied a matrix saying two predictors were uncorrelated still found their
+  `te()` term absent. Users who do not supply a `cor.matrix` see no change: the
+  continuous-continuous block does not depend on which other predictors are
+  present, verified against both `check_correlations()` and
+  `check_non_linear_correlations()`. A supplied matrix must now include any
+  hard coded factor interaction it causes to be created, which
+  `?generate_model_set` already required; missing predictors are reported by
+  name.
+
+* Bug fix: a user-supplied `cor.matrix` did not replace the automatic estimate,
+  it only overrode it. `check_correlations()` (or
+  `check_non_linear_correlations()`) was called over every predictor and its
+  result discarded whenever a matrix was supplied, so supplying one neither
+  avoided the `multinom()` and `gam()` fits nor allowed a predictor of a class
+  those functions reject -- a `Date` column, say -- to be used at all. The
+  estimate is now computed only when no matrix is supplied (FSSgam_package#13).
+* Bug fix: with `save.model.fits = FALSE`, a run in which no candidate fitted
+  returned a model table of `NA` with `delta.AICc` and `wi.AICc` filled with
+  `NaN`, rather than the "None of your models fitted successfully" error raised
+  on the `save.model.fits = TRUE` path. Which of the two happened depended only
+  on a memory setting. Both paths now raise the error.
+* `fit_model_set()` and `full_subsets_gam()` reject a `progress` value that is
+  not a single `TRUE` or `FALSE`, and `full_subsets_gam()` now validates
+  `VI.mods` at entry as it already did `r2.type`, so an unrecognised value is
+  reported before the candidate set is built rather than after.
+* `smooth.smooth.interactions` naming a column of `use.dat` that is not among
+  the predictors is now reported as such. It was previously screened against an
+  empty sub-matrix of the correlation matrix, so `combine_uncorrelated()` took
+  `max()` of nothing, warned "no non-missing arguments to max", and built the
+  `te()` term regardless of its correlations. The error message names the
+  variable and the requirement (it previously said the variable was not supplied
+  in `use.dat`, which was not what was being checked).
+
+* `fit_mod_l()` is no longer exported. It is an internal helper documented as
+  not called directly, and its arguments changed as recently as the family
+  resolution fix. It remains available as `FSSgam:::fit_mod_l()`. `wi()`,
+  `extract_mod_dat()` and `build_inclusion_mat()` stay exported, being more
+  plausible to call directly.
+
+* Documentation corrections. Twenty-six spelling errors across the reference
+  pages, of which three affected meaning: the correlation values are the square
+  *root* of an R squared, not the "square-route"; `full_subsets_gam()`'s
+  description of what it sums referred to "the ?i values" where a character had
+  been lost from "the wi values"; and `check_non_linear_correlations()`'s note
+  told users to increase `cor.cutoff`, which is not an argument -- `cov.cutoff`
+  is. A non-breaking hyphen in the `case_study2` documentation is replaced with
+  an ASCII one.
+* The sixteen argument descriptions shared between `generate_model_set()` and
+  `full_subsets_gam()` were duplicated verbatim and had already drifted; they
+  are now inherited, so they cannot drift again. `full_subsets_gam()`'s
+  `null.terms` entry gains the sentence about fitting a correlation structure
+  that only `generate_model_set()` carried.
 
 # FSSgam 1.0.0
 

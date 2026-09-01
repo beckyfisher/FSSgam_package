@@ -22,10 +22,10 @@
 #' @param n.cores a numeric value indicating the number of cores to utilise if
 #' parallel is TRUE.
 #'
-#' @details The function uses cor to calcualte the Pearson correlation coefficient
+#' @details The function uses cor to calculate the Pearson correlation coefficient
 #' among continuous variables, lm to approximate the correlation coefficient
 #' among a continuous variable and a factor variable through the call lm(continuous~factor),
-#' and nnet to apporoximate the correlation among factor variables using a multnomial
+#' and nnet to approximate the correlation among factor variables using a multinomial
 #' model fit.
 #' @export
 #' @return a correlation matrix
@@ -85,7 +85,7 @@ build_factor_continuous_skeleton=function(dat,fact.vars,cont.vars,cor.mat){
                       cbind(fact.cont.lower.left,fact.fact.lower.right))
 
     # assign the estimated r values to the upper right and lower left corners
-    for(r in 1:nrow(r.estimates)){
+    for(r in seq_len(nrow(r.estimates))){
        # upper right
        col.index=which(colnames(out.cor.mat)==r.estimates$fact.var[r])
        row.index=which(rownames(out.cor.mat)==r.estimates$cont.var[r])
@@ -106,16 +106,42 @@ build_factor_continuous_skeleton=function(dat,fact.vars,cont.vars,cor.mat){
 # sequential) and fills them into out.cor.mat.
 fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.cores){
   # estimate r values for fact-fact combinations
+  #
+  # Self-pairs are dropped here and the diagonal set to 1 at the end. Fitting
+  # var ~ var gave a pseudo-R2 of about 0.999999 rather than exactly 1
+  # (FSSgam_package#12), at the cost of one multinom() fit per factor for a
+  # value that is known in advance.
   lm.grid=expand.grid(list(fact.var1=fact.vars,fact.var2=fact.vars))
+  lm.grid=lm.grid[as.character(lm.grid$fact.var1)!=as.character(lm.grid$fact.var2),,drop=FALSE]
+
+  # The null model depends only on fact.var1 and was already fitted on the
+  # whole dat column rather than on the pair's complete cases, so refitting it
+  # inside the loop recomputed the same value n-1 times per factor. Fitted once
+  # per factor here instead. Values are unchanged, which was checked rather
+  # than assumed.
+  #
+  # The asymmetry it exposes is pre-existing and deliberately left alone: the
+  # null deviance comes from the whole column while `fit` below comes from
+  # na.omit() of the pair, so for a factor carrying NAs the two are computed on
+  # different row sets. Changing that would change reported correlations.
+  # generate_model_set() rejects predictors containing NA, so it is reachable
+  # only through a direct call to check_correlations().
+  null.deviances=lapply(fact.vars,function(v){
+    try(nnet::multinom(dat[,v] ~ 1,trace=FALSE)$deviance,silent=TRUE)})
+  names(null.deviances)=fact.vars
   if(parallel==TRUE){
    cl=parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
-   out.cor.dat<-foreach::foreach(r = 1:nrow(lm.grid),.packages=c('nnet'),.errorhandling='pass')%dopar%{
+   out.cor.dat<-foreach::foreach(r = seq_len(nrow(lm.grid)),.packages=c('nnet'),.errorhandling='pass')%dopar%{
     var.1=as.character(lm.grid[r,1])
     var.2=as.character(lm.grid[r,2])
     dat.r=stats::na.omit(dat[,c(var.1,var.2)])
-    fit <- try(summary(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE))$deviance,silent=TRUE)
-    null.fit=try(summary(nnet::multinom(dat[,var.1] ~ 1,trace=FALSE))$deviance,silent=TRUE)
+    # $deviance is taken from the fit itself rather than from summary(): the
+    # summary method computes standard errors that are discarded here, and
+    # sqrt()s a negative variance on a perfectly separated fit, which is where
+    # the spurious "NaNs produced" warnings came from (FSSgam_package#10).
+    fit <- try(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE)$deviance,silent=TRUE)
+    null.fit=null.deviances[[var.1]]
     if(!inherits(fit,"try-error")){
        if(round(fit,4)==round(null.fit,4)){r.est=0}else{
       r.est=sqrt(1-(fit/null.fit))}
@@ -124,12 +150,13 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
    foreach::registerDoSEQ()
    }else{
     out.cor.dat=list()
-    for(r in 1:nrow(lm.grid)){
+    for(r in seq_len(nrow(lm.grid))){
           var.1=as.character(lm.grid[r,1])
           var.2=as.character(lm.grid[r,2])
           dat.r=stats::na.omit(dat[,c(var.1,var.2)])
-          fit <- try(summary(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE))$deviance,silent=TRUE)
-          null.fit=try(summary(nnet::multinom(dat[,var.1] ~ 1,trace=FALSE))$deviance,silent=TRUE)
+          # see the matching comment in the parallel branch above
+          fit <- try(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE)$deviance,silent=TRUE)
+          null.fit=null.deviances[[var.1]]
           out=NA
           if(!inherits(fit,"try-error")){
            if(round(fit,4)==round(null.fit,4)){r.est=0}else{
@@ -138,9 +165,13 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
       out.cor.dat=c(out.cor.dat,list(out))}
       }
 
-    for(r in 1:length(out.cor.dat)){
+    for(r in seq_along(out.cor.dat)){
        out.cor.mat[which(colnames(out.cor.mat)==out.cor.dat[[r]][1]),
                    which(rownames(out.cor.mat)==out.cor.dat[[r]][2])]=
                    as.numeric(out.cor.dat[[r]][3])}
+
+  # Only the factor block's diagonal: the continuous block comes from cor(),
+  # which already returns exactly 1 there.
+  out.cor.mat[cbind(fact.vars,fact.vars)]=1
   return(out.cor.mat)
 }

@@ -21,15 +21,17 @@ full_subsets_gam(
   k = 5,
   bs.arg = "'cr'",
   null.terms = "",
-  max.models = 500,
+  max.models = 200,
   save.model.fits = TRUE,
   parallel = FALSE,
   n.cores = 4,
   r2.type = "r2.lm.est",
   report.unique.r2 = FALSE,
-  factor.interactions = "previous.arg",
-  smooth.interactions = "previous.arg",
-  size = "previous.arg"
+  VI.mods = "min.n",
+  progress = interactive(),
+  factor.interactions,
+  smooth.interactions,
+  size
 )
 }
 \arguments{
@@ -37,14 +39,18 @@ full_subsets_gam(
 
 \item{test.fit}{A gam model fitted via a call to gam (mgcv) or uGamm (MuMIn). This can use any of the (preferably continuous) predictors in the call and will be used as a model to update in the fitting of the model set.
 The test fit must contain the appropriate random effects and call to family (if not gaussian) and if gamm4 should be used, or gamm in the case of a uGamm call (see ?uGamm).
-Both gamm from mgcv and gamm4 have slightly different features, as well as advantages and disadvantages, thus it is important that the full subsets function is able to deal with test.fit models based on either package. For example gamm4 is based on the lme4 package [Bates, D.M. (2010) lme4: Mixed-Effects Modeling with R. Springer, New York] which allows crossed random effects and avoids issues with PQL for non-gaussian model fits. On the other hand gamm (mgcv) is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day], variance structures [Pinheiro, J.C. and Bates., D.M. (1996) "Unconstrained Parametrizations for Variance-Covariance Matrices", Statistics and Computing, 6, 289-296], and a broader range of families that are not yet available in lmer (see ?family.mgcv).
+Both gamm from mgcv and gamm4 have slightly different features, as well as advantages and disadvantages, thus it is important that the full subsets function is able to deal with test.fit models based on either package.
+For example gamm4 is based on the lme4 package [Bates, D.M. (2010) lme4: Mixed-Effects Modeling with R. Springer, New York] which allows crossed random effects and avoids issues with PQL for non-gaussian model fits.
+On the other hand gamm (mgcv) is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day],
+variance structures [Pinheiro, J.C. and Bates., D.M. (1996) "Unconstrained Parametrizations for Variance-Covariance Matrices", Statistics and Computing, 6, 289-296],
+and a broader range of families that are not yet available in lmer (see ?family.mgcv).
 Models that have no random effects and are based only on gam (mgcv) are best fit via a direct call to gam, rather than using the uGamm wrapper.}
 
 \item{pred.vars.cont}{A character vector indicating the continuous predictors to use. By default all continuous predictors will be fitted using a smoother (but see argument linear.vars). These must match column names in use.dat exactly. If NA is used the function can be run without any smooth predictors.}
 
 \item{pred.vars.fact}{A character vector indicating the factor predictors to use. These must match column names in use.dat exactly. If NA is used the function can be run without any factor predictors.}
 
-\item{cyclic.vars}{NA if there are no cyclic predictors, or if there are cyclic predictors,a character vector containing the names of any of the continuous predictors that should be modelled as cyclic variables. Note that these must also be contained in the pred.vars.cont charactervector. Please also note there are issues with bs='cc' and model selection as this uses by default shrinkage. With shrinkage, variables are retained in models but with zero edf, which makes interpretation of AICc and BIC confusing. To account for this always select only the most parsimonious model (that with the fewest parameters), not just that with the lowest AICc. Reported estimated degrees of freedom (edf) in the model output table represent the sum of the edf of the smooth terms plus the number of parametric coefficients. When cyclic variables are included and shrinkage is used, any estimated edf of the smooth terms that are less than 1 are reset to 1 before summing to ensure the the total number of predictors in the model is captured properly.}
+\item{cyclic.vars}{NA if there are no cyclic predictors, or if there are cyclic predictors, a character vector containing the names of any of the continuous predictors that should be modelled as cyclic variables. Note that these must also be contained in the pred.vars.cont character vector. Please also note there are issues with bs='cc' and model selection as this uses by default shrinkage. With shrinkage, variables are retained in models but with zero edf, which makes interpretation of AICc and BIC confusing. To account for this always select only the most parsimonious model (that with the fewest parameters), not just that with the lowest AICc. Reported estimated degrees of freedom (edf) in the model output table represent the sum of the edf of the smooth terms plus the number of parametric coefficients. When cyclic variables are included and shrinkage is used, any estimated edf of the smooth terms that are less than 1 are reset to 1 before summing to ensure the the total number of predictors in the model is captured properly.}
 
 \item{linear.vars}{NA if there are no continuous predictors to be treated as linear (not fitted as smooths). Only use this where variables are clearly continuous in nature, but you are confident a linear relationship is valid. It may also be useful for continuous predictors that are not well distributed along the x-axis (ie, sampling was conducted in clumped distances from a feature of interest). Where this is necessary, transformations should be considered where they can be used to theoretically linearize response relationships. Does not need to be contained in vector pred.vars.cont}
 
@@ -57,9 +63,9 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 
 \item{cov.cutoff}{A numeric value between 0 and 1 indicating the correlation cutoff value to use for excluding collinear models, based on the cor.matrix (see below). The default value is 0.28 (see Graham MH (2003). It is highly recommended to keep this value low, as correlation among predictors can yield spurious results. Note that predictors with a correlation greater than the specified value will still appear in the model set but will never appear in the same model. Including highly correlated predictors can make interpreting variable importance values difficult.}
 
-\item{cor.matrix}{By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square-route of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square-route of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.}
+\item{cor.matrix}{A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor, including any hard coded factor interactions that setting factor.factor.interactions causes to be created; missing names are reported by name. When supplied it replaces the automatic estimate rather than overriding it, so check_correlations is not called at all and a predictor of a class it does not accept can be used. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square root of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square root of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.}
 
-\item{non.linear.correlations}{Set this argument to TRUE of you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.}
+\item{non.linear.correlations}{Set this argument to TRUE if you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.}
 
 \item{max.predictors}{An integer indicating the maximum number of predictors to include in any one model.}
 
@@ -67,11 +73,17 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 
 \item{bs.arg}{Specification of the smoother to use, see ?s for more information on smoother provided in gam (mgcv). Note that all continuous predictors specified in pred.vars.cont will be fitted using the same smooth, unless they are also specified as linear.terms or cyclic.vars. Note that any specification of bs in test.fit is discarded.}
 
-\item{null.terms}{A character vector indicating the form of any re smooths to be included in gam [e.g. s(site,bs=re)] or any other fixed terms or smooths that the user wants to include in the null model. Use of bs=re is an alternative way of fitting simple random structures that avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used. see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.}
+\item{null.terms}{A character vector indicating the form of any re smooths to be included in gam
+[e.g. s(site,bs=re)] or any other fixed terms or smooths that the user wants to include in
+the null model. Use of bs=re is an alternative way of fitting simple random structures that
+avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used.
+see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.
+to fit a correlation structure only (but no random effects) this must be achieved through a call the gamm
+via , with no random effects, fitted}
 
-\item{max.models}{The total number of models allowed to be fit and still save the model fits. If the candidate set is bigger than this value, a warning will be returned indicating that model fits will not be saved.}
+\item{max.models}{The total number of models allowed to be fit and still save the model fits. Defaults to 200. If the candidate set is bigger than this value, a warning will be returned indicating that model fits will not be saved.}
 
-\item{save.model.fits}{Are the model fits to be saved in the output list? If TRUE this will be overriten if the model candidate set is bigger than max.models. If FALSE only model output data are saved.}
+\item{save.model.fits}{Are the model fits to be saved in the output list? If TRUE this will be overwritten if the model candidate set is bigger than max.models. If FALSE only model output data are saved.}
 
 \item{parallel}{A logical value indicating if parallel processing should be used. The default is FALSE.}
 
@@ -80,6 +92,10 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 \item{r2.type}{The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note gamm4 does not currently return a deviance.}
 
 \item{report.unique.r2}{The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.}
+
+\item{VI.mods}{The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.}
+
+\item{progress}{Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.}
 
 \item{factor.interactions}{Deprecated. Superseded by factor.factor.interactions; retained only so older code does not break, and will warn if used.}
 
@@ -104,13 +120,13 @@ failed.models - A list containing the try-error catch associated with models tha
 success.models - A complete list of all successfully fitted models. This can be used for multimodel inference and creating model averaged predictions.
 
 variable.importance - A list containing importance scores for each included predictor.
-To determine the relative importance of each predictor across the whole model set we summed the ?i values for all models containing each variable. The higher the combined weights for an explanatory parameter, the more important it is in the analysis (Burnham & Anderson, 2002). An assumption of the use of summed model weights to infer variable importance is that the number of models in which the different predictors are present is uniform. As our function removes models with correlated predictors, this is not always the case. To overcome this issue, the summed variable.importance scores are the summed weights for the best n models, where n is equal to the minimum number of models any one predictor is present in.
+To determine the relative importance of each predictor across the whole model set we summed the wi values for all models containing each variable. The higher the combined weights for an explanatory parameter, the more important it is in the analysis (Burnham & Anderson, 2002). An assumption of the use of summed model weights to infer variable importance is that the number of models in which the different predictors are present is uniform. As our function removes models with correlated predictors, this is not always the case. To overcome this issue, the summed variable.importance scores are the summed weights for the best n models, where n is equal to the minimum number of models any one predictor is present in.
 }
 \description{
 Conducts a full subsets analysis based on gam(m4). In the most recent version of FSSgam this function is now a wrapper
 for the two input functions, generate_model_set and fit_model_set. Input arguments are the same as these two underlying functions.
-calling these underlying functions explicitly is the recommended method for running a fulls subsets analysis with the
-FSSgam pacakge because this enables the user to interrogate the candidate model set and the predictor correlation
+calling these underlying functions explicitly is the recommended method for running a full subsets analysis with the
+FSSgam package because this enables the user to interrogate the candidate model set and the predictor correlation
 matrix before actually running the analysis.
 }
 \details{

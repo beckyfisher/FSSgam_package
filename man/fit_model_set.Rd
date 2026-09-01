@@ -12,13 +12,14 @@ fit_model_set(
   n.cores = 4,
   r2.type = "r2.lm.est",
   report.unique.r2 = FALSE,
-  VI.mods = "min.n"
+  VI.mods = "min.n",
+  progress = interactive()
 )
 }
 \arguments{
 \item{model.set.list}{A list as returned by generate_model_set()}
 
-\item{max.models}{The total number of models allowed to be fit and the model fits to be saved during fitting. If the candidate set is bigger than this value, a warning message will be returned.}
+\item{max.models}{The total number of models allowed to be fit and the model fits to be saved during fitting. Defaults to 200. If the candidate set is bigger than this value, a warning message will be returned.}
 
 \item{save.model.fits}{Should all successfully fitted models be saved to list success.models. Defaults to TRUE. Value is overwritten if the number of models n the set is bigger than max.models.}
 
@@ -31,6 +32,8 @@ fit_model_set(
 \item{report.unique.r2}{The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.}
 
 \item{VI.mods}{The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.}
+
+\item{progress}{Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.}
 }
 \value{
 A list of the following output files:

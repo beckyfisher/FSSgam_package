@@ -314,12 +314,24 @@ test_that("smooth.smooth.interactions errors when fewer than two predictors are 
   )
 })
 
-test_that("smooth.smooth.interactions errors when a named predictor is not in use.dat", {
+test_that("smooth.smooth.interactions errors when a named variable is not a predictor", {
   expect_error(
     fixture_cs1_model_set(
       smooth.smooth.interactions = c("depth", "not_a_column")
     ),
-    "Not all specified smooth.smooth.interactions are supplied in use.dat"
+    "not_a_column"
+  )
+
+  # A column that is in use.dat but not in pred.vars.cont has no row in the
+  # correlation matrix, so it cannot be screened. It used to be admitted --
+  # combine_uncorrelated() took max() of an empty sub-matrix, warned "no
+  # non-missing arguments to max" and returned -Inf, which is below any
+  # cov.cutoff -- and the te() term was built regardless of its correlations.
+  expect_error(
+    fixture_cs1_model_set(
+      smooth.smooth.interactions = c("depth", "SCORE2")
+    ),
+    "SCORE2.*are not predictors"
   )
 })
 
@@ -330,5 +342,35 @@ test_that("smooth.smooth.interactions errors when TRUE with fewer than two conti
       smooth.smooth.interactions = TRUE, max.predictors = 2
     ),
     "less than 2 continuous predictors"
+  )
+})
+
+# ---- candidate names are locale-independent ---------------------------------
+
+test_that("candidate model names do not depend on the collation locale", {
+  # FSSgam_package#8. Names are built by sorting term names, and sort() follows
+  # LC_COLLATE, so the same analysis produced "complexity+ZONE" in an
+  # en_US.UTF-8 session and "ZONE+complexity" in a C-locale one, with
+  # mod.data.out in a correspondingly different row order.
+  #
+  # testthat forces LC_COLLATE=C, so this has to set the locale itself to test
+  # anything at all: under C collation the old and new code agree.
+  old <- Sys.getlocale("LC_COLLATE")
+  on.exit(Sys.setlocale("LC_COLLATE", old), add = TRUE)
+  set.ok <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
+  skip_if(
+    !identical(Sys.getlocale("LC_COLLATE"), "en_US.UTF-8"),
+    "en_US.UTF-8 collation not available"
+  )
+  # guard against the locale silently not taking effect
+  expect_false(identical(sort(c("ZONE", "complexity")),
+                         sort(c("ZONE", "complexity"), method = "radix")))
+
+  model.set <- fixture_cs1_model_set()
+
+  expect_equal(
+    names(model.set$mod.formula),
+    c("null", "complexity", "depth", "ZONE", "ZONE+complexity", "ZONE+depth",
+      "ZONE+complexity.by.ZONE", "ZONE+depth.by.ZONE")
   )
 })

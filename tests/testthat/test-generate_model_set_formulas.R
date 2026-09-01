@@ -312,3 +312,97 @@ test_that("a gamm4 test.fit produces t2() rather than te() smooth-smooth interac
   expect_match(deparse_one(model.set$mod.formula[[te.name]]), "^~t2\\(")
   expect_false(grepl("te(", deparse_one(model.set$mod.formula[[te.name]]), fixed = TRUE))
 })
+
+# ---- cyclic.vars are matched by name, not by substring ----------------------
+
+test_that("a cyclic variable does not make a longer name cyclic too", {
+  # A1. The basis used to be applied by rewriting assembled term strings, with
+  # grep(cyclic.vars[r], term). That matches anywhere in the string, so
+  # declaring "depth" cyclic also rewrote the term built for "depthx".
+  use.dat <- fixture_cs1_data()
+  use.dat$depthx <- use.dat$SCORE2
+
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 4, bs = "cc") + s(site, bs = "re"),
+    data = use.dat
+  )
+  model.set <- generate_model_set(
+    use.dat = use.dat, test.fit = test.fit,
+    pred.vars.cont = c("depth", "depthx", "complexity"),
+    cyclic.vars = "depth", null.terms = "s(site,bs='re')",
+    max.predictors = 1, k = 4
+  )
+
+  f <- vapply(model.set$mod.formula, deparse_one, character(1))
+  expect_match(f[["depth"]], "s(depth, k = 4, bs = \"cc\")", fixed = TRUE)
+  expect_match(f[["depthx"]], "s(depthx, k = 4, bs = \"cr\")", fixed = TRUE)
+  expect_match(f[["complexity"]], "s(complexity, k = 4, bs = \"cr\")", fixed = TRUE)
+})
+
+test_that("a full stop in a predictor name is not treated as a wildcard", {
+  # The name was also used as a regular expression, so "." matched any
+  # character and "a.b" made "axb" cyclic.
+  use.dat <- fixture_cs1_data()
+  use.dat$a.b <- use.dat$depth
+  use.dat$axb <- use.dat$SCORE2
+
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(a.b, k = 4, bs = "cc") + s(site, bs = "re"),
+    data = use.dat
+  )
+  model.set <- generate_model_set(
+    use.dat = use.dat, test.fit = test.fit,
+    pred.vars.cont = c("a.b", "axb"), cyclic.vars = "a.b",
+    null.terms = "s(site,bs='re')", max.predictors = 1, k = 4
+  )
+
+  f <- vapply(model.set$mod.formula, deparse_one, character(1))
+  expect_match(f[["a.b"]], "bs = \"cc\"", fixed = TRUE)
+  expect_match(f[["axb"]], "bs = \"cr\"", fixed = TRUE)
+})
+
+test_that("a cyclic variable inside a te() pair gets its own basis", {
+  # The old code needed a second block to repair the te() terms the first had
+  # damaged. Both are gone; each marginal now carries its own basis.
+  use.dat <- fixture_cs3_data()
+  test.fit <- mgcv::gam(GSI ~ s(month, k = 4, bs = "cc"), data = use.dat)
+
+  model.set <- generate_model_set(
+    use.dat = use.dat, test.fit = test.fit,
+    pred.vars.cont = c("month", "lunar.date"), cyclic.vars = "month",
+    smooth.smooth.interactions = TRUE, null.terms = "",
+    max.predictors = 2, k = 4, cov.cutoff = 0.9
+  )
+
+  f <- vapply(model.set$mod.formula, deparse_one, character(1))
+  te.name <- grep(".te.", names(f), fixed = TRUE, value = TRUE)
+  expect_length(te.name, 1)
+  # month is cyclic and lunar.date is not, in that order
+  expect_match(f[[te.name]], "bs = c(\"cc\", \"cr\")", fixed = TRUE)
+})
+
+test_that("a three-way te() carries one basis per marginal", {
+  # The repair block took only the first two variables of a te() term, so a
+  # three-way te() was given two bs values. mgcv warns "bs wrong length and
+  # ignored" and silently substitutes its own default, discarding both bs.arg
+  # and any cyclic.vars for that term.
+  fit <- fixture_cs1_gaussian()
+  model.set <- generate_model_set(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = c("depth", "SCORE2", "complexity"),
+    smooth.smooth.interactions = c("depth", "SCORE2", "complexity"),
+    null.terms = "s(site,bs='re')", cov.cutoff = 0.4, max.predictors = 3, k = 3
+  )
+
+  f <- vapply(model.set$mod.formula, deparse_one, character(1))
+  three.way <- grep("depth.te.SCORE2.te.complexity", names(f), fixed = TRUE, value = TRUE)
+  expect_length(three.way, 1)
+  expect_match(f[[three.way]], "bs = c(\"cr\", \"cr\", \"cr\")", fixed = TRUE)
+
+  # and mgcv accepts it without the wrong-length warning
+  expect_no_warning(
+    mgcv::gam(stats::update(model.set$mod.formula[[three.way]],
+                            log.Herbivore.biomass ~ .),
+              data = model.set$used.data)
+  )
+})

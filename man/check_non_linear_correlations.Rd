@@ -21,14 +21,14 @@ The function uses gam to estimate a correlation coefficient
 among continuous variables (continuous~s(continuous), lm to approximate the correlation coefficient
 between a continuous variable (as response) and a factor variable (as a predictor)
 through the call lm(continuous~factor),
-and nnet to apporoximate the correlation for factor variables as responses using a multnomial
+and nnet to approximate the correlation for factor variables as responses using a multinomial
 model fit through a call to multinom(factor~factor) or (factor~continuous).
 }
 \note{
-The resulting "correlation" matrix is assymetric as the row variable
+The resulting "correlation" matrix is asymmetric as the row variable
 is used as the "response" and the column variable is used as the "predictor".
 The use of gam may be slightly oversensitive for continuous-continuous correlations
-and users may wish to increase cor.cutoff. Inspect individual replationships manually.
+and users may wish to increase cov.cutoff. Inspect individual relationships manually.
 Values are only approximate "correlations" and are in fact the sqrt of the
 R-square values reported for each of the fitted relationships. Note that the function
 assumes a gaussian distribution for continuous response variables. Substantial

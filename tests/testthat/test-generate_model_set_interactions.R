@@ -134,7 +134,7 @@ test_that("factor-factor interactions are excluded when the factors exceed cov.c
       pred.vars.fact = c("ZONE", "ZONE.copy"),
       factor.factor.interactions = TRUE
     ),
-    "no\\s+factors to interaction"
+    "exceeded cov.cutoff"
   )
 
   expect_false(any(grepl(".I.", names(model.set$mod.formula), fixed = TRUE)))
@@ -418,7 +418,7 @@ test_that("factor-factor interactions are screened in both triangles too", {
       pred.vars.fact = c("fine", "ZONE"), factor.factor.interactions = TRUE,
       cov.cutoff = 0.8, max.predictors = 2
     )),
-    "no\\s+factors to interaction"
+    "exceeded cov.cutoff"
   )
 
   # the only available pair is collinear, so no interaction column is built
@@ -459,4 +459,302 @@ test_that("smooth-smooth interactions are pairwise, whatever max.predictors allo
     max(lengths(strsplit(terms., ".te.", fixed = TRUE)))
   }, integer(1))
   expect_true(all(n.joined == 2))
+})
+
+test_that("max.predictors = 1 builds no interaction columns and warns why", {
+  # A3. The enumeration was written as for(i in 2:n), and at n = 1 that counts
+  # backwards to c(2, 1), so a size-1 "combination" was enumerated too. Its
+  # pasted name is just the original variable name, so cbind() appended a
+  # duplicate column, and taking max() of the empty off-diagonal of a 1x1
+  # sub-matrix warned "no non-missing arguments to max" once per variable.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  expect_warning(
+    model.set <- fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE", "ZONE2"),
+      factor.factor.interactions = TRUE, max.predictors = 1
+    ),
+    "max.predictors is 1"
+  )
+
+  expect_equal(anyDuplicated(colnames(model.set$used.data)), 0)
+  expect_false(any(grepl(".I.", colnames(model.set$used.data), fixed = TRUE)))
+  expect_false(any(grepl(".I.", names(model.set$mod.formula), fixed = TRUE)))
+  # the correlation matrix covers the three real predictors, not a duplicated set
+  expect_equal(dim(model.set$predictor.correlations), c(3, 3))
+})
+
+test_that("max.predictors = 1 emits no 'no non-missing arguments to max' warning", {
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  warnings.seen <- character(0)
+  withCallingHandlers(
+    model.set <- fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE", "ZONE2"),
+      factor.factor.interactions = TRUE, max.predictors = 1
+    ),
+    warning = function(w) {
+      warnings.seen <<- c(warnings.seen, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  expect_false(any(grepl("no non-missing arguments to max", warnings.seen)))
+})
+
+test_that("a character factor.factor.interactions warns when the screen leaves nothing", {
+  # The character branch used to reach cbind() with a zero-column data.frame and
+  # fail with "arguments imply differing number of rows", naming neither the
+  # argument nor the cutoff, where the logical branch warned. Both now warn.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  expect_warning(
+    model.set <- fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE", "ZONE2"),
+      factor.factor.interactions = c("ZONE", "ZONE2"), max.predictors = 1
+    ),
+    "max.predictors is 1"
+  )
+
+  expect_false(any(grepl(".I.", colnames(model.set$used.data), fixed = TRUE)))
+})
+
+test_that("both factor.factor.interactions forms screen both triangles alike", {
+  # The logical branch screened upper.tri and lower.tri; the character branch
+  # screened upper.tri alone, so it admitted a pair whose correlation exceeded
+  # the cutoff in the other direction. check_correlations() fits multinom()
+  # separately in each direction, so its factor block is not symmetric.
+  #
+  # ZONE3 and ZONE5 below measure about 0.5425 one way and 0.5434 the other, so
+  # cov.cutoff = 0.543 falls between them. The third factor is needed because
+  # the character branch is otherwise skipped by its own guard.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE3 <- factor(
+    ifelse(fit$use.dat$complexity > stats::median(fit$use.dat$complexity), "hi", "lo")
+  )
+  fit$use.dat$ZONE5 <- factor(
+    ifelse(fit$use.dat$rugosity > stats::median(fit$use.dat$rugosity), "r1", "r2")
+  )
+  facts <- c("ZONE", "ZONE3", "ZONE5")
+
+  # the asymmetry the test depends on is real, and the cutoff sits inside it
+  cm <- suppress_nnet_nans(check_correlations(fit$use.dat[, facts]))
+  expect_lt(cm["ZONE3", "ZONE5"], 0.543)
+  expect_gt(cm["ZONE5", "ZONE3"], 0.543)
+
+  args <- list(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    cov.cutoff = 0.543, max.predictors = 2
+  )
+  logical.set <- suppress_nnet_nans(do.call(
+    fixture_cs1_model_set, c(args, list(factor.factor.interactions = TRUE))
+  ))
+  character.set <- suppress_nnet_nans(do.call(
+    fixture_cs1_model_set, c(args, list(factor.factor.interactions = facts))
+  ))
+
+  # the straddling pair is rejected by both
+  expect_false("ZONE3.I.ZONE5" %in% colnames(logical.set$used.data))
+  expect_false("ZONE3.I.ZONE5" %in% colnames(character.set$used.data))
+  # the uncorrelated pairs are still built
+  expect_true("ZONE.I.ZONE3" %in% colnames(logical.set$used.data))
+  expect_true("ZONE.I.ZONE3" %in% colnames(character.set$used.data))
+  # and the two forms now agree entirely
+  expect_equal(names(character.set$mod.formula), names(logical.set$mod.formula))
+})
+
+test_that("a character factor.factor.interactions reports a fully screened pair", {
+  # An outer guard, length(which(factor.correlations < cov.cutoff)) > 1, used to
+  # skip the whole block in silence. It counted matrix cells rather than pairs,
+  # so two factors whose two off-diagonal estimates straddle cov.cutoff gave a
+  # count of 1: no interaction was built and nothing was said. The logical
+  # branch had no such guard.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE3 <- factor(
+    ifelse(fit$use.dat$complexity > stats::median(fit$use.dat$complexity), "hi", "lo")
+  )
+  fit$use.dat$ZONE5 <- factor(
+    ifelse(fit$use.dat$rugosity > stats::median(fit$use.dat$rugosity), "r1", "r2")
+  )
+
+  expect_warning(
+    model.set <- suppress_nnet_nans(fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE3", "ZONE5"),
+      factor.factor.interactions = c("ZONE3", "ZONE5"),
+      cov.cutoff = 0.543, max.predictors = 2
+    )),
+    "exceeded cov.cutoff"
+  )
+
+  expect_false(any(grepl(".I.", colnames(model.set$used.data), fixed = TRUE)))
+})
+
+# ---- a supplied cor.matrix governs every stage ------------------------------
+
+test_that("a supplied cor.matrix decides which te() terms are built", {
+  # FSSgam_package#13. resolve_smooth_smooth_interactions() computed its own
+  # correlations from use.dat and ignored cor.matrix entirely, so a user who
+  # supplied a matrix saying two predictors were uncorrelated still found their
+  # te() term absent.
+  fit <- fixture_cs1_gaussian()
+  cont <- c("depth", "complexity", "SCORE2")
+
+  # depth and complexity correlate at about 0.33 in the data, above the default
+  # cov.cutoff, so their te() term is excluded when the data decide
+  from.data <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = cont, pred.vars.fact = "ZONE",
+    smooth.smooth.interactions = TRUE, max.predictors = 2
+  )
+  expect_false("depth.te.complexity" %in% names(from.data$mod.formula))
+
+  vars <- c(cont, "ZONE")
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+  from.matrix <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = cont, pred.vars.fact = "ZONE",
+    smooth.smooth.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  expect_true("depth.te.complexity" %in% names(from.matrix$mod.formula))
+})
+
+test_that("a supplied cor.matrix decides which factor interaction columns are built", {
+  # The third stage that screens on correlation. ZONE.copy is a relabelling of
+  # ZONE, so the data say they are perfectly correlated and no interaction is
+  # built; a supplied matrix saying otherwise now governs, and must then also
+  # carry the interaction column it causes to exist.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  expect_warning(
+    from.data <- fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+      factor.factor.interactions = TRUE, max.predictors = 2
+    ),
+    "exceeded cov.cutoff"
+  )
+  expect_false("ZONE.I.ZONE.copy" %in% colnames(from.data$used.data))
+
+  vars <- c("depth", facts, "ZONE.I.ZONE.copy")
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+  from.matrix <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  expect_true("ZONE.I.ZONE.copy" %in% colnames(from.matrix$used.data))
+  expect_true("ZONE.I.ZONE.copy" %in% names(from.matrix$mod.formula))
+})
+
+test_that("a supplied cor.matrix missing a factor is reported by name", {
+  fit <- fixture_cs1_gaussian()
+  cm <- matrix(c(1, 0, 0, 1), 2, 2,
+               dimnames = list(c("depth", "complexity"), c("depth", "complexity")))
+
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = c("depth", "complexity"),
+      pred.vars.fact = c("ZONE", "ZONE"), factor.factor.interactions = TRUE,
+      max.predictors = 2, cor.matrix = cm
+    ),
+    "missing required predictors"
+  )
+})
+
+test_that("supplying no cor.matrix leaves te() selection unchanged", {
+  # The reorder subsets the resolved matrix instead of computing a fresh one
+  # over the continuous predictors alone. The two agree, which is the thing
+  # that makes the reorder safe for everyone not supplying a matrix.
+  fit <- fixture_cs1_gaussian()
+  cont <- c("depth", "complexity", "SCORE2")
+
+  for (nlc in c(FALSE, TRUE)) {
+    model.set <- suppress_nnet_nans(fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = cont, pred.vars.fact = "ZONE",
+      smooth.smooth.interactions = TRUE, non.linear.correlations = nlc,
+      max.predictors = 2
+    ))
+    te.terms <- grep(".te.", names(model.set$mod.formula), fixed = TRUE, value = TRUE)
+    # computed directly from the continuous predictors, the way the function
+    # used to do it
+    cc <- if (nlc) {
+      check_non_linear_correlations(fit$use.dat[, cont])
+    } else {
+      check_correlations(fit$use.dat[, cont])
+    }
+    expected <- combn(cont, 2, simplify = FALSE)
+    expected <- expected[vapply(expected, function(x) {
+      m <- cc[x, x]
+      max(abs(m[upper.tri(m)])) <= 0.28 && max(abs(m[lower.tri(m)])) <= 0.28
+    }, logical(1))]
+    expected <- vapply(expected, paste, character(1), collapse = ".te.")
+    expect_setequal(te.terms, expected)
+  }
+})
+
+test_that("a supplied cor.matrix replaces the automatic estimate rather than adding to it", {
+  # FSSgam_package#13. build_predictor_correlation_matrix() used to compute
+  # check_correlations() either way and discard it when a matrix was supplied,
+  # so supplying one did not avoid the multinom()/gam() fits and did not let a
+  # user past check_correlations()'s restriction on column classes.
+  fit <- fixture_cs1_gaussian()
+  preds <- c("complexity", "depth", "ZONE")
+  cm <- check_correlations(fit$use.dat[, preds])
+
+  calls <- 0
+  ns <- asNamespace("FSSgam")
+  real <- get("check_correlations", envir = ns)
+  # the binding is locked in an installed package and unlocked under pkgload,
+  # so its original state is recorded rather than assumed
+  was.locked <- bindingIsLocked("check_correlations", ns)
+  if (was.locked) unlockBinding("check_correlations", ns)
+  assign("check_correlations",
+         function(...) { calls <<- calls + 1; real(...) }, envir = ns)
+  on.exit({
+    assign("check_correlations", real, envir = ns)
+    if (was.locked) lockBinding("check_correlations", ns)
+  }, add = TRUE)
+
+  fixture_cs1_model_set(fit = fit, cor.matrix = cm)
+  expect_identical(calls, 0)
+
+  # and the same call with no matrix supplied does reach it, so the counter is
+  # measuring something
+  calls <- 0
+  fixture_cs1_model_set(fit = fit)
+  expect_gt(calls, 0)
+})
+
+test_that("a supplied cor.matrix covers a predictor check_correlations cannot classify", {
+  # a Date column is not one of the four classes classify_correlation_predictors()
+  # accepts, so the automatic estimate cannot be formed for it -- which is one
+  # reason to supply a matrix in the first place
+  fit <- fixture_cs1_gaussian()
+  use.dat <- fit$use.dat
+  use.dat$when <- as.Date("2020-01-01") + seq_len(nrow(use.dat))
+  preds <- c("depth", "when")
+  cm <- matrix(0, 2, 2, dimnames = list(preds, preds))
+  diag(cm) <- 1
+
+  model.set <- generate_model_set(
+    use.dat = use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = "depth", linear.vars = "when",
+    null.terms = "s(site,bs='re')", cor.matrix = cm, max.predictors = 2, k = 3
+  )
+
+  expect_true("depth+when" %in% names(model.set$mod.formula))
+  expect_identical(model.set$predictor.correlations, cm)
 })

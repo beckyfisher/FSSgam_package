@@ -22,14 +22,14 @@
 #' among continuous variables (continuous~s(continuous), lm to approximate the correlation coefficient
 #' between a continuous variable (as response) and a factor variable (as a predictor)
 #' through the call lm(continuous~factor),
-#' and nnet to apporoximate the correlation for factor variables as responses using a multnomial
+#' and nnet to approximate the correlation for factor variables as responses using a multinomial
 #' model fit through a call to multinom(factor~factor) or (factor~continuous).
 #' @export
 #' @return an approximate correlation matrix
-#' @note The resulting "correlation" matrix is assymetric as the row variable
+#' @note The resulting "correlation" matrix is asymmetric as the row variable
 #' is used as the "response" and the column variable is used as the "predictor".
 #' The use of gam may be slightly oversensitive for continuous-continuous correlations
-#' and users may wish to increase cor.cutoff. Inspect individual replationships manually.
+#' and users may wish to increase cov.cutoff. Inspect individual relationships manually.
 #' Values are only approximate "correlations" and are in fact the sqrt of the
 #' R-square values reported for each of the fitted relationships. Note that the function
 #' assumes a gaussian distribution for continuous response variables. Substantial
@@ -71,7 +71,7 @@ build_correlation_pair_grid=function(dat){
   test.mat=expand.grid(colnames(dat),colnames(dat))
   colnames(test.mat)=c("rows","cols")
   test.mat=test.mat[which(test.mat$rows!=test.mat$cols),]
-  rownames(test.mat)=1:nrow(test.mat)
+  rownames(test.mat)=seq_len(nrow(test.mat))
   return(test.mat)
 }
 
@@ -94,9 +94,12 @@ estimate_non_linear_correlation=function(response.var1,predictor.var2,dat,fact.v
 
     # if the response.var1 variable is a factor use a multinomial model
     if(class.response.var1=="factor"){
-      fit <- try(summary(nnet::multinom(response.var1 ~ predictor.var2,trace=FALSE,
-          data=dat.r))$deviance,silent=TRUE)
-      null.fit=try(summary(nnet::multinom(response.var1 ~ 1,trace=FALSE,data=dat.r))$deviance,silent=TRUE)
+      # $deviance straight off the fit rather than via summary(), which
+      # computes discarded standard errors and warns "NaNs produced" on a
+      # perfectly separated fit (FSSgam_package#10).
+      fit <- try(nnet::multinom(response.var1 ~ predictor.var2,trace=FALSE,
+          data=dat.r)$deviance,silent=TRUE)
+      null.fit=try(nnet::multinom(response.var1 ~ 1,trace=FALSE,data=dat.r)$deviance,silent=TRUE)
       if(!inherits(fit,"try-error")){
          if(round(fit,4)==round(null.fit,4)){r.est=0}else{
         r.est=sqrt(1-(fit/null.fit))}
@@ -131,7 +134,7 @@ assemble_non_linear_correlation_matrix=function(dat,test.mat){
   colnames(out.cor.mat)=colnames(dat)
   diag(out.cor.mat)=1
 
-  for(r in 1:nrow(test.mat)){
+  for(r in seq_len(nrow(test.mat))){
      out.cor.mat[test.mat$rows[r],test.mat$cols[r]]=test.mat$r.sq[r]
   }
 

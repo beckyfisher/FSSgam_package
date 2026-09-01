@@ -42,13 +42,10 @@ test_that("check_correlations estimates factor-factor correlations via multinom"
   # multinom() is fitted separately in each direction, so the two off-diagonal
   # entries agree only to the optimiser's convergence tolerance
   expect_equal(unname(cm["ZONE2", "ZONE"]), unname(cm["ZONE", "ZONE2"]), tolerance = 1e-3)
-  # The factor-factor diagonal is a fitted multinomial pseudo-R2 rather than a
-  # set constant, so it is 1 only to the optimiser's convergence tolerance.
-  # Asserting equality to 1 would pin nnet's optimiser, not this package. Raised
-  # as FSSgam_package#12; this assertion is deliberately loose enough to keep
-  # passing when that is fixed, so it records the behaviour rather than pinning
-  # it.
-  expect_true(all(diag(cm)[c("ZONE", "ZONE2")] > 0.99))
+  # FSSgam_package#12: the factor-factor diagonal used to be a fitted
+  # multinomial pseudo-R2 (about 0.999999) rather than a set constant. Self
+  # pairs are no longer fitted and the diagonal is assigned, so it is exact.
+  expect_identical(unname(diag(cm)[c("ZONE", "ZONE2")]), c(1, 1))
 })
 
 test_that("check_correlations handles factor predictors with no continuous predictors", {
@@ -60,7 +57,7 @@ test_that("check_correlations handles factor predictors with no continuous predi
 
   expect_equal(dim(cm), c(2, 2))
   expect_equal(rownames(cm), c("ZONE", "ZONE2"))
-  expect_true(all(diag(cm) > 0.99))
+  expect_identical(unname(diag(cm)), c(1, 1))
 })
 
 test_that("check_correlations estimates factor-continuous correlations via lm", {
@@ -77,7 +74,9 @@ test_that("check_correlations handles a single factor predictor", {
   cm <- check_correlations(dat[, "ZONE", drop = FALSE])
 
   expect_equal(dim(cm), c(1, 1))
-  expect_true(cm[1, 1] > 0.99)
+  # a single factor leaves no pair to fit at all, so this exercises the
+  # empty-grid path as well as the diagonal
+  expect_identical(unname(cm[1, 1]), 1)
 })
 
 test_that("check_correlations parallel = TRUE matches the sequential result", {
@@ -112,4 +111,46 @@ test_that("two exactly balanced factors are reported as uncorrelated", {
 
   expect_equal(unname(cm["respf", "predf"]), 0)
   expect_equal(unname(cm["predf", "respf"]), 0)
+})
+
+test_that("a perfectly separated factor pair is estimated without warning", {
+  # FSSgam_package#10. The factor-factor deviance is read straight off the
+  # multinom() fit rather than from summary(), which computes standard errors
+  # that are discarded here and sqrt()s a negative variance when the fit is
+  # perfectly separated.
+  #
+  # This does not fail against the unfixed code on nnet 7.3-20, which does not
+  # reach the state that warns; it did on the CI runners at the time the issue
+  # was raised. What is asserted here is that no warning is possible, and the
+  # values are unchanged.
+  use.dat <- fixture_cs1_data()
+  use.dat$ZONE2 <- factor(
+    ifelse(use.dat$SCORE2 > stats::median(use.dat$SCORE2), "high", "low")
+  )
+  # a pasted column is perfectly predicted by each of its components
+  use.dat$ZONE.I.ZONE2 <- factor(paste(use.dat$ZONE, use.dat$ZONE2, sep = "."))
+
+  expect_no_warning(
+    cm <- check_correlations(use.dat[, c("ZONE", "ZONE2", "ZONE.I.ZONE2")])
+  )
+  # the interaction column is perfectly collinear with both components
+  expect_gt(cm["ZONE", "ZONE.I.ZONE2"], 0.99)
+  expect_gt(cm["ZONE2", "ZONE.I.ZONE2"], 0.99)
+})
+
+test_that("the factor-factor diagonal is exactly one and no self pairs are fitted", {
+  # FSSgam_package#12. Fitting var ~ var gave a pseudo-R2 of about 0.999999,
+  # and cost one multinom() fit per factor for a value known in advance.
+  dat <- fixture_cs1_data()
+  dat$ZONE2 <- factor(
+    ifelse(dat$SCORE2 > stats::median(dat$SCORE2), "high", "low")
+  )
+  dat$ZONE3 <- factor(
+    ifelse(dat$complexity > stats::median(dat$complexity), "hi", "lo")
+  )
+
+  cm <- check_correlations(dat[, c("depth", "ZONE", "ZONE2", "ZONE3")])
+  expect_identical(unname(diag(cm)), rep(1, 4))
+  # the continuous block still comes from cor(), which is 1 on its diagonal
+  expect_identical(unname(cm["depth", "depth"]), 1)
 })

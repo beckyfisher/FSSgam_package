@@ -41,15 +41,15 @@
 #'
 #' @param  cov.cutoff A numeric value between 0 and 1 indicating the correlation cutoff value to use for excluding collinear models, based on the cor.matrix (see below). The default value is 0.28 (see Graham MH (2003). It is highly recommended to keep this value low, as correlation among predictors can yield spurious results. Note that predictors with a correlation greater than the specified value will still appear in the model set but will never appear in the same model. Including highly correlated predictors can make interpreting variable importance values difficult.
 #'
-#' @param cor.matrix  By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square-route of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square-route of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
+#' @param cor.matrix  A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor, including any hard coded factor interactions that setting factor.factor.interactions causes to be created; missing names are reported by name. When supplied it replaces the automatic estimate rather than overriding it, so check_correlations is not called at all and a predictor of a class it does not accept can be used. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square root of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square root of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
 #'
-#' @param non.linear.correlations Set this argument to TRUE of you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.
+#' @param non.linear.correlations Set this argument to TRUE if you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.
 #'
 #' @param k An integer indicating the dimension of the basis used to represent the smooth term (see ?s). The default value is 5. Higher values are not recommended unless a complex trend between the response variable and the continuous predictor variables is expected, and the data are sufficient to support this. k can be reduced to as low as 3 where there is trouble obtaining convergence, or sample size is low. Note that this must be set to override the default value, regardless of what k is used in the test.fit
 #'
 #' @param bs.arg Specification of the smoother to use, see ?s for more information on smoother provided in gam (mgcv). Note that all continuous predictors specified in pred.vars.cont will be fitted using the same smooth, unless they are also specified as linear.terms or cyclic.vars. Note that any specification of bs in test.fit is discarded.
 #'
-#' @param cyclic.vars NA if there are no cyclic predictors, or if there are cyclic predictors, a character vector containing the names of any of the continuous predictors that should be modelled as cyclic variables. Note that these must also be contained in the pred.vars.cont charactervector. Please also note there are issues with bs='cc' and model selection as this uses by default shrinkage. With shrinkage, variables are retained in models but with zero edf, which makes interpretation of AICc and BIC confusing. To account for this always select only the most parsimonious model (that with the fewest parameters), not just that with the lowest AICc. Reported estimated degrees of freedom (edf) in the model output table represent the sum of the edf of the smooth terms plus the number of parametric coefficients. When cyclic variables are included and shrinkage is used, any estimated edf of the smooth terms that are less than 1 are reset to 1 before summing to ensure the the total number of predictors in the model is captured properly.
+#' @param cyclic.vars NA if there are no cyclic predictors, or if there are cyclic predictors, a character vector containing the names of any of the continuous predictors that should be modelled as cyclic variables. Note that these must also be contained in the pred.vars.cont character vector. Please also note there are issues with bs='cc' and model selection as this uses by default shrinkage. With shrinkage, variables are retained in models but with zero edf, which makes interpretation of AICc and BIC confusing. To account for this always select only the most parsimonious model (that with the fewest parameters), not just that with the lowest AICc. Reported estimated degrees of freedom (edf) in the model output table represent the sum of the edf of the smooth terms plus the number of parametric coefficients. When cyclic variables are included and shrinkage is used, any estimated edf of the smooth terms that are less than 1 are reset to 1 before summing to ensure the the total number of predictors in the model is captured properly.
 #'
 #' @param linear.vars NA if there are no continuous predictors to be treated as linear (not fitted as smooths). Only use this where variables are clearly continuous in nature, but you are confident a linear relationship is valid. It may also be useful for continuous predictors that are not well distributed along the x-axis (ie, sampling was conducted in clumped distances from a feature of interest). Where this is necessary, transformations should be considered where they can be used to theoretically linearize response relationships. Does not need to be contained in vector pred.vars.cont
 #'
@@ -58,7 +58,7 @@
 #' the null model. Use of bs=re is an alternative way of fitting simple random structures that
 #' avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used.
 #' see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.
-#' to fit a correlation structure only (but no random effects) this must be acheived through a call the gamm
+#' to fit a correlation structure only (but no random effects) this must be achieved through a call the gamm
 #' via , with no random effects, fitted
 #'
 #' @details The function constructs a complete model set based on the supplied arguments.
@@ -130,24 +130,35 @@ generate_model_set=function(use.dat,
                           linear.vars=linear.vars,
                           all.predictors=all.predictors,
                           max.predictors=max.predictors,
-                          cov.cutoff=cov.cutoff)
+                          cov.cutoff=cov.cutoff,
+                          cor.matrix=cor.matrix)
   use.dat=factors.l$use.dat
   pred.vars.fact=factors.l$pred.vars.fact
   interaction.terms=factors.l$interaction.terms
   linear.interaction.terms=factors.l$linear.interaction.terms
 
-  smooth.smooth.interaction.terms=resolve_smooth_smooth_interactions(
-                          use.dat=use.dat,
-                          pred.vars.cont=pred.vars.cont,
-                          smooth.smooth.interactions=smooth.smooth.interactions,
-                          non.linear.correlations=non.linear.correlations,
-                          cov.cutoff=cov.cutoff,
-                          max.predictors=max.predictors)
-
+  # The correlation matrix is resolved before the te() terms are chosen, not
+  # after, so that one matrix governs every stage that screens on correlation
+  # (FSSgam_package#13). resolve_smooth_smooth_interactions() used to compute
+  # its own from use.dat and ignore a supplied cor.matrix entirely, so a user
+  # who supplied a matrix saying two predictors were uncorrelated still found
+  # their te() term absent.
+  #
+  # The reorder is safe because this needs all.predictors including the
+  # factor-interaction columns, which resolve_factor_interactions() has already
+  # created, and does not need the te() term names: those are split into their
+  # components before the matrix is indexed.
   all.predictors=stats::na.omit(unique(c(all.predictors,pred.vars.fact)))
   cor.matrix=build_predictor_correlation_matrix(use.dat=use.dat,
                           all.predictors=all.predictors,
                           non.linear.correlations=non.linear.correlations,
+                          cor.matrix=cor.matrix)
+
+  smooth.smooth.interaction.terms=resolve_smooth_smooth_interactions(
+                          pred.vars.cont=pred.vars.cont,
+                          smooth.smooth.interactions=smooth.smooth.interactions,
+                          cov.cutoff=cov.cutoff,
+                          max.predictors=max.predictors,
                           cor.matrix=cor.matrix)
 
   use.mods=enumerate_candidate_models(pred.vars.cont=pred.vars.cont,
@@ -186,7 +197,9 @@ generate_model_set=function(use.dat,
 
 # Confirms use.dat is a data.frame (not e.g. a tibble).
 validate_use_dat=function(use.dat){
-  if(class(use.dat)[1]!="data.frame"){
+  # identical() rather than inherits(): this rejects a tibble or a data.table
+  # deliberately, and inherits(x,"data.frame") accepts both.
+  if(!identical(class(use.dat),"data.frame")){
     stop("use.dat must be a data.frame, perhaps you have a tibble? FSSgam does not currently support tibbles.")
   }
 }
@@ -217,7 +230,7 @@ build_null_model=function(test.fit,use.dat,null.terms){
     # adding family=stats::family(test.fit) back in.
     null.fit=try(stats::update(test.fit,formula=null.formula,data=use.dat),silent=TRUE)}
 
-  if(class(null.fit)[1]=="try-error"){
+  if(inherits(null.fit,"try-error")){
         stop(paste("Null model not successfully fitted, please check your inputs.
                    If there are no random effects try using 'gam' instead of 'uGamm'
                    in your test.fit model call.",
@@ -231,7 +244,7 @@ build_null_model=function(test.fit,use.dat,null.terms){
 
 # Stops if any predictor column contains missing values.
 check_predictor_missingness=function(use.dat,all.predictors){
-  if(max(is.na(use.dat[,all.predictors]))==1){
+  if(anyNA(use.dat[,all.predictors])){
         stop("Predictor variables contain NA and AICc/BIC comparisons are invalid.
         Remove rows with NA from the input data or interpolate missing predictors.")}
 }
@@ -240,9 +253,170 @@ check_predictor_missingness=function(use.dat,all.predictors){
 # all factor predictors to class factor, and resolves the factor-smooth (.by.
 # / .t.) interaction term names. Returns list(use.dat=, pred.vars.fact=,
 # interaction.terms=, linear.interaction.terms=).
+# The combination sizes to enumerate: every size from 2 up to max.size, capped
+# at the number of variables available.
+#
+# The explicit empty case is the fix for a defect. This was written as
+# `for(i in 2:n)`, and at n = 1 that sequence counts backwards to c(2, 1), so a
+# size-1 "combination" was enumerated as well. Its pasted name is just the
+# original variable name, so cbind() appended a duplicate column, and taking
+# max() of the empty off-diagonal of a 1x1 sub-matrix warned "no non-missing
+# arguments to max; returning -Inf" once per variable.
+#
+# n is min(max.size, length(vars)), so 2:n can never exceed the number of
+# variables and needs no further filtering.
+combination_sizes=function(vars,max.size){
+  n=min(max.size,length(vars))
+  if(n<2){return(integer(0))}
+  2:n
+}
+
+# Every combination of `vars` at each size in `sizes`, dropping any whose
+# sub-matrix of `cor.matrix` exceeds `cov.cutoff` off the diagonal. Returns a
+# list of character vectors, possibly empty.
+#
+# Both triangles are screened, not just the upper one. The correlation
+# matrices this is given are not necessarily symmetric: check_correlations()
+# estimates a factor-factor value by fitting multinom() separately in each
+# direction, and check_non_linear_correlations() is asymmetric by construction,
+# its rows being responses and its columns predictors. Screening the upper
+# triangle alone therefore accepted a pair whose correlation exceeded the
+# cutoff in the other direction. Three of the four callers used to do exactly
+# that.
+#
+# The `if (max(...) > cov.cutoff) out <- NA` shape is kept rather than reduced
+# to a logical vector: max() of an all-NA sub-matrix returns NA, and `if (NA)`
+# raises an error, which is the existing behaviour. A vapply() over a logical
+# predicate would silently drop the combination instead.
+combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff){
+  combns=list()
+  for(i in sizes){
+    combns=c(combns,utils::combn(vars,i,simplify=FALSE))}
+  combns=lapply(combns,FUN=function(x){
+          row.index=which(match(rownames(cor.matrix),x)>0)
+          col.index=which(match(colnames(cor.matrix),x)>0)
+          cor.mat.m=cor.matrix[row.index,col.index]
+          out=x
+          if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
+          if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){out=NA}
+          return(out)})
+  combns[which(is.na(combns))]=NULL
+  combns
+}
+
+# Pastes each surviving combination of factors into a new column named a.I.b
+# and appends them to use.dat. Returns the extended data and the new names.
+#
+# Nothing is appended when there are no combinations. Reaching cbind() with a
+# zero-column data.frame raises "arguments imply differing number of rows",
+# which is what the character factor.factor.interactions branch used to do; the
+# logical branch guarded against it. Warning about an empty result is left to
+# the callers, which are the only place that can tell the two reasons for it
+# apart.
+build_factor_interaction_columns=function(use.dat,fact.combns){
+  factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
+
+  if(length(fact.combns)>0){
+    tt=data.frame(lapply(fact.combns,FUN=function(x){
+               do.call("paste",as.list(use.dat[,x]))}))
+    colnames(tt)=factor.interaction.terms
+    use.dat=cbind(use.dat,tt)}
+
+  list(use.dat=use.dat,factor.interaction.terms=factor.interaction.terms)
+}
+
+# The warning for a collinearity screen that left nothing. Shared so the two
+# factor.factor.interactions branches cannot drift apart again: the character
+# branch used to be silent here.
+warn_no_factor_interactions=function(cov.cutoff){
+  warning(paste0("No factor-factor interaction terms were generated: every
+                combination of the specified factors exceeded cov.cutoff (",
+                cov.cutoff,")."))
+}
+
+# Normalises factor.smooth.interactions to one triple of variable sets.
+#
+# The character form names only the factors, and the continuous and linear
+# predictors are taken from pred.vars.cont and linear.vars. The list form names
+# all three itself, and is validated against all.predictors first -- a check
+# the character form does not make, because pred.vars.fact has already been
+# validated by the time it is reached.
+normalise_factor_smooth_interactions=function(factor.smooth.interactions,
+                          pred.vars.cont,linear.vars,all.predictors){
+  if(inherits(factor.smooth.interactions,"list")){
+    check.list=match(stats::na.omit(
+    unlist(factor.smooth.interactions)),all.predictors)
+
+    if(length(which(is.na(check.list)))>0){
+            stop(paste("Variable(s)",
+                       unlist(factor.smooth.interactions)[which(is.na(check.list))] ,
+                       "included in the factor.smooth.interactions list do(es)
+                       not appear in either pred.vars.fact, pred.vars.cont or linear.vars.
+                       Please ensure all predictors are specified as one of these three types"))}
+
+    return(list(fact.vars=factor.smooth.interactions$fact.vars,
+                cont.vars=factor.smooth.interactions$cont.vars,
+                linear.vars=factor.smooth.interactions$linear.vars))
+  }
+  list(fact.vars=factor.smooth.interactions,
+       cont.vars=pred.vars.cont,
+       linear.vars=linear.vars)
+}
+
+# Builds the ".by." and ".t." interaction term names from that triple.
+#
+# The requested factors are first expanded to include any hard-coded ".I."
+# interaction column built from them, so naming a factor also brings in the
+# interactions it participates in.
+build_factor_smooth_terms=function(spec,pred.vars.fact){
+  interaction.terms=NA
+  linear.interaction.terms=NA
+
+  # a hard coded ".I." interaction is included when every factor it was built
+  # from was named
+  fact.vars=pred.vars.fact[!vapply(strsplit(pred.vars.fact,split=".I.",fixed=TRUE),
+     function(x){anyNA(match(x,spec$fact.vars))},logical(1))]
+
+  if(length(stats::na.omit(fact.vars))>0){
+   # pred.vars.cont=NA is a documented way to run without smooth predictors.
+   # Without this guard expand.grid() pairs the NA itself with each factor,
+   # producing a phantom "NA.by.<factor>" term. At max.predictors=1 that term
+   # is discarded again before the model set is returned, and the only symptom
+   # is enumerate_candidate_models() taking max() of an empty correlation
+   # sub-matrix and warning; from max.predictors=2 it survives into the
+   # candidate set as a model whose formula smooths the literal NA.
+   if(length(stats::na.omit(spec$cont.vars))>0){
+    all.interactions=expand.grid(spec$cont.vars,fact.vars)
+    interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}
+
+   # now interactions between linear continous predictors and factors
+   if(length(stats::na.omit(spec$linear.vars))>0){
+    linear.interactions=expand.grid(spec$linear.vars,fact.vars)
+    linear.interaction.terms=paste(linear.interactions$Var1,linear.interactions$Var2,
+                               sep=".t.")}
+   }
+
+  list(interaction.terms=interaction.terms,
+       linear.interaction.terms=linear.interaction.terms)
+}
+
+# cor.matrix here is the raw user-supplied matrix, or NA, not the resolved one.
+# The resolved matrix is built over all.predictors, which includes the
+# interaction columns this function creates, so it cannot exist yet
+# (FSSgam_package#13).
 resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.interactions,
                           factor.smooth.interactions,pred.vars.cont,linear.vars,
-                          all.predictors,max.predictors,cov.cutoff){
+                          all.predictors,max.predictors,cov.cutoff,cor.matrix){
+  factor_correlations=function(vars){
+    if(length(cor.matrix)==1){
+      check_correlations(use.dat[,vars])
+    }else{
+      missing.vars=vars[which(is.na(match(vars,rownames(cor.matrix))))]
+      if(length(missing.vars)>0){
+        stop(paste("Supplied cor.matrix is missing required predictors: ",
+             paste(missing.vars,collapse=", "),".",sep=""))}
+      cor.matrix[vars,vars,drop=FALSE]}
+  }
   interaction.terms=NA
   linear.interaction.terms=NA
 
@@ -255,140 +429,78 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
      if(factor.factor.interactions==TRUE){
         if(length(pred.vars.fact)<2){
             stop("You have less than 2 factors. Please reset 'factor.factor.interactions' to 'False'")}
-      factor.correlations=check_correlations(use.dat[,pred.vars.fact])
-      fact.combns=list()
-      fact.cmbns.max.predictors=max.predictors
-      if(max.predictors>length(pred.vars.fact)){fact.cmbns.max.predictors=length(pred.vars.fact)}
-      for(i in 2:fact.cmbns.max.predictors){
-        if(i<=length(pred.vars.fact)){
-        fact.combns=c(fact.combns,
-         utils::combn(pred.vars.fact,i,simplify=FALSE)) }}
-        # check which were correlated
-        fact.combns=lapply(fact.combns,FUN=function(x){
-                row.index=which(match(rownames(factor.correlations),x)>0)
-                col.index=which(match(colnames(factor.correlations),x)>0)
-                cor.mat.m=factor.correlations[row.index,col.index]
-                out=x
-                if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-                if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-                return(out)})
-        fact.combns[which(is.na(fact.combns))]=NULL
-        tt=data.frame(lapply(fact.combns,FUN=function(x){
-                   do.call("paste",as.list(use.dat[,x]))}))
-        factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
-        colnames(tt)=factor.interaction.terms
-      if(ncol(tt)>0){
-        use.dat=cbind(use.dat,tt)
-      }else{
-        warning("You have set factor.factor.interactions to 'TRUE' but there are no
-                factors to interaction at your specified cor.cuttoff value.")}
-
-      pred.vars.fact=c(pred.vars.fact,factor.interaction.terms)
+      factor.correlations=factor_correlations(pred.vars.fact)
+      # Two different reasons for building nothing, which need different
+      # messages: max.predictors leaves no room for an interaction of two or
+      # more factors, or combinations were enumerated and every one exceeded
+      # cov.cutoff. warn.when.empty covers the second; the first is reported
+      # here, because only this point knows max.predictors.
+      fact.sizes=combination_sizes(pred.vars.fact,max.predictors)
+      if(length(fact.sizes)==0){
+        warning(paste0("factor.factor.interactions is TRUE but max.predictors is ",
+                max.predictors,", so no interaction of two or more factors can be
+                included. No factor-factor interaction terms were generated."))}
+      fact.combns=combine_uncorrelated(vars=pred.vars.fact,
+                          sizes=fact.sizes,
+                          cor.matrix=factor.correlations,cov.cutoff=cov.cutoff)
+      if(length(fact.sizes)>0 & length(fact.combns)==0){
+        warn_no_factor_interactions(cov.cutoff)}
+      cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns)
+      use.dat=cols.l$use.dat
+      pred.vars.fact=c(pred.vars.fact,cols.l$factor.interaction.terms)
       }
     }
     # make only specified interactions between factors
     if(inherits(factor.factor.interactions,"character")){
         if(length(factor.factor.interactions)<2){
             stop("You specified less than 2 factors as factor.factor.interactions.")}
-        if(max(is.na(match(factor.factor.interactions,colnames(use.dat))))==1){
+        if(anyNA(match(factor.factor.interactions,colnames(use.dat)))){
             stop("Not all specified factor.factor.interactions are supplied in use.dat")}
-      factor.correlations=check_correlations(use.dat[,factor.factor.interactions])
-      if(length(which(factor.correlations<cov.cutoff))>1){
-        fact.combns=list()
-        fact.cmbns.max.predictors=max.predictors
-        if(max.predictors>length(factor.factor.interactions)){fact.cmbns.max.predictors=length(factor.factor.interactions)}
-        for(i in 2:fact.cmbns.max.predictors){
-          if(i<=length(factor.factor.interactions)){
-          fact.combns=c(fact.combns,
-           utils::combn(factor.factor.interactions,i,simplify=FALSE)) }}
-          # check which were correlated
-          fact.combns=lapply(fact.combns,FUN=function(x){
-                  row.index=which(match(rownames(factor.correlations),x)>0)
-                  col.index=which(match(colnames(factor.correlations),x)>0)
-                  cor.mat.m=factor.correlations[row.index,col.index]
-                  out=x
-                  if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-                  return(out)})
-          fact.combns[which(is.na(fact.combns))]=NULL
-          tt=data.frame(lapply(fact.combns,FUN=function(x){
-                     do.call("paste",as.list(use.dat[,x]))}))
-          factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
-          colnames(tt)=factor.interaction.terms
-
-        use.dat=cbind(use.dat,tt)
-        pred.vars.fact=c(pred.vars.fact,factor.interaction.terms)
-      }
+      factor.correlations=factor_correlations(factor.factor.interactions)
+      # An outer guard here, if(length(which(factor.correlations<cov.cutoff))>1),
+      # used to skip this whole block in silence. It counted cells of the
+      # correlation matrix below the cutoff rather than pairs, so two factors
+      # whose two off-diagonal estimates straddle cov.cutoff gave a count of 1
+      # and no interaction was built and nothing was reported. The logical
+      # branch had no such guard. Removed: combine_uncorrelated() already
+      # rejects a combination that exceeds the cutoff, and an empty result is
+      # now warned about below.
+      fact.sizes=combination_sizes(factor.factor.interactions,max.predictors)
+      if(length(fact.sizes)==0){
+        warning(paste0("max.predictors is ",max.predictors,", so no interaction of
+                two or more of the specified factors can be included. No
+                factor-factor interaction terms were generated."))}
+      fact.combns=combine_uncorrelated(vars=factor.factor.interactions,
+                          sizes=fact.sizes,
+                          cor.matrix=factor.correlations,cov.cutoff=cov.cutoff)
+      if(length(fact.sizes)>0 & length(fact.combns)==0){
+        warn_no_factor_interactions(cov.cutoff)}
+      cols.l=build_factor_interaction_columns(use.dat=use.dat,fact.combns=fact.combns)
+      use.dat=cols.l$use.dat
+      pred.vars.fact=c(pred.vars.fact,cols.l$factor.interaction.terms)
     }
    }
    # make sure the factors are factors
-   for(f in 1:length(pred.vars.fact)){
+   for(f in seq_along(pred.vars.fact)){
        use.dat[,pred.vars.fact[f]]=factor(use.dat[,pred.vars.fact[f]])}
 
 
    # check which factors should be included as interactions with the smoothers
-   # for if only factors are specified (including default)
-   if(inherits(factor.smooth.interactions,"character")){
-
-     factor.smooth.interactions=pred.vars.fact[which(unlist(lapply(strsplit(pred.vars.fact,
-        split=".I."),function(x){
-        max(is.na(match(x,factor.smooth.interactions)))}))==0)]
-     # make the interaction terms between the factors and continuous predictors
-
-     if(length(stats::na.omit(factor.smooth.interactions))>0){
-      # pred.vars.cont=NA is a documented way to run without smooth predictors.
-      # Without this guard expand.grid() pairs the NA itself with each factor,
-      # producing a phantom "NA.by.<factor>" term. At max.predictors=1 that term
-      # is discarded again before the model set is returned, and the only symptom
-      # is enumerate_candidate_models() taking max() of an empty correlation
-      # sub-matrix and warning; from max.predictors=2 it survives into the
-      # candidate set as a model whose formula smooths the literal NA.
-      if(length(stats::na.omit(pred.vars.cont))>0){
-       all.interactions=expand.grid(pred.vars.cont,factor.smooth.interactions)
-       interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}
-
-      # now interactions between linear continous predictors and factors
-      if(length(stats::na.omit(linear.vars))>0){
-       linear.interactions=expand.grid(linear.vars,factor.smooth.interactions)
-       linear.interaction.terms=paste(linear.interactions$Var1,linear.interactions$Var2,
-                                  sep=".t.")}
-      }
-    }
-   if(inherits(factor.smooth.interactions,"list")){
-
-     check.list=match(stats::na.omit(
-     unlist(factor.smooth.interactions)),all.predictors)
-
-
-     if(length(which(is.na(check.list)))>0){
-             stop(paste("Variable(s)",
-                        unlist(factor.smooth.interactions)[which(is.na(check.list))] ,
-                        "included in the factor.smooth.interactions list do(es)
-                        not appear in either pred.vars.fact, pred.vars.cont or linear.vars.
-                        Pleasure ensure all predictors are specified as one of these three types"))}
-
-     cont.var.interactions=factor.smooth.interactions$cont.vars
-     linear.var.interactions=factor.smooth.interactions$linear.vars
-     factor.smooth.interactions=factor.smooth.interactions$fact.vars
-
-     factor.smooth.interactions=pred.vars.fact[which(unlist(lapply(strsplit(pred.vars.fact,
-        split=".I."),function(x){
-        max(is.na(match(x,factor.smooth.interactions)))}))==0)]
-     # make the interaction terms between the factors and continuous predictors
-
-     if(length(stats::na.omit(factor.smooth.interactions))>0){
-      # see the matching guard, and its reasoning, in the character branch above
-      if(length(stats::na.omit(cont.var.interactions))>0){
-       all.interactions=expand.grid(cont.var.interactions,factor.smooth.interactions)
-       interaction.terms=paste(all.interactions$Var1,all.interactions$Var2,sep=".by.")}
-
-      # now interactions between linear continous predictors and factors
-      if(length(stats::na.omit(linear.var.interactions))>0){
-       linear.interactions=expand.grid(linear.var.interactions,factor.smooth.interactions)
-       linear.interaction.terms=paste(linear.interactions$Var1,linear.interactions$Var2,
-                                  sep=".t.")}
-      }
-
-        }
+   #
+   # The character and list forms differ only in where the three variable sets
+   # come from, so they are normalised to one triple and then handled once.
+   # factor.smooth.interactions=NA is neither, and correctly falls through with
+   # interaction.terms left at NA.
+   if(inherits(factor.smooth.interactions,"character")|
+      inherits(factor.smooth.interactions,"list")){
+     spec=normalise_factor_smooth_interactions(
+                          factor.smooth.interactions=factor.smooth.interactions,
+                          pred.vars.cont=pred.vars.cont,linear.vars=linear.vars,
+                          all.predictors=all.predictors)
+     smooth.terms.l=build_factor_smooth_terms(spec=spec,pred.vars.fact=pred.vars.fact)
+     interaction.terms=smooth.terms.l$interaction.terms
+     linear.interaction.terms=smooth.terms.l$linear.interaction.terms
+   }
 
    }
 
@@ -401,71 +513,63 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
 # Builds the names of the te() smooth-smooth interaction terms to consider,
 # excluding any continuous-predictor pairs that exceed cov.cutoff. Returns a
 # character vector (or NA if smooth.smooth.interactions is not requested).
-resolve_smooth_smooth_interactions=function(use.dat,pred.vars.cont,smooth.smooth.interactions,
-                          non.linear.correlations,cov.cutoff,max.predictors){
+resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interactions,
+                          cov.cutoff,max.predictors,cor.matrix){
    smooth.smooth.interaction.terms=NA
-    # for interactions amonst all continuous predictors
+    # for interactions amongst all continuous predictors
     if(inherits(smooth.smooth.interactions,"logical")){
       if(smooth.smooth.interactions==TRUE){
         if(length(pred.vars.cont)<2){
             stop("You have less than 2 continuous predictors you wish interactions for.
             Please reset 'smooth.smooth.interactions' to 'False'")}
-       if(non.linear.correlations==TRUE){
-        continuous.correlations=check_non_linear_correlations(use.dat[,pred.vars.cont])}else{
-        continuous.correlations=check_correlations(use.dat[,pred.vars.cont])}
+       # Subset of the matrix the caller resolved, rather than a fresh one
+       # computed from use.dat. When no cor.matrix was supplied the two agree:
+       # the continuous-continuous block does not depend on which other
+       # predictors are present, checked against both check_correlations() and
+       # check_non_linear_correlations() with a maximum absolute difference of
+       # 0. When one was supplied, it now governs here too
+       # (FSSgam_package#13).
+       continuous.correlations=cor.matrix[pred.vars.cont,pred.vars.cont,drop=FALSE]
 
-      cont.combns=list()
-      cont.cmbns.max.predictors=2#max.predictors
-      #if(max.predictors>length(pred.vars.cont)){cont.cmbns.max.predictors=length(pred.vars.cont)}
-      for(i in 2:cont.cmbns.max.predictors){
-        if(i<=length(pred.vars.cont)){
-        cont.combns=c(cont.combns,
-         utils::combn(pred.vars.cont,i,simplify=FALSE)) }}
-        # check which were correlated
-        cont.combns=lapply(cont.combns,FUN=function(x){
-                row.index=which(match(rownames(continuous.correlations),x)>0)
-                col.index=which(match(colnames(continuous.correlations),x)>0)
-                cor.mat.m=continuous.correlations[row.index,col.index]
-                out=x
-                if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-                return(out)})
-        cont.combns[which(is.na(cont.combns))]=NULL
-        tt=data.frame(lapply(cont.combns,FUN=function(x){
-                   do.call("paste",as.list(use.dat[,x]))}))
-        smooth.smooth.interaction.terms=unlist(lapply(cont.combns,FUN=paste,collapse=".te."))
-        colnames(tt)=smooth.smooth.interaction.terms
+      # The size is fixed at 2 here while the character branch below goes up to
+      # max.predictors. That difference is intentional, not an unfinished edit:
+      # smooth.smooth.interactions = TRUE builds bivariate te() terms, and a
+      # character vector builds terms of every size from 2 to max.predictors,
+      # so te(a, b, c) is reachable only through the character form. The
+      # documentation states both forms separately.
+      #
+      # combination_sizes(pred.vars.cont, 2) is 2 exactly, because the guard
+      # above has already rejected fewer than two continuous predictors.
+      cont.combns=combine_uncorrelated(vars=pred.vars.cont,
+                          sizes=combination_sizes(pred.vars.cont,2),
+                          cor.matrix=continuous.correlations,cov.cutoff=cov.cutoff)
+      smooth.smooth.interaction.terms=unlist(lapply(cont.combns,FUN=paste,collapse=".te."))
      }
     }
-    # for only specific interactions amonst continuous predictors
+    # for only specific interactions amongst continuous predictors
     if(inherits(smooth.smooth.interactions,"character")){
         if(length(smooth.smooth.interactions)<2){
             stop("You specified less than 2 variables as smooth.smooth.interactions.")}
-        if(max(is.na(match(smooth.smooth.interactions,colnames(use.dat))))==1){
-            stop("Not all specified smooth.smooth.interactions are supplied in use.dat")}
-      if(non.linear.correlations==TRUE){
-       continuous.correlations=check_non_linear_correlations(use.dat[,smooth.smooth.interactions])}else{
-       continuous.correlations=check_correlations(use.dat[,smooth.smooth.interactions])}
+        # Checked against the resolved correlation matrix, which is built over
+        # the predictors, not against colnames(use.dat) as it used to be. A
+        # column of use.dat that is not a predictor has no row in the matrix,
+        # so it cannot be screened; it previously reached combine_uncorrelated()
+        # with an empty sub-matrix and was admitted on a max() of nothing. The
+        # message names the real requirement rather than repeating the old one.
+        missing.cont=smooth.smooth.interactions[
+                          which(is.na(match(smooth.smooth.interactions,rownames(cor.matrix))))]
+        if(length(missing.cont)>0){
+            stop(paste("Variable(s) ",paste(missing.cont,collapse=", "),
+                 " named in smooth.smooth.interactions are not predictors. Each must",
+                 " appear in pred.vars.cont (or linear.vars).",sep=""))}
+      # see the matching comment in the logical branch above
+      continuous.correlations=cor.matrix[smooth.smooth.interactions,
+                                         smooth.smooth.interactions,drop=FALSE]
 
-      cont.combns=list()
-      cont.cmbns.max.predictors=max.predictors
-      if(max.predictors>length(smooth.smooth.interactions)){cont.cmbns.max.predictors=length(smooth.smooth.interactions)}
-      for(i in 2:cont.cmbns.max.predictors){
-        if(i<=length(smooth.smooth.interactions)){
-        cont.combns=c(cont.combns,
-         utils::combn(smooth.smooth.interactions,i,simplify=FALSE)) }}
-        # check which were correlated
-        cont.combns=lapply(cont.combns,FUN=function(x){
-                row.index=which(match(rownames(continuous.correlations),x)>0)
-                col.index=which(match(colnames(continuous.correlations),x)>0)
-                cor.mat.m=continuous.correlations[row.index,col.index]
-                out=x
-                if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-                return(out)})
-        cont.combns[which(is.na(cont.combns))]=NULL
-        tt=data.frame(lapply(cont.combns,FUN=function(x){
-                   do.call("paste",as.list(use.dat[,x]))}))
-        smooth.smooth.interaction.terms=unlist(lapply(cont.combns,FUN=paste,collapse=".te."))
-        colnames(tt)=smooth.smooth.interaction.terms
+      cont.combns=combine_uncorrelated(vars=smooth.smooth.interactions,
+                          sizes=combination_sizes(smooth.smooth.interactions,max.predictors),
+                          cor.matrix=continuous.correlations,cov.cutoff=cov.cutoff)
+      smooth.smooth.interaction.terms=unlist(lapply(cont.combns,FUN=paste,collapse=".te."))
     }
 
   return(smooth.smooth.interaction.terms)
@@ -475,19 +579,28 @@ resolve_smooth_smooth_interactions=function(use.dat,pred.vars.cont,smooth.smooth
 # model exclusion: either computed from use.dat, or validated if the caller
 # supplied their own cor.matrix.
 build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.correlations,cor.matrix){
-  # drop=FALSE matters: with a single predictor use.dat[,all.predictors] would
-  # otherwise collapse to a bare vector, and both check_* functions require a
-  # data.frame (they classify columns via sapply(dat,class) and compare against
-  # ncol(dat)). Without it, any model set with exactly one predictor failed
-  # with an unrelated "argument is of length zero" error.
-  if(non.linear.correlations==TRUE){
-   cc=check_non_linear_correlations(use.dat[,all.predictors,drop=FALSE])}else{
-   cc=check_correlations(use.dat[,all.predictors,drop=FALSE])}
   if(length(cor.matrix)==1){
-   cor.matrix=cc
-   # replace NA's with zero.
-   cor.matrix[which(cor.matrix=="NaN")]=0
-   cor.matrix[which(is.na(cor.matrix)==TRUE)]=0}else{
+   # Computed only when the caller supplied nothing. It used to be computed
+   # either way and then discarded in the else branch below, which meant a
+   # supplied cor.matrix did not actually replace the automatic estimate: the
+   # multinom() and gam() fits still ran, and a predictor of a class
+   # check_correlations() rejects (a Date, say) still aborted the call even
+   # though its correlations had been supplied. Nothing else in the function
+   # reads it (FSSgam_package#13).
+   #
+   # drop=FALSE matters: with a single predictor use.dat[,all.predictors] would
+   # otherwise collapse to a bare vector, and both check_* functions require a
+   # data.frame (they classify columns via sapply(dat,class) and compare against
+   # ncol(dat)). Without it, any model set with exactly one predictor failed
+   # with an unrelated "argument is of length zero" error.
+   if(non.linear.correlations==TRUE){
+    cor.matrix=check_non_linear_correlations(use.dat[,all.predictors,drop=FALSE])}else{
+    cor.matrix=check_correlations(use.dat[,all.predictors,drop=FALSE])}
+   # Replace NA and NaN with zero. is.na() is TRUE for NaN as well, so this is
+   # one pass rather than two; the NaN pass was written as
+   # which(cor.matrix == "NaN"), which coerces the matrix to character and
+   # happens to work.
+   cor.matrix[is.na(cor.matrix)]=0}else{
       # check if the user defined matrix has the same rownames and colnames
       check.predictors=c(match(all.predictors,colnames(cor.matrix)),
                          match(all.predictors,rownames(cor.matrix)))
@@ -525,7 +638,7 @@ enumerate_candidate_models=function(pred.vars.cont,pred.vars.fact,linear.vars,
 
   # remove redundant models
   use.mods=all.mods
-  for(m in 1:length(all.mods)){
+  for(m in seq_along(all.mods)){
     mod.m=all.mods[[m]]
     mod.terms=unlist(strsplit(unlist(strsplit(unlist(strsplit(mod.m,
                                split=".by.",fixed=TRUE)),
@@ -543,7 +656,7 @@ enumerate_candidate_models=function(pred.vars.cont,pred.vars.fact,linear.vars,
     # if there are factor vars
     if(length(fact.vars)>0){
       # check that any "by" factor vars are accompanied by a + term in its owns right
-      if(max(is.na(match(fact.vars,mod.m)))==1){use.mods[[m]]=NA}}
+      if(anyNA(match(fact.vars,mod.m))){use.mods[[m]]=NA}}
 
     # remove the model if the predictors are correlated
     if(length(mod.terms)>1){
@@ -564,7 +677,12 @@ enumerate_candidate_models=function(pred.vars.cont,pred.vars.fact,linear.vars,
 
   use.mods[which(is.na(use.mods))]=NULL
 
-  use.mods=unique(lapply(use.mods,FUN=sort))
+  # method="radix" sorts in byte order regardless of the session's LC_COLLATE.
+  # Candidate names are built by sorting term names, so without it the same
+  # analysis produced "complexity+ZONE" in an en_US.UTF-8 session and
+  # "ZONE+complexity" in a C-locale one, and mod.data.out came back in a
+  # different row order (FSSgam_package#8).
+  use.mods=unique(lapply(use.mods,FUN=sort,method="radix"))
 
   return(use.mods)
 }
@@ -582,7 +700,19 @@ build_model_formulas=function(use.mods,pred.vars.cont,pred.vars.fact,linear.vars
   if(nchar(null.terms)>0){# to add a bs='re' random effect
     mod.formula=list(null.formula)}
 
-  for(m in 1:length(use.mods)){
+  # The smoothing basis for one variable. Applied as each term is built, from
+  # the variable name itself.
+  #
+  # This used to be done afterwards, by rewriting the assembled term strings:
+  # grep(cyclic.vars[r], term) matched the name anywhere in the string and
+  # treated it as a regular expression, so declaring "depth" cyclic also made
+  # "depthx" cyclic, and a name containing "." matched any character. A second
+  # block then existed only to repair the te() terms the first had damaged.
+  # Both are gone.
+  bs_for=function(v){
+    if(v %in% stats::na.omit(cyclic.vars)){"'cc'"}else{bs.arg}}
+
+  for(m in seq_along(use.mods)){
      mod.m=use.mods[[m]]
      cont.smooths=mod.m[which(match(mod.m,setdiff(pred.vars.cont,linear.vars))>0)]
      by.smooths=mod.m[grep(".by.",mod.m,fixed=TRUE)]
@@ -605,36 +735,28 @@ build_model_formulas=function(use.mods,pred.vars.cont,pred.vars.fact,linear.vars
      linear.interaction.terms.m=mod.m[which(match(mod.m,linear.interaction.terms)>0)]
      all.terms.vec=character()
 
-     if(length(cont.smooths>0)){all.terms.vec=c(all.terms.vec,
-                  paste("s(",cont.smooths,",k=",k,",bs=",bs.arg,")",sep=""))}
-     if(length(by.smooths>0)){all.terms.vec=c(all.terms.vec,
-         paste("s(",gsub(".by.",",by=",by.smooths,fixed=TRUE),",k=",k,",bs=",bs.arg,")",sep=""))}
-     if(length(te.smooths>0) & class(test.fit)[[1]]!="gamm4"){all.terms.vec=c(all.terms.vec,
-         paste("te(",gsub(".te.",",",te.smooths,fixed=TRUE),",k=",k,",bs=",bs.arg,")",sep=""))}
-     if(length(te.smooths>0) & class(test.fit)[[1]]=="gamm4"){all.terms.vec=c(all.terms.vec,
-         paste("t2(",gsub(".te.",",",te.smooths,fixed=TRUE),",k=",k,",bs=",bs.arg,")",sep=""))}
-      if(length(linear.interaction.terms.m>0)){all.terms.vec=c(all.terms.vec,
+     if(length(cont.smooths)>0){all.terms.vec=c(all.terms.vec,
+                  paste("s(",cont.smooths,",k=",k,",bs=",
+                        vapply(cont.smooths,bs_for,character(1)),")",sep=""))}
+     if(length(by.smooths)>0){
+       # the smooth variable is the part before ".by."; the factor after it
+       # carries no basis of its own
+       all.terms.vec=c(all.terms.vec,
+         paste("s(",gsub(".by.",",by=",by.smooths,fixed=TRUE),",k=",k,",bs=",
+               vapply(sub("\\.by\\..*$","",by.smooths),bs_for,character(1)),")",sep=""))}
+     if(length(te.smooths)>0){
+       # one basis per marginal variable, in the order they appear in the name
+       bs.vec=vapply(strsplit(te.smooths,".te.",fixed=TRUE),
+                     function(v){paste0("bs=c(",
+                        paste(vapply(v,bs_for,character(1)),collapse=","),")")},
+                     character(1))
+       te.fun=if(inherits(test.fit,"gamm4")){"t2("}else{"te("}
+       all.terms.vec=c(all.terms.vec,
+         paste(te.fun,gsub(".te.",",",te.smooths,fixed=TRUE),",k=",k,",",bs.vec,")",sep=""))}
+      if(length(linear.interaction.terms.m)>0){all.terms.vec=c(all.terms.vec,
                gsub(".t.","*",linear.interaction.terms.m,fixed=TRUE))}
-     if(length(factor.terms>0)){all.terms.vec=c(all.terms.vec,factor.terms)}
-     if(length(linear.terms>0)){all.terms.vec=c(all.terms.vec,linear.terms)}
-     if(max(is.na(cyclic.vars))!=1){
-       for(r in 1:length(cyclic.vars)){
-           for(v in 1:length(all.terms.vec)){
-             if(length(grep(cyclic.vars[r],all.terms.vec[v]))>0){
-                  all.terms.vec[v]=gsub(paste("bs=",bs.arg,sep=""),"bs='cc'",all.terms.vec[v])
-                  }}}}
-     for(v in 1:length(all.terms.vec)){
-         if(length(grep("te(",all.terms.vec[v],fixed=TRUE))>0){
-            bs.arg.v=c("","")
-            smooth.vars.v=unlist(strsplit(gsub("te(","",all.terms.vec[v],fixed=TRUE),split=","))[1:2]
-            var.type.vec=unlist(lapply(smooth.vars.v,FUN=function(x){match(x,cyclic.vars)}))
-            bs.arg.v[which(is.na(var.type.vec))]=bs.arg
-            bs.arg.v[which(var.type.vec>0)]="'cc'"
-            bs.arg.v=paste("bs=c(",paste0(bs.arg.v,collapse=","),")",sep="")
-            all.terms.vec[v]=gsub("bs='cc'",bs.arg.v,all.terms.vec[v])
-            all.terms.vec[v]=gsub(paste("bs=",bs.arg,sep=""),bs.arg.v,all.terms.vec[v])
-         }
-     }
+     if(length(factor.terms)>0){all.terms.vec=c(all.terms.vec,factor.terms)}
+     if(length(linear.terms)>0){all.terms.vec=c(all.terms.vec,linear.terms)}
 
      if(nchar(null.terms)==0){# if there is no bs='re' random effect
                                 # or other null term in the null model

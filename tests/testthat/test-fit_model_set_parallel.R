@@ -122,3 +122,30 @@ test_that("full_subsets_gam forwards parallel and n.cores", {
 
   expect_equal(parallel$mod.data.out$AICc, sequential$mod.data.out$AICc, tolerance = 1e-8)
 })
+
+test_that("parallel = TRUE with save.model.fits = FALSE survives one failing candidate", {
+  # .errorhandling = 'pass' was commented out on this path, so a single
+  # unfittable candidate aborted the whole run rather than being recorded in
+  # failed.models. The saved path has always had it.
+  skip_on_cran()
+  skip_unless_parallel_opt_in()
+
+  model.set <- break_one_candidate(fixture_cs1_model_set())
+
+  out <- fit_quietly(model.set, parallel = TRUE, n.cores = 2,
+                      save.model.fits = FALSE)
+
+  expect_named(out$failed.models, "ZONE+depth")
+  expect_equal(
+    length(out$failed.models) + length(out$success.models), model.set$n.mods
+  )
+  # on this path the failed candidate stays in the table as an all-NA row
+  expect_equal(nrow(out$mod.data.out), model.set$n.mods)
+  expect_true(is.na(out$mod.data.out$AICc[out$mod.data.out$modname == "ZONE+depth"]))
+  expect_true(all(is.finite(
+    out$mod.data.out$AICc[out$mod.data.out$modname != "ZONE+depth"]
+  )))
+
+  sequential <- fit_quietly(model.set, parallel = FALSE, save.model.fits = FALSE)
+  expect_equal(out$mod.data.out$AICc, sequential$mod.data.out$AICc, tolerance = 1e-8)
+})

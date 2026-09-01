@@ -284,11 +284,12 @@ test_that("full_subsets_gam forwards a user-supplied cor.matrix and non.linear.c
   expect_true("complexity+depth" %in% supplied$mod.data.out$modname)
 })
 
-test_that("full_subsets_gam has no VI.mods argument and always uses the min.n default", {
-  # Recorded as current behaviour: fit_model_set() takes VI.mods but
-  # full_subsets_gam() does not forward it, so the all-models variant is
-  # unreachable through the wrapper. Raised as FSSgam_package#7.
-  expect_false("VI.mods" %in% names(formals(full_subsets_gam)))
+test_that("full_subsets_gam forwards VI.mods", {
+  # FSSgam_package#7: fit_model_set() took VI.mods but the wrapper did not
+  # forward it, so the all-models variant was unreachable through
+  # full_subsets_gam(). This test previously asserted that absence.
+  expect_true("VI.mods" %in% names(formals(full_subsets_gam)))
+  expect_equal(eval(formals(full_subsets_gam)$VI.mods), "min.n")
 
   fit <- fixture_cs1_gaussian()
   set.args <- list(
@@ -296,15 +297,88 @@ test_that("full_subsets_gam has no VI.mods argument and always uses the min.n de
     pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
     null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
   )
+  model.set <- do.call(generate_model_set, set.args)
 
-  combined <- do.call(full_subsets_quietly, set.args)
-  separate <- fit_quietly(do.call(generate_model_set, set.args), VI.mods = "min.n")
-  expect_equal(combined$variable.importance, separate$variable.importance)
+  for (vi in c("min.n", "all")) {
+    combined <- do.call(full_subsets_quietly, c(set.args, list(VI.mods = vi)))
+    separate <- fit_quietly(model.set, VI.mods = vi)
+    expect_equal(combined$variable.importance, separate$variable.importance, info = vi)
+  }
+})
+
+test_that("the VI.mods full_subsets_gam forwards changes the result", {
+  # The two settings agree on the fixture above, so equality with a separate
+  # fit_model_set() call would pass there even if nothing were forwarded. They
+  # agree because every model beyond the min.mods-th carries a wi.AICc that
+  # rounds to 0.000 at the three decimal places compute_model_weights() keeps,
+  # so summing the best n and summing all give the same total. A response with
+  # no signal spreads the weights out and separates them.
+  set.seed(42)
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$noise <- stats::rnorm(nrow(fit$use.dat))
+  test.fit <- mgcv::gam(
+    noise ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"), data = fit$use.dat
+  )
+
+  set.args <- list(
+    use.dat = fit$use.dat, test.fit = test.fit,
+    pred.vars.cont = c("complexity", "depth", "SCORE2"), pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
+  min.n <- do.call(full_subsets_quietly, c(set.args, list(VI.mods = "min.n")))
+  all <- do.call(full_subsets_quietly, c(set.args, list(VI.mods = "all")))
+
+  expect_false(isTRUE(all.equal(min.n$variable.importance, all$variable.importance)))
+  # 'all' sums over at least as many models as 'min.n', so it is never smaller
+  expect_true(all(
+    all$variable.importance$aic$variable.weights.raw >=
+      min.n$variable.importance$aic$variable.weights.raw
+  ))
+  # the default is still min.n
+  expect_equal(
+    do.call(full_subsets_quietly, set.args)$variable.importance,
+    min.n$variable.importance
+  )
+})
+
+test_that("full_subsets_gam rejects an unrecognised VI.mods, before building the set", {
+  # r2.type is validated at entry so that an unrecognised value is reported
+  # before the candidate set is built; VI.mods was not, although it is read
+  # only after every candidate has been fitted. Building the set is not free:
+  # with several factors it fits a multinom() per ordered pair.
+  #
+  # A model set that cannot be built at all is what makes the ordering visible.
+  # Reaching generate_model_set() gives its own error, so seeing the match.arg()
+  # message instead is evidence that VI.mods was checked first.
+  fit <- fixture_cs1_gaussian()
+  args <- list(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
+  expect_error(
+    do.call(full_subsets_quietly, c(args, list(VI.mods = "alll"))),
+    "'arg' should be one of"
+  )
+
+  unbuildable <- args
+  unbuildable$use.dat$depth[1] <- NA
+  # on its own the model set is what fails
+  expect_error(
+    do.call(full_subsets_quietly, unbuildable),
+    "Predictor variables contain NA"
+  )
+  # with an invalid VI.mods as well, the argument is reported and the set is
+  # never built
+  expect_error(
+    do.call(full_subsets_quietly, c(unbuildable, list(VI.mods = "alll"))),
+    "'arg' should be one of"
+  )
 })
 
 test_that("full_subsets_gam's legacy smooth.interactions argument accepts a character value", {
-  # the NA case is handled by a separate branch (is.na() is checked first), so a
-  # named factor takes the other one
   fit <- fixture_cs1_gaussian()
 
   expect_warning(
@@ -325,4 +399,130 @@ test_that("full_subsets_gam's legacy smooth.interactions argument accepts a char
 
   expect_equal(legacy$mod.data.out$AICc, current$mod.data.out$AICc)
   expect_true(any(grepl(".by.ZONE", legacy$mod.data.out$modname, fixed = TRUE)))
+})
+
+# ---- the deprecated arguments on valid but awkward input --------------------
+#
+# These three were declared with a "previous.arg" sentinel default and tested
+# with != or is.na(). Both comparisons fail on input the arguments are
+# documented to accept, so passing a perfectly valid value raised an error
+# instead of forwarding it. missing() replaced the sentinel.
+
+test_that("a legacy smooth.interactions of length greater than one forwards", {
+  # is.na(smooth.interactions) on a character vector of length 2 gave
+  # "the condition has length > 1".
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
+
+  args <- list(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = c("complexity", "depth"),
+    pred.vars.fact = c("ZONE", "ZONE2"),
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
+  expect_warning(
+    legacy <- do.call(
+      full_subsets_quietly, c(args, list(smooth.interactions = c("ZONE", "ZONE2")))
+    ),
+    "factor.smooth.interactions"
+  )
+  current <- do.call(
+    full_subsets_quietly,
+    c(args, list(factor.smooth.interactions = c("ZONE", "ZONE2")))
+  )
+
+  expect_equal(legacy$mod.data.out$AICc, current$mod.data.out$AICc)
+  expect_true(any(grepl(".by.ZONE2", legacy$mod.data.out$modname, fixed = TRUE)))
+})
+
+test_that("a legacy factor.interactions of NA forwards", {
+  # factor.interactions != "previous.arg" on NA gave "missing value where
+  # TRUE/FALSE needed".
+  fit <- fixture_cs1_gaussian()
+  args <- list(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
+  expect_warning(
+    legacy <- do.call(full_subsets_quietly, c(args, list(factor.interactions = NA))),
+    "factor.factor.interactions"
+  )
+  current <- do.call(
+    full_subsets_quietly, c(args, list(factor.factor.interactions = NA))
+  )
+  expect_equal(legacy$mod.data.out$AICc, current$mod.data.out$AICc)
+})
+
+test_that("a legacy smooth.interactions of NA still warns", {
+  # NA used to take a branch of its own, which assigned the value but reached
+  # the warning only through that branch. Under missing() it is assigned and
+  # warned about like any other value.
+  fit <- fixture_cs1_gaussian()
+
+  expect_warning(
+    legacy <- full_subsets_quietly(
+      use.dat = fit$use.dat, test.fit = fit$test.fit,
+      pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+      smooth.interactions = NA,
+      null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+    ),
+    "factor.smooth.interactions"
+  )
+  expect_false(any(grepl("\\.by\\.", legacy$mod.data.out$modname)))
+})
+
+test_that("the deprecated arguments stay absent when not supplied", {
+  # missing() has to keep reporting correctly through full.subsets.gam(), which
+  # forwards everything through ... rather than naming the arguments.
+  fit <- fixture_cs1_gaussian()
+  args <- list(
+    use.dat = fit$use.dat, test.fit = fit$test.fit,
+    pred.vars.cont = c("complexity", "depth"), pred.vars.fact = "ZONE",
+    null.terms = "s(site,bs='re')", max.predictors = 2, k = 3
+  )
+
+  expect_no_warning(do.call(full_subsets_quietly, args))
+
+  # through the deprecated alias: the .Deprecated() warning fires, but none of
+  # the three legacy-argument warnings do
+  legacy.warnings <- character(0)
+  withCallingHandlers(
+    utils::capture.output(out <- do.call(full.subsets.gam, args)),
+    warning = function(w) {
+      legacy.warnings <<- c(legacy.warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_true(any(grepl("full_subsets_gam", legacy.warnings)))
+  expect_false(any(grepl("has been replaced with", legacy.warnings)))
+
+  # and supplying one through the alias is still detected
+  expect_warning(
+    withCallingHandlers(
+      utils::capture.output(
+        do.call(full.subsets.gam, c(args[names(args) != "max.predictors"],
+                                    list(size = 1)))
+      ),
+      warning = function(w) {
+        if (grepl("full_subsets_gam", conditionMessage(w))) invokeRestart("muffleWarning")
+      }
+    ),
+    "max.predictors"
+  )
+})
+
+test_that("max.models has the same default in the wrapper and in fit_model_set", {
+  # The two defaults were 500 and 200, undocumented in either, so a candidate
+  # set of 300 saved its fits through full_subsets_gam() and not through
+  # generate_model_set() + fit_model_set().
+  expect_equal(
+    eval(formals(full_subsets_gam)$max.models),
+    eval(formals(fit_model_set)$max.models)
+  )
+  expect_equal(eval(formals(full_subsets_gam)$max.models), 200)
 })
