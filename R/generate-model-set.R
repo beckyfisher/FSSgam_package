@@ -41,15 +41,15 @@
 #'
 #' @param  cov.cutoff A numeric value between 0 and 1 indicating the correlation cutoff value to use for excluding collinear models, based on the cor.matrix (see below). The default value is 0.28 (see Graham MH (2003). It is highly recommended to keep this value low, as correlation among predictors can yield spurious results. Note that predictors with a correlation greater than the specified value will still appear in the model set but will never appear in the same model. Including highly correlated predictors can make interpreting variable importance values difficult.
 #'
-#' @param cor.matrix  A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor, including any hard coded factor interactions that setting factor.factor.interactions causes to be created; missing names are reported by name. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square-route of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square-route of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
+#' @param cor.matrix  A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor, including any hard coded factor interactions that setting factor.factor.interactions causes to be created; missing names are reported by name. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square root of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square root of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
 #'
-#' @param non.linear.correlations Set this argument to TRUE of you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.
+#' @param non.linear.correlations Set this argument to TRUE if you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.
 #'
 #' @param k An integer indicating the dimension of the basis used to represent the smooth term (see ?s). The default value is 5. Higher values are not recommended unless a complex trend between the response variable and the continuous predictor variables is expected, and the data are sufficient to support this. k can be reduced to as low as 3 where there is trouble obtaining convergence, or sample size is low. Note that this must be set to override the default value, regardless of what k is used in the test.fit
 #'
 #' @param bs.arg Specification of the smoother to use, see ?s for more information on smoother provided in gam (mgcv). Note that all continuous predictors specified in pred.vars.cont will be fitted using the same smooth, unless they are also specified as linear.terms or cyclic.vars. Note that any specification of bs in test.fit is discarded.
 #'
-#' @param cyclic.vars NA if there are no cyclic predictors, or if there are cyclic predictors, a character vector containing the names of any of the continuous predictors that should be modelled as cyclic variables. Note that these must also be contained in the pred.vars.cont charactervector. Please also note there are issues with bs='cc' and model selection as this uses by default shrinkage. With shrinkage, variables are retained in models but with zero edf, which makes interpretation of AICc and BIC confusing. To account for this always select only the most parsimonious model (that with the fewest parameters), not just that with the lowest AICc. Reported estimated degrees of freedom (edf) in the model output table represent the sum of the edf of the smooth terms plus the number of parametric coefficients. When cyclic variables are included and shrinkage is used, any estimated edf of the smooth terms that are less than 1 are reset to 1 before summing to ensure the the total number of predictors in the model is captured properly.
+#' @param cyclic.vars NA if there are no cyclic predictors, or if there are cyclic predictors, a character vector containing the names of any of the continuous predictors that should be modelled as cyclic variables. Note that these must also be contained in the pred.vars.cont character vector. Please also note there are issues with bs='cc' and model selection as this uses by default shrinkage. With shrinkage, variables are retained in models but with zero edf, which makes interpretation of AICc and BIC confusing. To account for this always select only the most parsimonious model (that with the fewest parameters), not just that with the lowest AICc. Reported estimated degrees of freedom (edf) in the model output table represent the sum of the edf of the smooth terms plus the number of parametric coefficients. When cyclic variables are included and shrinkage is used, any estimated edf of the smooth terms that are less than 1 are reset to 1 before summing to ensure the the total number of predictors in the model is captured properly.
 #'
 #' @param linear.vars NA if there are no continuous predictors to be treated as linear (not fitted as smooths). Only use this where variables are clearly continuous in nature, but you are confident a linear relationship is valid. It may also be useful for continuous predictors that are not well distributed along the x-axis (ie, sampling was conducted in clumped distances from a feature of interest). Where this is necessary, transformations should be considered where they can be used to theoretically linearize response relationships. Does not need to be contained in vector pred.vars.cont
 #'
@@ -58,7 +58,7 @@
 #' the null model. Use of bs=re is an alternative way of fitting simple random structures that
 #' avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used.
 #' see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.
-#' to fit a correlation structure only (but no random effects) this must be acheived through a call the gamm
+#' to fit a correlation structure only (but no random effects) this must be achieved through a call the gamm
 #' via , with no random effects, fitted
 #'
 #' @details The function constructs a complete model set based on the supplied arguments.
@@ -352,7 +352,7 @@ normalise_factor_smooth_interactions=function(factor.smooth.interactions,
                        unlist(factor.smooth.interactions)[which(is.na(check.list))] ,
                        "included in the factor.smooth.interactions list do(es)
                        not appear in either pred.vars.fact, pred.vars.cont or linear.vars.
-                       Pleasure ensure all predictors are specified as one of these three types"))}
+                       Please ensure all predictors are specified as one of these three types"))}
 
     return(list(fact.vars=factor.smooth.interactions$fact.vars,
                 cont.vars=factor.smooth.interactions$cont.vars,
@@ -516,7 +516,7 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
 resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interactions,
                           cov.cutoff,max.predictors,cor.matrix){
    smooth.smooth.interaction.terms=NA
-    # for interactions amonst all continuous predictors
+    # for interactions amongst all continuous predictors
     if(inherits(smooth.smooth.interactions,"logical")){
       if(smooth.smooth.interactions==TRUE){
         if(length(pred.vars.cont)<2){
@@ -546,7 +546,7 @@ resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interac
       smooth.smooth.interaction.terms=unlist(lapply(cont.combns,FUN=paste,collapse=".te."))
      }
     }
-    # for only specific interactions amonst continuous predictors
+    # for only specific interactions amongst continuous predictors
     if(inherits(smooth.smooth.interactions,"character")){
         if(length(smooth.smooth.interactions)<2){
             stop("You specified less than 2 variables as smooth.smooth.interactions.")}

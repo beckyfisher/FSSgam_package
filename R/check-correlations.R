@@ -22,10 +22,10 @@
 #' @param n.cores a numeric value indicating the number of cores to utilise if
 #' parallel is TRUE.
 #'
-#' @details The function uses cor to calcualte the Pearson correlation coefficient
+#' @details The function uses cor to calculate the Pearson correlation coefficient
 #' among continuous variables, lm to approximate the correlation coefficient
 #' among a continuous variable and a factor variable through the call lm(continuous~factor),
-#' and nnet to apporoximate the correlation among factor variables using a multnomial
+#' and nnet to approximate the correlation among factor variables using a multinomial
 #' model fit.
 #' @export
 #' @return a correlation matrix

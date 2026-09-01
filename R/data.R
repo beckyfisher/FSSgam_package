@@ -17,7 +17,7 @@ NULL
 #' 
 #' This case study reanalyses data from Langlois et al. (2005) to 
 #' examine whether large reef-associated predators (rock lobster and snapper) 
-#' structure adjacent soft‑sediment communities.
+#' structure adjacent soft-sediment communities.
 #'
 #' @format A data frame with 285 rows and 21 variables
 #' @name case_study2

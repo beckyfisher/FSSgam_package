@@ -219,6 +219,20 @@
   `extract_mod_dat()` and `build_inclusion_mat()` stay exported, being more
   plausible to call directly.
 
+* Documentation corrections. Twenty-six spelling errors across the reference
+  pages, of which three affected meaning: the correlation values are the square
+  *root* of an R squared, not the "square-route"; `full_subsets_gam()`'s
+  description of what it sums referred to "the ?i values" where a character had
+  been lost from "the wi values"; and `check_non_linear_correlations()`'s note
+  told users to increase `cor.cutoff`, which is not an argument -- `cov.cutoff`
+  is. A non-breaking hyphen in the `case_study2` documentation is replaced with
+  an ASCII one.
+* The sixteen argument descriptions shared between `generate_model_set()` and
+  `full_subsets_gam()` were duplicated verbatim and had already drifted; they
+  are now inherited, so they cannot drift again. `full_subsets_gam()`'s
+  `null.terms` entry gains the sentence about fitting a correlation structure
+  that only `generate_model_set()` carried.
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.
