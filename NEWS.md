@@ -172,6 +172,22 @@
   was built and nothing was reported; it now warns, as the `TRUE` form does.
   The model set produced is unchanged.
 
+* Bug fix: a name in `cyclic.vars` was matched against the assembled model
+  terms with an unanchored `grep()`, so it captured every predictor whose name
+  contained it, and the name was used as a regular expression. Declaring
+  `depth` cyclic also fitted `depthx` with `bs = "cc"`, and a predictor name
+  containing a full stop matched any character in that position. The affected
+  models were fitted with the wrong smoothing basis, without error, under a
+  candidate name that looked correct. The basis is now chosen from the
+  variable names as each term is built.
+* Bug fix: a `te()` term over three or more predictors was given only two
+  `bs` values, because the code that assigned them took the first two
+  variables. mgcv warns "bs wrong length and ignored" and substitutes its own
+  default, so both `bs.arg` and any `cyclic.vars` were silently discarded for
+  that term. Each marginal now carries its own basis. Reachable through
+  `smooth.smooth.interactions` given as a character vector with
+  `max.predictors >= 3`.
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.

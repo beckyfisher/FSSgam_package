@@ -643,6 +643,18 @@ build_model_formulas=function(use.mods,pred.vars.cont,pred.vars.fact,linear.vars
   if(nchar(null.terms)>0){# to add a bs='re' random effect
     mod.formula=list(null.formula)}
 
+  # The smoothing basis for one variable. Applied as each term is built, from
+  # the variable name itself.
+  #
+  # This used to be done afterwards, by rewriting the assembled term strings:
+  # grep(cyclic.vars[r], term) matched the name anywhere in the string and
+  # treated it as a regular expression, so declaring "depth" cyclic also made
+  # "depthx" cyclic, and a name containing "." matched any character. A second
+  # block then existed only to repair the te() terms the first had damaged.
+  # Both are gone.
+  bs_for=function(v){
+    if(v %in% stats::na.omit(cyclic.vars)){"'cc'"}else{bs.arg}}
+
   for(m in 1:length(use.mods)){
      mod.m=use.mods[[m]]
      cont.smooths=mod.m[which(match(mod.m,setdiff(pred.vars.cont,linear.vars))>0)]
@@ -666,36 +678,28 @@ build_model_formulas=function(use.mods,pred.vars.cont,pred.vars.fact,linear.vars
      linear.interaction.terms.m=mod.m[which(match(mod.m,linear.interaction.terms)>0)]
      all.terms.vec=character()
 
-     if(length(cont.smooths>0)){all.terms.vec=c(all.terms.vec,
-                  paste("s(",cont.smooths,",k=",k,",bs=",bs.arg,")",sep=""))}
-     if(length(by.smooths>0)){all.terms.vec=c(all.terms.vec,
-         paste("s(",gsub(".by.",",by=",by.smooths,fixed=TRUE),",k=",k,",bs=",bs.arg,")",sep=""))}
-     if(length(te.smooths>0) & class(test.fit)[[1]]!="gamm4"){all.terms.vec=c(all.terms.vec,
-         paste("te(",gsub(".te.",",",te.smooths,fixed=TRUE),",k=",k,",bs=",bs.arg,")",sep=""))}
-     if(length(te.smooths>0) & class(test.fit)[[1]]=="gamm4"){all.terms.vec=c(all.terms.vec,
-         paste("t2(",gsub(".te.",",",te.smooths,fixed=TRUE),",k=",k,",bs=",bs.arg,")",sep=""))}
-      if(length(linear.interaction.terms.m>0)){all.terms.vec=c(all.terms.vec,
+     if(length(cont.smooths)>0){all.terms.vec=c(all.terms.vec,
+                  paste("s(",cont.smooths,",k=",k,",bs=",
+                        vapply(cont.smooths,bs_for,character(1)),")",sep=""))}
+     if(length(by.smooths)>0){
+       # the smooth variable is the part before ".by."; the factor after it
+       # carries no basis of its own
+       all.terms.vec=c(all.terms.vec,
+         paste("s(",gsub(".by.",",by=",by.smooths,fixed=TRUE),",k=",k,",bs=",
+               vapply(sub("\\.by\\..*$","",by.smooths),bs_for,character(1)),")",sep=""))}
+     if(length(te.smooths)>0){
+       # one basis per marginal variable, in the order they appear in the name
+       bs.vec=vapply(strsplit(te.smooths,".te.",fixed=TRUE),
+                     function(v){paste0("bs=c(",
+                        paste(vapply(v,bs_for,character(1)),collapse=","),")")},
+                     character(1))
+       te.fun=if(class(test.fit)[[1]]=="gamm4"){"t2("}else{"te("}
+       all.terms.vec=c(all.terms.vec,
+         paste(te.fun,gsub(".te.",",",te.smooths,fixed=TRUE),",k=",k,",",bs.vec,")",sep=""))}
+      if(length(linear.interaction.terms.m)>0){all.terms.vec=c(all.terms.vec,
                gsub(".t.","*",linear.interaction.terms.m,fixed=TRUE))}
-     if(length(factor.terms>0)){all.terms.vec=c(all.terms.vec,factor.terms)}
-     if(length(linear.terms>0)){all.terms.vec=c(all.terms.vec,linear.terms)}
-     if(max(is.na(cyclic.vars))!=1){
-       for(r in 1:length(cyclic.vars)){
-           for(v in 1:length(all.terms.vec)){
-             if(length(grep(cyclic.vars[r],all.terms.vec[v]))>0){
-                  all.terms.vec[v]=gsub(paste("bs=",bs.arg,sep=""),"bs='cc'",all.terms.vec[v])
-                  }}}}
-     for(v in 1:length(all.terms.vec)){
-         if(length(grep("te(",all.terms.vec[v],fixed=TRUE))>0){
-            bs.arg.v=c("","")
-            smooth.vars.v=unlist(strsplit(gsub("te(","",all.terms.vec[v],fixed=TRUE),split=","))[1:2]
-            var.type.vec=unlist(lapply(smooth.vars.v,FUN=function(x){match(x,cyclic.vars)}))
-            bs.arg.v[which(is.na(var.type.vec))]=bs.arg
-            bs.arg.v[which(var.type.vec>0)]="'cc'"
-            bs.arg.v=paste("bs=c(",paste0(bs.arg.v,collapse=","),")",sep="")
-            all.terms.vec[v]=gsub("bs='cc'",bs.arg.v,all.terms.vec[v])
-            all.terms.vec[v]=gsub(paste("bs=",bs.arg,sep=""),bs.arg.v,all.terms.vec[v])
-         }
-     }
+     if(length(factor.terms)>0){all.terms.vec=c(all.terms.vec,factor.terms)}
+     if(length(linear.terms)>0){all.terms.vec=c(all.terms.vec,linear.terms)}
 
      if(nchar(null.terms)==0){# if there is no bs='re' random effect
                                 # or other null term in the null model
