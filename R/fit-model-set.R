@@ -195,7 +195,7 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
    cl=parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
    opts <- if(progress) list(progress = update_pb) else list()
-   out.dat<-foreach::foreach(l = 1:length(mod.formula),
+   out.dat<-foreach::foreach(l = seq_along(mod.formula),
                    .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                    .errorhandling='pass',
                    .options.snow = opts)%dopar%{
@@ -205,7 +205,7 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
    foreach::registerDoSEQ()
            }else{
       out.dat <- vector("list", length(mod.formula))
-      for(l in 1:length(mod.formula)){
+      for(l in seq_along(mod.formula)){
          mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
          out.dat[[l]]=mod.l
         update_pb(l)
@@ -262,7 +262,7 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
    cl <- parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
    opts <- if(progress) list(progress = update_pb) else list()
-   mod.dat <- foreach::foreach(l = 1:length(mod.formula),
+   mod.dat <- foreach::foreach(l = seq_along(mod.formula),
                    .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
                    .errorhandling='pass',
                    .options.snow = opts)%dopar%{
@@ -274,7 +274,7 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
    foreach::registerDoSEQ()
            }else{
       mod.dat=vector("list", length(mod.formula))
-      for(l in 1:length(mod.formula)){
+      for(l in seq_along(mod.formula)){
         mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
         out=unlist(extract_mod_dat(mod.l,r2.type.=r2.type))
         mod.dat[[l]]=out

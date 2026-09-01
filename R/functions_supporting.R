@@ -28,7 +28,7 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
  # wi=(exp(-1/2*AICc.vals.adj))/Sum.wi=1 to r (exp(-1/2*AICc.vals.adj))
  AICc.vals.adj=AIC.vals-min(stats::na.omit(AIC.vals))
  wi.den=rep(NA,length(AICc.vals.adj))
- for(i in 1:length(AICc.vals.adj)){
+ for(i in seq_along(AICc.vals.adj)){
   wi.den[i]=exp(-1/2*AICc.vals.adj[i])}
  wi.den.sum=sum(stats::na.omit(wi.den))
  wi=wi.den/wi.den.sum
@@ -125,7 +125,7 @@ build_inclusion_mat <- function(included.vars,formula.list){
 var.inclusions <- matrix(0,ncol=length(included.vars),length(formula.list))
 colnames(var.inclusions) <- c(included.vars)
 
-for(m in 1:length(formula.list)){
+for(m in seq_along(formula.list)){
       pred.vars.m=unique(
         unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(unlist(strsplit(names(formula.list)[m],
         split="+",fixed=TRUE)),

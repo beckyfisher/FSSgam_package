@@ -85,7 +85,7 @@ build_factor_continuous_skeleton=function(dat,fact.vars,cont.vars,cor.mat){
                       cbind(fact.cont.lower.left,fact.fact.lower.right))
 
     # assign the estimated r values to the upper right and lower left corners
-    for(r in 1:nrow(r.estimates)){
+    for(r in seq_len(nrow(r.estimates))){
        # upper right
        col.index=which(colnames(out.cor.mat)==r.estimates$fact.var[r])
        row.index=which(rownames(out.cor.mat)==r.estimates$cont.var[r])

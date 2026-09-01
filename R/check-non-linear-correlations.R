@@ -71,7 +71,7 @@ build_correlation_pair_grid=function(dat){
   test.mat=expand.grid(colnames(dat),colnames(dat))
   colnames(test.mat)=c("rows","cols")
   test.mat=test.mat[which(test.mat$rows!=test.mat$cols),]
-  rownames(test.mat)=1:nrow(test.mat)
+  rownames(test.mat)=seq_len(nrow(test.mat))
   return(test.mat)
 }
 
@@ -134,7 +134,7 @@ assemble_non_linear_correlation_matrix=function(dat,test.mat){
   colnames(out.cor.mat)=colnames(dat)
   diag(out.cor.mat)=1
 
-  for(r in 1:nrow(test.mat)){
+  for(r in seq_len(nrow(test.mat))){
      out.cor.mat[test.mat$rows[r],test.mat$cols[r]]=test.mat$r.sq[r]
   }
 

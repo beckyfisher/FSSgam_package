@@ -244,7 +244,7 @@ build_null_model=function(test.fit,use.dat,null.terms){
 
 # Stops if any predictor column contains missing values.
 check_predictor_missingness=function(use.dat,all.predictors){
-  if(max(is.na(use.dat[,all.predictors]))==1){
+  if(anyNA(use.dat[,all.predictors])){
         stop("Predictor variables contain NA and AICc/BIC comparisons are invalid.
         Remove rows with NA from the input data or interpolate missing predictors.")}
 }
@@ -372,9 +372,10 @@ build_factor_smooth_terms=function(spec,pred.vars.fact){
   interaction.terms=NA
   linear.interaction.terms=NA
 
-  fact.vars=pred.vars.fact[which(unlist(lapply(strsplit(pred.vars.fact,
-     split=".I."),function(x){
-     max(is.na(match(x,spec$fact.vars)))}))==0)]
+  # a hard coded ".I." interaction is included when every factor it was built
+  # from was named
+  fact.vars=pred.vars.fact[!vapply(strsplit(pred.vars.fact,split=".I.",fixed=TRUE),
+     function(x){anyNA(match(x,spec$fact.vars))},logical(1))]
 
   if(length(stats::na.omit(fact.vars))>0){
    # pred.vars.cont=NA is a documented way to run without smooth predictors.
@@ -453,7 +454,7 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
     if(inherits(factor.factor.interactions,"character")){
         if(length(factor.factor.interactions)<2){
             stop("You specified less than 2 factors as factor.factor.interactions.")}
-        if(max(is.na(match(factor.factor.interactions,colnames(use.dat))))==1){
+        if(anyNA(match(factor.factor.interactions,colnames(use.dat)))){
             stop("Not all specified factor.factor.interactions are supplied in use.dat")}
       factor.correlations=factor_correlations(factor.factor.interactions)
       # An outer guard here, if(length(which(factor.correlations<cov.cutoff))>1),
@@ -480,7 +481,7 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
     }
    }
    # make sure the factors are factors
-   for(f in 1:length(pred.vars.fact)){
+   for(f in seq_along(pred.vars.fact)){
        use.dat[,pred.vars.fact[f]]=factor(use.dat[,pred.vars.fact[f]])}
 
 
@@ -549,7 +550,7 @@ resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interac
     if(inherits(smooth.smooth.interactions,"character")){
         if(length(smooth.smooth.interactions)<2){
             stop("You specified less than 2 variables as smooth.smooth.interactions.")}
-        if(max(is.na(match(smooth.smooth.interactions,rownames(cor.matrix))))==1){
+        if(anyNA(match(smooth.smooth.interactions,rownames(cor.matrix)))){
             stop("Not all specified smooth.smooth.interactions are supplied in use.dat")}
       # see the matching comment in the logical branch above
       continuous.correlations=cor.matrix[smooth.smooth.interactions,
@@ -578,9 +579,11 @@ build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.co
    cc=check_correlations(use.dat[,all.predictors,drop=FALSE])}
   if(length(cor.matrix)==1){
    cor.matrix=cc
-   # replace NA's with zero.
-   cor.matrix[which(cor.matrix=="NaN")]=0
-   cor.matrix[which(is.na(cor.matrix)==TRUE)]=0}else{
+   # Replace NA and NaN with zero. is.na() is TRUE for NaN as well, so this is
+   # one pass rather than two; the NaN pass was written as
+   # which(cor.matrix == "NaN"), which coerces the matrix to character and
+   # happens to work.
+   cor.matrix[is.na(cor.matrix)]=0}else{
       # check if the user defined matrix has the same rownames and colnames
       check.predictors=c(match(all.predictors,colnames(cor.matrix)),
                          match(all.predictors,rownames(cor.matrix)))
@@ -618,7 +621,7 @@ enumerate_candidate_models=function(pred.vars.cont,pred.vars.fact,linear.vars,
 
   # remove redundant models
   use.mods=all.mods
-  for(m in 1:length(all.mods)){
+  for(m in seq_along(all.mods)){
     mod.m=all.mods[[m]]
     mod.terms=unlist(strsplit(unlist(strsplit(unlist(strsplit(mod.m,
                                split=".by.",fixed=TRUE)),
@@ -636,7 +639,7 @@ enumerate_candidate_models=function(pred.vars.cont,pred.vars.fact,linear.vars,
     # if there are factor vars
     if(length(fact.vars)>0){
       # check that any "by" factor vars are accompanied by a + term in its owns right
-      if(max(is.na(match(fact.vars,mod.m)))==1){use.mods[[m]]=NA}}
+      if(anyNA(match(fact.vars,mod.m))){use.mods[[m]]=NA}}
 
     # remove the model if the predictors are correlated
     if(length(mod.terms)>1){
@@ -692,7 +695,7 @@ build_model_formulas=function(use.mods,pred.vars.cont,pred.vars.fact,linear.vars
   bs_for=function(v){
     if(v %in% stats::na.omit(cyclic.vars)){"'cc'"}else{bs.arg}}
 
-  for(m in 1:length(use.mods)){
+  for(m in seq_along(use.mods)){
      mod.m=use.mods[[m]]
      cont.smooths=mod.m[which(match(mod.m,setdiff(pred.vars.cont,linear.vars))>0)]
      by.smooths=mod.m[grep(".by.",mod.m,fixed=TRUE)]
