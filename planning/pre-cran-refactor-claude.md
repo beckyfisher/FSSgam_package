@@ -15,8 +15,13 @@ Measured 2026-08-31, this WSL host, R 4.6.1, commit `a8235e2`:
 - `R CMD check --as-cran --no-manual` on the built tarball with
   `_R_CHECK_CRAN_INCOMING_=TRUE _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE`
   → Status: OK.
-- `testthat::test_dir("tests/testthat", package = "FSSgam")` under
-  `pkgload::load_all()` → 438 passed, 0 failed, 11 skipped.
+- `testthat::test_local()` → 447 passed, 0 failed, 6 skipped blocks.
+
+  Corrected on 2026-09-01. This was recorded as 438 passed, 11 skipped, which
+  does not reproduce on a clean checkout. Regenerating
+  `tests/testthat/_snaps/numerical-regression.md` skips five further blocks and
+  the nine expectations inside them, which accounts for the difference exactly.
+  Measure with the snapshot file present.
 
 Re-measure before starting; these move.
 

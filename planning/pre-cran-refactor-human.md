@@ -29,7 +29,9 @@ on this WSL host under R 4.6.1: once through `devtools::check()`, and once as
 `R CMD check --as-cran` with the local CRAN incoming checks enabled
 (`_R_CHECK_CRAN_INCOMING_=TRUE`, remote checks disabled as they require network
 access). Both returned 0 errors, 0 warnings and 0 notes. The `testthat` suite
-is green at 438 passing expectations, 0 failures, 11 skipped.
+is green at 447 passing expectations, 0 failures, 6 skipped blocks. (This was
+recorded during planning as 438 and 11, which does not reproduce; see the
+specification's opening section.)
 
 Nothing in this plan is therefore required to pass the check. That is the
 argument for doing it, not against it. A clean check confirms the package
