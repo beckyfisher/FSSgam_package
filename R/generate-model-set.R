@@ -41,7 +41,7 @@
 #'
 #' @param  cov.cutoff A numeric value between 0 and 1 indicating the correlation cutoff value to use for excluding collinear models, based on the cor.matrix (see below). The default value is 0.28 (see Graham MH (2003). It is highly recommended to keep this value low, as correlation among predictors can yield spurious results. Note that predictors with a correlation greater than the specified value will still appear in the model set but will never appear in the same model. Including highly correlated predictors can make interpreting variable importance values difficult.
 #'
-#' @param cor.matrix  A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor named in pred.vars.cont, pred.vars.fact and linear.vars; any that are missing are reported by name. The hard coded factor interaction columns that setting factor.factor.interactions causes to be created are the exception, because which of them exist depends on the supplied matrix itself and so cannot be known in advance. Rows and columns for any of those the matrix does not carry are computed from use.dat and appended, leaving every supplied value as supplied. Computing them reads the data of every predictor, so this is the one case in which a predictor of a class check_correlations cannot classify has to be named in the supplied matrix along with the interaction columns. When supplied it replaces the automatic estimate rather than overriding it, so check_correlations is not called at all and a predictor of a class it does not accept can be used. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square root of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square root of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
+#' @param cor.matrix  A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor named in pred.vars.cont, pred.vars.fact and linear.vars; any that are missing are reported by name. The hard coded factor interaction columns that setting factor.factor.interactions causes to be created are the exception, because which of them exist depends on the supplied matrix itself and so cannot be known in advance. Rows and columns for any of those the matrix does not carry are computed from use.dat and appended, leaving every supplied value as supplied. Computing them reads the data of every predictor, so this is the one case in which a predictor of a class check_correlations cannot classify has to be named in the supplied matrix along with the interaction columns. When supplied it replaces the automatic estimate rather than overriding it: except in the interaction case above, check_correlations is not called at all, and a predictor of a class it does not accept can be used. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square root of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square root of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
 #'
 #' @param non.linear.correlations Set this argument to TRUE if you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.
 #'
@@ -648,10 +648,19 @@ build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.co
 # reported as such rather than as the class error on its own, since the caller
 # has already supplied correlations for it.
 #
+# The supplied names are kept in their own order and the derived ones appended,
+# rows and columns separately, so a matrix whose two dimnames differ is not
+# reshaped into a square one with an invented all-NA row.
+#
 # A name the supplied matrix carries that is not a predictor of this model set
-# has no computed value, so its cells against a derived column are left NA.
-# They are never read: every stage that screens on correlation indexes the
-# matrix by the terms of a candidate model, which are predictors.
+# has no computed value against a derived column. Those cells are set to zero,
+# not left NA, which is what the branch that computes the whole matrix already
+# does with the NA values check_correlations() returns. Leaving them NA is not
+# safe: the character form of smooth.smooth.interactions validates its argument
+# against the rownames of the resolved matrix rather than against the
+# predictors, so such a name can reach combine_uncorrelated(), where max() of an
+# all-NA sub-matrix returns NA and `if (NA)` raises an error naming neither the
+# matrix nor the argument.
 augment_supplied_correlation_matrix=function(use.dat,cor.matrix,derived.missing,
                           all.predictors,non.linear.correlations){
   computed=try(if(non.linear.correlations==TRUE){
@@ -659,20 +668,37 @@ augment_supplied_correlation_matrix=function(use.dat,cor.matrix,derived.missing,
     }else{
       check_correlations(use.dat[,all.predictors,drop=FALSE])},silent=TRUE)
   if(inherits(computed,"try-error")){
-    stop(paste("Supplied cor.matrix does not cover the hard coded factor
-         interaction predictor(s) ",paste(derived.missing,collapse=", "),
+    stop(paste0("Supplied cor.matrix does not cover the hard coded factor ",
+         "interaction predictor(s) ",paste(derived.missing,collapse=", "),
          ", and correlations for them could not be computed from use.dat: ",
          attr(computed,"condition")$message,
-         " Either add rows and columns for them to cor.matrix, or use predictors
-         check_correlations can classify.",sep=""))}
+         " Either add rows and columns for them to cor.matrix, or use ",
+         "predictors check_correlations can classify."))}
   computed[is.na(computed)]=0
 
-  vars=unique(c(rownames(cor.matrix),colnames(cor.matrix),derived.missing))
-  out=matrix(NA_real_,nrow=length(vars),ncol=length(vars),dimnames=list(vars,vars))
+  # as.matrix() because assigning a data.frame into a matrix sub-block replaces
+  # the matrix with a plain list, dropping dim and dimnames, and the next
+  # assignment then fails on what is no longer a matrix. A data.frame cor.matrix
+  # is accepted everywhere else.
+  cor.matrix=as.matrix(cor.matrix)
+  row.vars=unique(c(rownames(cor.matrix),derived.missing))
+  col.vars=unique(c(colnames(cor.matrix),derived.missing))
+  out=matrix(NA_real_,nrow=length(row.vars),ncol=length(col.vars),
+             dimnames=list(row.vars,col.vars))
   out[rownames(cor.matrix),colnames(cor.matrix)]=cor.matrix
-  known=intersect(vars,rownames(computed))
-  out[derived.missing,known]=computed[derived.missing,known,drop=FALSE]
-  out[known,derived.missing]=computed[known,derived.missing,drop=FALSE]
+  known.cols=intersect(col.vars,colnames(computed))
+  known.rows=intersect(row.vars,rownames(computed))
+  out[derived.missing,known.cols]=computed[derived.missing,known.cols,drop=FALSE]
+  out[known.rows,derived.missing]=computed[known.rows,derived.missing,drop=FALSE]
+
+  # only the cells this function created; an NA the user supplied among their
+  # own predictors is left alone
+  new.rows=out[derived.missing,,drop=FALSE]
+  new.rows[is.na(new.rows)]=0
+  out[derived.missing,]=new.rows
+  new.cols=out[,derived.missing,drop=FALSE]
+  new.cols[is.na(new.cols)]=0
+  out[,derived.missing]=new.cols
   out
 }
 

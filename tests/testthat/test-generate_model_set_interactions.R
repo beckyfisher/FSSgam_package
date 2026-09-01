@@ -902,3 +902,106 @@ test_that("an unclassifiable predictor and a missing interaction column report b
     "could not be computed from use.dat"
   )
 })
+
+test_that("a cor.matrix supplied as a data.frame is augmented as well", {
+  # Assigning a data.frame into a sub-block of a matrix replaces the matrix with
+  # a plain list, so the augmentation failed with "incorrect number of
+  # subscripts on matrix", naming neither the argument nor the cause. A
+  # data.frame is accepted everywhere else, including by this branch when the
+  # matrix is complete.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts)
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  from.matrix <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  from.frame <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2,
+    cor.matrix = as.data.frame(cm)
+  )
+  expect_equal(from.frame$predictor.correlations,
+               from.matrix$predictor.correlations)
+  expect_identical(names(from.frame$mod.formula), names(from.matrix$mod.formula))
+})
+
+test_that("a name in the supplied matrix that is not a predictor gets no NA cell", {
+  # The branch that computes the whole matrix replaces every NA with zero. The
+  # augmented one has to as well: the character form of
+  # smooth.smooth.interactions validates against the rownames of the resolved
+  # matrix rather than against the predictors, so a name the user supplied that
+  # is not a predictor reaches combine_uncorrelated(), where max() of an all-NA
+  # sub-matrix returns NA and `if (NA)` raises an error naming nothing.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", "complexity", facts, "junk")
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = c("depth", "complexity"),
+    pred.vars.fact = facts, factor.factor.interactions = TRUE,
+    smooth.smooth.interactions = c("junk", "ZONE.I.ZONE.copy"),
+    max.predictors = 2, cor.matrix = cm
+  )
+  pc <- model.set$predictor.correlations
+  expect_false(anyNA(pc["ZONE.I.ZONE.copy", ]))
+  expect_false(anyNA(pc[, "ZONE.I.ZONE.copy"]))
+  expect_identical(unname(pc["junk", "ZONE.I.ZONE.copy"]), 0)
+})
+
+test_that("a supplied matrix keeps its own row and column names", {
+  # The supplied names are kept in their own order and the derived ones
+  # appended to each dimension separately, so a matrix whose two dimnames
+  # differ is not reshaped into a square one with an invented all-NA row.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts)
+  cm <- matrix(0, length(vars), length(vars) + 1,
+               dimnames = list(vars, c(vars, "extra.col")))
+  cm[cbind(vars, vars)] <- 1
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  pc <- model.set$predictor.correlations
+  expect_identical(rownames(pc), c(vars, "ZONE.I.ZONE.copy"))
+  expect_identical(colnames(pc), c(vars, "extra.col", "ZONE.I.ZONE.copy"))
+  expect_false("extra.col" %in% rownames(pc))
+})
+
+test_that("a continuous predictor omitted from cor.matrix is still reported", {
+  # The named/derived split. The blocks above omit a factor, which
+  # resolve_factor_interactions() rejects several stages earlier, so they pass
+  # whatever the split does. A continuous predictor is not screened there, so
+  # this is the case that reaches build_predictor_correlation_matrix() with
+  # both a named and a derived predictor missing.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts)
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  err <- expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = c("depth", "complexity"),
+      pred.vars.fact = facts, factor.factor.interactions = TRUE,
+      max.predictors = 2, cor.matrix = cm
+    )
+  )
+  expect_match(conditionMessage(err), "complexity")
+  expect_false(grepl("ZONE.I.ZONE.copy", conditionMessage(err), fixed = TRUE))
+})

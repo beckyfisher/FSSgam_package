@@ -43,3 +43,50 @@ mistaken for a regression test.
 Full suite: 583 passing, 0 failing, 7 skipped, against 568 on `master`.
 
 ---
+
+#### Issue #15, review round 1 (independent session)
+
+**Claude (reviewer):** One blocking defect and three substantive points. A
+`cor.matrix` supplied as a `data.frame` crashes in the new path: assigning a
+`data.frame` into a sub-block of a matrix replaces the matrix with a plain list,
+dropping `dim` and `dimnames`, so the next assignment fails with "incorrect
+number of subscripts on matrix". A `data.frame` works on `master` and works on
+the branch whenever the matrix is complete. The comment claiming the `NA` cells
+are never read is false: the character form of `smooth.smooth.interactions`
+validates against the rownames of the resolved matrix rather than against the
+predictors, so a supplied name that is not a predictor reaches
+`combine_uncorrelated()`, where `if (NA)` raises an error naming nothing. No test
+fails when the named/derived split is removed, because the blocks written for it
+omit a factor, which `resolve_factor_interactions()` rejects several stages
+earlier. And `@param cor.matrix` states the new exception and then retains,
+unqualified, the FSSgam_package#13 sentence saying `check_correlations` is not
+called at all.
+
+Confirmed alongside: the golden master gives 30 of 31 scenarios `identical()`,
+the one difference being the intended error message; the splice is correct with
+reordered dimnames and with a partially supplied set of derived columns; and
+`resolve_factor_interactions()` returns `character(0)` in every branch that
+builds nothing.
+
+**Claude:** All four fixed. The right hand side of the splice is coerced with
+`as.matrix()`. The cells the function itself created are set to zero after the
+splice, matching what the branch that computes the whole matrix already does with
+the `NA` values `check_correlations()` returns, and leaving an `NA` the user
+supplied among their own predictors alone. The supplied names are now kept in
+their own order per dimension, with the derived ones appended to each, so a
+matrix whose two dimnames differ is no longer reshaped into a square one with an
+invented all-`NA` row. The `@param` sentence is qualified rather than deleted,
+since it remains true for a complete matrix.
+
+Four tests were added. Three fail against the previous commit on this branch, one
+with the `data.frame` crash, one with "missing value where TRUE/FALSE needed",
+and one on the reshaped dimnames. The fourth omits a continuous predictor
+alongside a missing derived column, which is the case that reaches
+`build_predictor_correlation_matrix()` with both kinds missing; it fails under
+the reviewer's mutation folding named-missing into derived-missing.
+
+The duplicate column a generated interaction name can create when it collides
+with an existing column was raised as FSSgam_package#22. The redirecting URLs the
+reviewer found in `cran-comments.md` are FSSgam_package#20, already open.
+
+---
