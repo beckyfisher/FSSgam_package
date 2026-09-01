@@ -209,7 +209,7 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
             null.fit=try(nnet::multinom(dat.r[,var.1] ~ 1,trace=FALSE)$deviance,silent=TRUE)}
           out=NA
           if(!inherits(fit,"try-error")&&!is.null(null.fit)&&
-       !inherits(null.fit,"try-error")){
+             !inherits(null.fit,"try-error")){
            if(round(fit,4)==round(null.fit,4)){r.est=0}else{
                    r.est=sqrt(1-(fit/null.fit))}
                    out=c(var.1,var.2,r.est)}

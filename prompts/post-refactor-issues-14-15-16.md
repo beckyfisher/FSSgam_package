@@ -173,3 +173,30 @@ with no observed values, which takes the all-missing case from 3 fits to 2
 against `master`'s 4.
 
 ---
+
+#### Review round 4 (fresh session, confirmation)
+
+**Claude (reviewer):** No blocking and no substantive defect. The `na.action`
+table reproduced exactly, and `na.pass` was found to behave as `na.fail` does.
+Both clauses added in the previous round were established unreachable with a
+successful pair fit, by argument and then by fuzzing 400 generated frames
+against a build with the shortcut deleted and the null refitted per pair
+unconditionally: 400 of 400 matrices `identical()`, no error on any build, and
+no cell `NA` on the branch where `master` returned a number. Three nits: the
+round-3 comment's claim that the warning count is the same is wrong, the branch
+raises 2 where `master` raises 3; neither new clause is covered by a test, both
+having been deleted in variant builds with the suite still passing; and a
+misaligned continuation line.
+
+**Claude:** The warning claim was wrong and is corrected on the pull request. A
+test now pins the zero-count clause by counting `multinom()` calls with
+`trace()`, since the returned matrix is the same either way: two pair fits, both
+failing on a zero-row frame, and no null at all. It fails with 3 calls when the
+clause is removed. The `!is.null()` clause is left untested, because it is
+unreachable under the default `na.action` and a test for it would have to set a
+global option to reach a defensive branch. The continuation line was realigned.
+
+Rounds 3 and 4 both found nothing substantive, so the cycle on this pull request
+is closed.
+
+---

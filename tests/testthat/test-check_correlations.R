@@ -260,3 +260,27 @@ test_that("the retained per-factor null agrees with refitting it for every pair"
 
   expect_equal(observed, expected, tolerance = 1e-6)
 })
+
+test_that("a factor with no observed values costs no intercept-only fit", {
+  # The retain condition compares the pair's complete-case count with the
+  # factor's own, and an entirely missing column satisfies it with zero equals
+  # zero. Its null cannot converge and no pair can read it, since every pair it
+  # appears in has no rows, so it is not fitted at all. Asserted by counting
+  # calls, because the returned matrix is the same either way.
+  dat <- data.frame(
+    f1 = factor(rep(c("a", "b"), each = 20)),
+    f2 = factor(rep(NA_character_, 40), levels = c("x", "y"))
+  )
+
+  calls <- 0L
+  suppressMessages(trace(nnet::multinom, tracer = function() calls <<- calls + 1L,
+                         print = FALSE))
+  on.exit(suppressMessages(untrace(nnet::multinom)), add = TRUE)
+  cm <- suppressWarnings(check_correlations(dat))
+
+  # two pair fits, both of which fail on a zero-row frame, and no null at all
+  expect_identical(calls, 2L)
+  expect_identical(unname(diag(cm)), c(1, 1))
+  expect_true(is.na(cm["f1", "f2"]))
+  expect_true(is.na(cm["f2", "f1"]))
+})
