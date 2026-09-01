@@ -206,3 +206,28 @@ Rounds 3 and 4 both found nothing blocking, and round 4 nothing substantive, so
 the cycle on this pull request is closed.
 
 ---
+
+#### Issue #15, review round 5 (fresh session, confirmation)
+
+**Claude (reviewer):** Nothing blocking. The new block is discriminating and the
+golden master moves in exactly one scenario, as intended. One substantive point:
+the candidate counts the previous round was written to correct still do not
+reproduce under the conditions `NEWS.md` states. The unpermuted 7 and 8 hold only
+with `factor.smooth.interactions` switched off; under the function's default of
+`pred.vars.fact` the counts are 9 and 13. And the body's count of blocks failing
+against `master` is twelve, not ten, the earlier figure having been taken from
+testthat's summary reporter, which lists at most ten problems by default.
+
+**Claude:** Both corrected. `NEWS.md` now names the arguments the measurement was
+taken under and quotes 5 against 9 and 5 against 13, with the branch agreeing at
+9 and 13. The reporter cap is worth recording: a count of failing blocks read off
+a summary reporter is capped at ten, so it has to be counted from the result
+object.
+
+The reviewer also noted that both assertions in the new block are negative, so a
+degenerate return would satisfy them. A positive assertion was added alongside.
+
+Rounds 3, 4 and 5 found no blocking defect and rounds 4 and 5 nothing beyond
+figures and comments, so the cycle on this pull request is closed.
+
+---

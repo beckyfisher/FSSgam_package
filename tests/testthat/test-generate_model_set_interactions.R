@@ -1134,6 +1134,9 @@ test_that("a factor named twice yields no interaction of itself", {
       pred.vars.fact = c("ZONE", "ZONE"),
       factor.factor.interactions = TRUE, max.predictors = 2
   ))
+  # both assertions below are negative, so a degenerate return would satisfy
+  # them; this one fails if the model set collapses for an unrelated reason
+  expect_true("ZONE+depth" %in% names(model.set$mod.formula))
   expect_false("ZONE.I.ZONE" %in% colnames(model.set$used.data))
   expect_false(any(grepl("ZONE.I.ZONE", names(model.set$mod.formula), fixed = TRUE)))
 })

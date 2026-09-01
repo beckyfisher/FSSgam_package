@@ -7,12 +7,13 @@
   two orders differed the diagonal of that sub-matrix held cross correlations and
   the triangles held the ones from the original diagonal, and the candidate was
   dropped whatever its predictors' correlation. Both sites now index by name in
-  one order. Measured on a supplied matrix over `depth`, `complexity` and `ZONE`
-  with its columns permuted, at `max.predictors = 2`, this returned 5 candidates
-  where the same matrix unpermuted returned 7; at the default `max.predictors = 3`
-  it is 5 against 8. The same change means a factor named twice in
-  `pred.vars.fact` no longer yields an interaction of that factor with itself
-  (FSSgam_package#15).
+  one order. Measured on `master`, with a supplied matrix over `depth`,
+  `complexity` and `ZONE`, `pred.vars.fact = "ZONE"` and everything else at its
+  default: the matrix with its columns permuted returned 5 candidates where the
+  same matrix unpermuted returned 9 at `max.predictors = 2` and 13 at
+  `max.predictors = 3`. On this branch the two orders agree, at 9 and 13. The
+  same change means a factor named twice in `pred.vars.fact` no longer yields an
+  interaction of that factor with itself (FSSgam_package#15).
 
 * `generate_model_set()` no longer requires a user-supplied `cor.matrix` to name
   the hard coded factor interaction columns that `factor.factor.interactions`
