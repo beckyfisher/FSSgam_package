@@ -213,6 +213,12 @@
   `?generate_model_set` already required; missing predictors are reported by
   name.
 
+* `fit_mod_l()` is no longer exported. It is an internal helper documented as
+  not called directly, and its arguments changed as recently as the family
+  resolution fix. It remains available as `FSSgam:::fit_mod_l()`. `wi()`,
+  `extract_mod_dat()` and `build_inclusion_mat()` stay exported, being more
+  plausible to call directly.
+
 # FSSgam 1.0.0
 
 Modernisation release ahead of CRAN submission.
