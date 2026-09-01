@@ -56,22 +56,22 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
 extract_mod_dat <- function(mod.fit,r2.type.="r2.lm.est"){
 #x=mod.fit
  mod.dat <- list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA)
- if(class(mod.fit)[[1]]!="try-error"){
+ if(!inherits(mod.fit,"try-error")){
   # AIC and BIC
   mod.dat$AICc <- MuMIn::AICc(mod.fit)
   mod.dat$BIC <- stats::BIC(mod.fit)
   #R.sq
         tempOut=NA
-        if(class(mod.fit)[1]=="gam" & r2.type.=="dev"){tempOut=summary(mod.fit)$dev.expl}
-        if(class(mod.fit)[1]=="gam" & r2.type.=="r2"){tempOut=summary(mod.fit)$r.sq}
-        if(class(mod.fit)[1]=="gam" & r2.type.=="r2.lm.est"){
+        if(inherits(mod.fit,"gam") & r2.type.=="dev"){tempOut=summary(mod.fit)$dev.expl}
+        if(inherits(mod.fit,"gam") & r2.type.=="r2"){tempOut=summary(mod.fit)$r.sq}
+        if(inherits(mod.fit,"gam") & r2.type.=="r2.lm.est"){
            tempOut=summary(stats::lm(mod.fit$y~stats::predict(mod.fit)))$r.sq}
-        if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="dev"){
+        if(inherits(mod.fit,"gamm4") & r2.type.=="dev"){
            tempOut=summary(mod.fit$gam)$dev.expl
            if(length(tempOut)==0){tempOut=NA}}
-        if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
-        if(class(mod.fit)[[1]]=="gamm" & r2.type.=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
-        if(class(mod.fit)[[1]]=="gamm4" & r2.type.=="r2.lm.est"){
+        if(inherits(mod.fit,"gamm4") & r2.type.=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
+        if(inherits(mod.fit,"gamm") & r2.type.=="r2"){tempOut=summary(mod.fit$gam)$r.sq}
+        if(inherits(mod.fit,"gamm4") & r2.type.=="r2.lm.est"){
           if(stats::family(mod.fit$mer)[1]=="binomial"){
             y_dat <- attributes(mod.fit$mer)$frame$y
             y <- y_dat[,1]/(y_dat[,1] + y_dat[,2])
@@ -87,7 +87,7 @@ extract_mod_dat <- function(mod.fit,r2.type.="r2.lm.est"){
            if(is.null(tempOut)){tempOut=NA}
   mod.dat$r2.vals=round(tempOut,5)
   # Summed edf
-         if(class(mod.fit)[1]=="gam"){
+         if(inherits(mod.fit,"gam")){
           edf.m=summary(mod.fit)$edf
           p.coeff.m=summary(mod.fit)$p.coeff}else{
            #edf.m=summary(mod.fit$gam)$edf
@@ -99,7 +99,7 @@ extract_mod_dat <- function(mod.fit,r2.type.="r2.lm.est"){
                                 # parameter count when there is shrinkage (bs='cc')
   mod.dat$edf=round(sum(c(edf.m,length(p.coeff.m))),2)
   # count the edf values less than 0.25 to check for serious shrinkage
-         if(class(mod.fit)[1]=="gam"){
+         if(inherits(mod.fit,"gam")){
            edf.m <- summary(mod.fit)$edf}else{
              edf.m <- mod.fit$gam$edf}
   mod.dat$edf.less.1 <- length(which(edf.m<0.25))}

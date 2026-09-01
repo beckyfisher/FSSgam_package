@@ -197,7 +197,9 @@ generate_model_set=function(use.dat,
 
 # Confirms use.dat is a data.frame (not e.g. a tibble).
 validate_use_dat=function(use.dat){
-  if(class(use.dat)[1]!="data.frame"){
+  # identical() rather than inherits(): this rejects a tibble or a data.table
+  # deliberately, and inherits(x,"data.frame") accepts both.
+  if(!identical(class(use.dat),"data.frame")){
     stop("use.dat must be a data.frame, perhaps you have a tibble? FSSgam does not currently support tibbles.")
   }
 }
@@ -228,7 +230,7 @@ build_null_model=function(test.fit,use.dat,null.terms){
     # adding family=stats::family(test.fit) back in.
     null.fit=try(stats::update(test.fit,formula=null.formula,data=use.dat),silent=TRUE)}
 
-  if(class(null.fit)[1]=="try-error"){
+  if(inherits(null.fit,"try-error")){
         stop(paste("Null model not successfully fitted, please check your inputs.
                    If there are no random effects try using 'gam' instead of 'uGamm'
                    in your test.fit model call.",
@@ -728,7 +730,7 @@ build_model_formulas=function(use.mods,pred.vars.cont,pred.vars.fact,linear.vars
                      function(v){paste0("bs=c(",
                         paste(vapply(v,bs_for,character(1)),collapse=","),")")},
                      character(1))
-       te.fun=if(class(test.fit)[[1]]=="gamm4"){"t2("}else{"te("}
+       te.fun=if(inherits(test.fit,"gamm4")){"t2("}else{"te("}
        all.terms.vec=c(all.terms.vec,
          paste(te.fun,gsub(".te.",",",te.smooths,fixed=TRUE),",k=",k,",",bs.vec,")",sep=""))}
       if(length(linear.interaction.terms.m)>0){all.terms.vec=c(all.terms.vec,
