@@ -1,6 +1,6 @@
 # Changelog
 
-## FSSgam (development version)
+## FSSgam 1.1.0
 
 - Completed the snake_case rename across the public API.
   [`full.subsets.gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full.subsets.gam.md)
@@ -23,6 +23,7 @@
   with no backward-compatible alias – a breaking change for any code
   calling these five directly, but none of them appear anywhere in the
   companion repo’s published vignettes/FAQ.
+
 - Bug fix:
   [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md)
   (and
@@ -41,6 +42,7 @@
   literal call such as `family = nb()`, or a variable/list element such
   as `family = my.families[[2]]`), and no longer crashes every candidate
   under `parallel = TRUE` when family was supplied via a variable.
+
 - Bug fix:
   [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
   (and
@@ -52,6 +54,7 @@
   numeric/logical value, was silently accepted and spliced into a
   nonsense model formula instead of failing. `null.terms` is now
   validated up front with a clear error message (beckyfisher/FSSgam#7).
+
 - Bug fix:
   [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
   (and
@@ -70,6 +73,7 @@
   now also returns the 1x1 unit matrix for a single-column input,
   matching
   [`check_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_correlations.md).
+
 - Bug fix:
   [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
   silently dropped the interaction term from every `linear.vars`
@@ -80,6 +84,7 @@
   element (with a warning). Affected candidates were still named as
   interactions but fitted as the corresponding factor main-effect model,
   so the model table reported duplicate fits under distinct names.
+
 - Bug fix: supplying factor predictors with `pred.vars.cont = NA` – the
   documented way to run without smooth predictors – made
   [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
@@ -89,8 +94,10 @@
   non-missing arguments to max; returning -Inf” warnings, but from
   `max.predictors = 2` it survived into the candidate set as a model
   whose formula smoothed the literal `NA`.
+
 - Bug fix: `case_study1` was documented as having 28 variables; it has
   27.
+
 - Bug fix:
   [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)’s
   `@return` documented a `generated.models` element that it has never
@@ -101,16 +108,19 @@
   –
   [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
   is what carries that.
+
 - Bug fix: a candidate model named as an interaction between a factor
   and a linear predictor was fitted as the factor main effect alone,
   whenever the `.t.` term came from the list form of
   `factor.smooth.interactions` naming a linear predictor absent from
   `linear.vars`. The model table then reported two identical fits under
   different names.
+
 - Substantially expanded the `testthat` suite, from 105 passing
-  expectations to 447, and from 71.33% to 94.27% line coverage
-  (FSSgam_package#5). New coverage includes: every non-default argument
-  of
+  expectations at 1.0.0 to 568 at this release, and from 71.33% to 94.4%
+  line coverage (FSSgam_package#5 covered the first 447 of those; the
+  rest accompany the fixes below). New coverage includes: every
+  non-default argument of
   [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md),
   [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md)
   and
@@ -120,9 +130,277 @@
   formula construction; the bundled datasets; every documented error and
   warning message; and numerical snapshot tests pinning fitted values
   for five end-to-end scenarios.
+
 - Added a test-coverage GitHub Actions workflow
   (`.github/workflows/test-coverage.yaml`, using `covr` + Codecov) and a
   coverage badge to the README (FSSgam_package#3).
+
+- Bug fix:
+  [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md)
+  (and
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md),
+  which calls it) failed on a model set with exactly one predictor, with
+  `'x' must be an array of at least two dimensions`. The variable
+  importance calculation indexed the model table by column name without
+  `drop = FALSE`, so a single predictor collapsed it to a vector before
+  [`colSums()`](https://rdrr.io/r/base/colSums.html).
+  [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
+  was fixed for the single-predictor case earlier in this development
+  cycle;
+  [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md)
+  was not.
+
+- Bug fix: with `VI.mods = 'min.n'`, a predictor present in no
+  successfully fitted model was given the weight of the single best
+  model containing any predictor, rather than none. The number of models
+  to sum over is zero in that case, and `1:0` counts backwards.
+
+- Bug fix: with `save.model.fits = FALSE` and `parallel = TRUE`, a
+  single candidate that could not be fitted aborted the whole run
+  instead of being recorded in `failed.models`. The `foreach()` on that
+  path had its `.errorhandling` disabled; the `save.model.fits = TRUE`
+  path was unaffected.
+
+- Bug fix: an unrecognised `r2.type` was accepted silently and produced
+  a column of `NA` r2 values.
+  [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md)
+  and
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
+  now reject anything other than `"r2.lm.est"`, `"r2"` or `"dev"`.
+  [`extract_mod_dat()`](https://beckyfisher.github.io/FSSgam_package/reference/extract_mod_dat.md)
+  is unchanged, since it documents `r2.type.` as passed through.
+
+- Bug fix: an unrecognised `VI.mods` failed with
+  `object 'aic.var.weights' not found`.
+  [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md)
+  and
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
+  now reject anything other than `"min.n"` or `"all"`.
+
+- Bug fix:
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)’s
+  deprecated `factor.interactions`, `smooth.interactions` and `size`
+  arguments raised an error on values they are documented to accept. A
+  character vector of length greater than one gave
+  `the condition has length > 1`, and `NA` gave
+  `missing value where TRUE/FALSE needed`. All three are now detected
+  with [`missing()`](https://rdrr.io/r/base/missing.html), which is
+  correct for every type, length and `NA`. As a result
+  `smooth.interactions = NA` now warns about the deprecation, which it
+  did not do reliably before.
+
+- Behaviour change:
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)’s
+  `max.models` default changes from 500 to 200, matching
+  [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md).
+  The two disagreed and neither documented its default, so a candidate
+  set of between 201 and 500 models saved its model fits through
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
+  but not through
+  [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
+  plus
+  [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md).
+  Anyone relying on the old wrapper default for a set in that range will
+  now receive the “model fits will not be saved” warning and an empty
+  `success.models`; pass `max.models = 500` explicitly to keep the
+  previous behaviour. The default is now stated in the documentation of
+  both functions.
+
+- [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
+  gains `VI.mods`, which it previously did not forward to
+  [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md),
+  so `VI.mods = 'all'` was unreachable through the wrapper
+  (FSSgam_package#7).
+
+- [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md)
+  and
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
+  gain `progress`, defaulting to
+  [`interactive()`](https://rdrr.io/r/base/interactive.html). The
+  progress bar was previously written to stdout unconditionally, so
+  suppressing it in a script or report required wrapping the call in
+  [`capture.output()`](https://rdrr.io/r/utils/capture.output.html)
+  (FSSgam_package#9).
+
+- [`check_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_correlations.md)
+  and
+  [`check_non_linear_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_non_linear_correlations.md)
+  no longer emit spurious “NaNs produced” warnings when a factor-factor
+  pair is perfectly separated. The deviance is read directly off the
+  [`nnet::multinom()`](https://rdrr.io/pkg/nnet/man/multinom.html) fit
+  rather than from its
+  [`summary()`](https://rdrr.io/r/base/summary.html), which computes
+  standard errors that were discarded (FSSgam_package#10). Reported
+  correlation values are unchanged.
+
+- [`check_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_correlations.md)’s
+  factor-factor diagonal is now exactly 1. It was previously a fitted
+  multinomial pseudo-R2 of about 0.999999, because each factor was
+  regressed on itself (FSSgam_package#12). Off-diagonal values are
+  unchanged.
+
+- Bug fix: `max.predictors = 1` with `factor.factor.interactions` built
+  interaction columns it should not have. The enumeration was written as
+  `for (i in 2:n)`, and at `n = 1` that sequence counts backwards to
+  `c(2, 1)`, so a size-1 “combination” was enumerated as well. Its
+  pasted name is just the original variable name, so `used.data` gained
+  a duplicate column per factor, and four “no non-missing arguments to
+  max; returning -Inf” warnings were emitted. No interaction terms are
+  now generated at `max.predictors = 1`, with a warning that says so; on
+  a two-factor set `used.data` loses three spurious columns.
+
+- Bug fix: `factor.factor.interactions` given as a character vector
+  failed with `arguments imply differing number of rows` when every
+  named combination exceeded `cov.cutoff`. It now warns and continues,
+  as the `TRUE` form always did. The warning text for both forms now
+  names `cov.cutoff` and its value, replacing a message that referred to
+  a non-existent `cor.cuttoff`.
+
+- Behaviour change: the collinearity screen that decides which
+  interaction terms are built now tests both halves of the correlation
+  matrix in every case. Three of the four places that perform it tested
+  only the upper triangle, so a pair could be admitted whose correlation
+  exceeded `cov.cutoff` in the other direction. The matrices are not
+  symmetric:
+  [`check_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_correlations.md)
+  estimates a factor-factor value by fitting
+  [`multinom()`](https://rdrr.io/pkg/mgcv/man/multinom.html) separately
+  in each direction, and
+  [`check_non_linear_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_non_linear_correlations.md)
+  is asymmetric by construction. In practice this affects only a pair
+  whose two estimates straddle `cov.cutoff`, which for factor pairs
+  means a difference of under 0.001; a model set containing such a pair
+  will now exclude the interaction it previously included.
+
+- `factor.factor.interactions` given as a character vector no longer
+  skips silently when every named pair exceeds `cov.cutoff`. An internal
+  guard counted cells of the correlation matrix rather than pairs, so no
+  interaction was built and nothing was reported; it now warns, as the
+  `TRUE` form does. The model set produced is unchanged.
+
+- Bug fix: a name in `cyclic.vars` was matched against the assembled
+  model terms with an unanchored
+  [`grep()`](https://rdrr.io/r/base/grep.html), so it captured every
+  predictor whose name contained it, and the name was used as a regular
+  expression. Declaring `depth` cyclic also fitted `depthx` with
+  `bs = "cc"`, and a predictor name containing a full stop matched any
+  character in that position. The affected models were fitted with the
+  wrong smoothing basis, without error, under a candidate name that
+  looked correct. The basis is now chosen from the variable names as
+  each term is built.
+
+- Bug fix: a [`te()`](https://rdrr.io/pkg/mgcv/man/te.html) term over
+  three or more predictors was given only two `bs` values, because the
+  code that assigned them took the first two variables. mgcv warns “bs
+  wrong length and ignored” and substitutes its own default, so both
+  `bs.arg` and any `cyclic.vars` were silently discarded for that term.
+  Each marginal now carries its own basis. Reachable through
+  `smooth.smooth.interactions` given as a character vector with
+  `max.predictors >= 3`.
+
+- Behaviour change: candidate model names are now sorted in byte order,
+  via `sort(method = "radix")`, and no longer depend on the session’s
+  collation locale (FSSgam_package#8). A model named `complexity+ZONE`
+  in an `en_US.UTF-8` session was named `ZONE+complexity` in a C-locale
+  one, so a saved analysis was not reproducible across machines with
+  different locales. Names are now the C-locale form everywhere. The
+  fitted results are identical, but `modname` values and the row order
+  of `mod.data.out` change for anyone working in a non-C locale; a saved
+  model table matched on `modname` needs regenerating.
+
+- Behaviour change: a user-supplied `cor.matrix` now governs every stage
+  that screens on correlation, not only the exclusion of assembled
+  candidate models (FSSgam_package#13). There are three such stages:
+  which factor-factor interaction columns are built, which
+  [`te()`](https://rdrr.io/pkg/mgcv/man/te.html) smooth-smooth
+  interaction terms are built, and which candidates survive. The first
+  two previously recomputed correlations from `use.dat` and ignored the
+  supplied matrix, so a user who supplied a matrix saying two predictors
+  were uncorrelated still found their
+  [`te()`](https://rdrr.io/pkg/mgcv/man/te.html) term absent. Users who
+  do not supply a `cor.matrix` see no change: the continuous-continuous
+  block does not depend on which other predictors are present, verified
+  against both
+  [`check_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_correlations.md)
+  and
+  [`check_non_linear_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_non_linear_correlations.md).
+  A supplied matrix must now include any hard coded factor interaction
+  it causes to be created, which
+  [`?generate_model_set`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
+  already required; missing predictors are reported by name.
+
+- Bug fix: a user-supplied `cor.matrix` did not replace the automatic
+  estimate, it only overrode it.
+  [`check_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_correlations.md)
+  (or
+  [`check_non_linear_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_non_linear_correlations.md))
+  was called over every predictor and its result discarded whenever a
+  matrix was supplied, so supplying one neither avoided the
+  [`multinom()`](https://rdrr.io/pkg/mgcv/man/multinom.html) and
+  [`gam()`](https://rdrr.io/pkg/mgcv/man/gam.html) fits nor allowed a
+  predictor of a class those functions reject – a `Date` column, say –
+  to be used at all. The estimate is now computed only when no matrix is
+  supplied (FSSgam_package#13).
+
+- Bug fix: with `save.model.fits = FALSE`, a run in which no candidate
+  fitted returned a model table of `NA` with `delta.AICc` and `wi.AICc`
+  filled with `NaN`, rather than the “None of your models fitted
+  successfully” error raised on the `save.model.fits = TRUE` path. Which
+  of the two happened depended only on a memory setting. Both paths now
+  raise the error.
+
+- [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_model_set.md)
+  and
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
+  reject a `progress` value that is not a single `TRUE` or `FALSE`, and
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
+  now validates `VI.mods` at entry as it already did `r2.type`, so an
+  unrecognised value is reported before the candidate set is built
+  rather than after.
+
+- `smooth.smooth.interactions` naming a column of `use.dat` that is not
+  among the predictors is now reported as such. It was previously
+  screened against an empty sub-matrix of the correlation matrix, so
+  `combine_uncorrelated()` took
+  [`max()`](https://rdrr.io/r/base/Extremes.html) of nothing, warned “no
+  non-missing arguments to max”, and built the
+  [`te()`](https://rdrr.io/pkg/mgcv/man/te.html) term regardless of its
+  correlations. The error message names the variable and the requirement
+  (it previously said the variable was not supplied in `use.dat`, which
+  was not what was being checked).
+
+- [`fit_mod_l()`](https://beckyfisher.github.io/FSSgam_package/reference/fit_mod_l.md)
+  is no longer exported. It is an internal helper documented as not
+  called directly, and its arguments changed as recently as the family
+  resolution fix. It remains available as `FSSgam:::fit_mod_l()`.
+  [`wi()`](https://beckyfisher.github.io/FSSgam_package/reference/wi.md),
+  [`extract_mod_dat()`](https://beckyfisher.github.io/FSSgam_package/reference/extract_mod_dat.md)
+  and
+  [`build_inclusion_mat()`](https://beckyfisher.github.io/FSSgam_package/reference/build_inclusion_mat.md)
+  stay exported, being more plausible to call directly.
+
+- Documentation corrections. Twenty-six spelling errors across the
+  reference pages, of which three affected meaning: the correlation
+  values are the square *root* of an R squared, not the “square-route”;
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)’s
+  description of what it sums referred to “the ?i values” where a
+  character had been lost from “the wi values”; and
+  [`check_non_linear_correlations()`](https://beckyfisher.github.io/FSSgam_package/reference/check_non_linear_correlations.md)’s
+  note told users to increase `cor.cutoff`, which is not an argument –
+  `cov.cutoff` is. A non-breaking hyphen in the `case_study2`
+  documentation is replaced with an ASCII one.
+
+- The sixteen argument descriptions shared between
+  [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
+  and
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
+  were duplicated verbatim and had already drifted; they are now
+  inherited, so they cannot drift again.
+  [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)’s
+  `null.terms` entry gains the sentence about fitting a correlation
+  structure that only
+  [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
+  carried.
 
 ## FSSgam 1.0.0
 

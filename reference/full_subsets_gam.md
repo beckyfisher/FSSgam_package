@@ -4,8 +4,8 @@ Conducts a full subsets analysis based on gam(m4). In the most recent
 version of FSSgam this function is now a wrapper for the two input
 functions, generate_model_set and fit_model_set. Input arguments are the
 same as these two underlying functions. calling these underlying
-functions explicitly is the recommended method for running a fulls
-subsets analysis with the FSSgam pacakge because this enables the user
+functions explicitly is the recommended method for running a full
+subsets analysis with the FSSgam package because this enables the user
 to interrogate the candidate model set and the predictor correlation
 matrix before actually running the analysis.
 
@@ -29,15 +29,17 @@ full_subsets_gam(
   k = 5,
   bs.arg = "'cr'",
   null.terms = "",
-  max.models = 500,
+  max.models = 200,
   save.model.fits = TRUE,
   parallel = FALSE,
   n.cores = 4,
   r2.type = "r2.lm.est",
   report.unique.r2 = FALSE,
-  factor.interactions = "previous.arg",
-  smooth.interactions = "previous.arg",
-  size = "previous.arg"
+  VI.mods = "min.n",
+  progress = interactive(),
+  factor.interactions,
+  smooth.interactions,
+  size
 )
 ```
 
@@ -95,21 +97,21 @@ full_subsets_gam(
 - cyclic.vars:
 
   NA if there are no cyclic predictors, or if there are cyclic
-  predictors,a character vector containing the names of any of the
+  predictors, a character vector containing the names of any of the
   continuous predictors that should be modelled as cyclic variables.
-  Note that these must also be contained in the pred.vars.cont
-  charactervector. Please also note there are issues with bs='cc' and
-  model selection as this uses by default shrinkage. With shrinkage,
-  variables are retained in models but with zero edf, which makes
-  interpretation of AICc and BIC confusing. To account for this always
-  select only the most parsimonious model (that with the fewest
-  parameters), not just that with the lowest AICc. Reported estimated
-  degrees of freedom (edf) in the model output table represent the sum
-  of the edf of the smooth terms plus the number of parametric
-  coefficients. When cyclic variables are included and shrinkage is
-  used, any estimated edf of the smooth terms that are less than 1 are
-  reset to 1 before summing to ensure the the total number of predictors
-  in the model is captured properly.
+  Note that these must also be contained in the pred.vars.cont character
+  vector. Please also note there are issues with bs='cc' and model
+  selection as this uses by default shrinkage. With shrinkage, variables
+  are retained in models but with zero edf, which makes interpretation
+  of AICc and BIC confusing. To account for this always select only the
+  most parsimonious model (that with the fewest parameters), not just
+  that with the lowest AICc. Reported estimated degrees of freedom (edf)
+  in the model output table represent the sum of the edf of the smooth
+  terms plus the number of parametric coefficients. When cyclic
+  variables are included and shrinkage is used, any estimated edf of the
+  smooth terms that are less than 1 are reset to 1 before summing to
+  ensure the the total number of predictors in the model is captured
+  properly.
 
 - linear.vars:
 
@@ -185,23 +187,34 @@ full_subsets_gam(
 
 - cor.matrix:
 
-  By default predictor correlations are evaluated via a call to
-  check_correlations, a function taking a data.frame (containing all
-  predictors) as argument and generating a correlation matrix comprised
-  of: 1) correlation coefficients between all continuous predictors via
-  a call to cor; 2) approximate correlation values between continuous
-  predictors and factors, as the square-route of the R2 value obtained
-  via a call to lm, where the continuous predictor is modelled as a
-  response and the factor variable as a single fixed factor; and 3)
-  approximate correlations values between factor predictors, as the
-  square-route of the R2 value obtained via a call multinom (from
-  package nnet, Venables & Ripley 2002). Note that any user constructed
-  pairwise matrix can be passed to the function and used for pairwise
-  exclusion of variables from individual models.
+  A user-supplied pairwise correlation matrix, or NA (the default) to
+  compute one from use.dat. When supplied it governs every stage that
+  screens on correlation: which factor-factor interaction columns are
+  built, which te smooth-smooth interaction terms are built, and which
+  assembled candidate models are excluded. It must therefore carry a row
+  and a column for every predictor, including any hard coded factor
+  interactions that setting factor.factor.interactions causes to be
+  created; missing names are reported by name. When supplied it replaces
+  the automatic estimate rather than overriding it, so
+  check_correlations is not called at all and a predictor of a class it
+  does not accept can be used. By default predictor correlations are
+  evaluated via a call to check_correlations, a function taking a
+  data.frame (containing all predictors) as argument and generating a
+  correlation matrix comprised of: 1) correlation coefficients between
+  all continuous predictors via a call to cor; 2) approximate
+  correlation values between continuous predictors and factors, as the
+  square root of the R2 value obtained via a call to lm, where the
+  continuous predictor is modelled as a response and the factor variable
+  as a single fixed factor; and 3) approximate correlations values
+  between factor predictors, as the square root of the R2 value obtained
+  via a call multinom (from package nnet, Venables & Ripley 2002). Note
+  that any user constructed pairwise matrix can be passed to the
+  function and used for pairwise exclusion of variables from individual
+  models.
 
 - non.linear.correlations:
 
-  Set this argument to TRUE of you would like to exclude continuous
+  Set this argument to TRUE if you would like to exclude continuous
   predictor combinations that are potentially "correlated" through
   non-linear relationships. See ?check_non_linear_correlations for more
   details.
@@ -238,19 +251,22 @@ full_subsets_gam(
   is an alternative way of fitting simple random structures that avoids
   use of PQL and allows a the greater range of families available in
   gam.mgcv to be used. see ?s and links therein. Note: make sure you use
-  gam instead of uGamm to make sure PQL is not used.
+  gam instead of uGamm to make sure PQL is not used. to fit a
+  correlation structure only (but no random effects) this must be
+  achieved through a call the gamm via , with no random effects, fitted
 
 - max.models:
 
   The total number of models allowed to be fit and still save the model
-  fits. If the candidate set is bigger than this value, a warning will
-  be returned indicating that model fits will not be saved.
+  fits. Defaults to 200. If the candidate set is bigger than this value,
+  a warning will be returned indicating that model fits will not be
+  saved.
 
 - save.model.fits:
 
   Are the model fits to be saved in the output list? If TRUE this will
-  be overriten if the model candidate set is bigger than max.models. If
-  FALSE only model output data are saved.
+  be overwritten if the model candidate set is bigger than max.models.
+  If FALSE only model output data are saved.
 
 - parallel:
 
@@ -276,6 +292,20 @@ full_subsets_gam(
   The estimated null model R2 is subtracted from each model R2 to give
   an idea of the unique variance explained. This can be useful where
   null terms are included in the model set.
+
+- VI.mods:
+
+  The set of models used to calculate summed variable importance scores.
+  Defaults to 'min.n', which uses only the best n models for each
+  variable (n being the minimum number of models any one predictor is
+  present in). Set to 'all' to use all models in the candidate set
+  instead.
+
+- progress:
+
+  Should a text progress bar be written to the console while models are
+  fitted. Defaults to interactive(), so the bar appears at the console
+  but not in scripts, reports or checks.
 
 - factor.interactions:
 
@@ -341,7 +371,7 @@ predictions.
 
 variable.importance - A list containing importance scores for each
 included predictor. To determine the relative importance of each
-predictor across the whole model set we summed the ?i values for all
+predictor across the whole model set we summed the wi values for all
 models containing each variable. The higher the combined weights for an
 explanatory parameter, the more important it is in the analysis (Burnham
 & Anderson, 2002). An assumption of the use of summed model weights to
@@ -378,7 +408,6 @@ full_subsets_gam(
   max.predictors = 2,
   k = 3
 )
-#>   |                                                                              |                                                                      |   0%  |                                                                              |=========                                                             |  12%  |                                                                              |==================                                                    |  25%  |                                                                              |==========================                                            |  38%  |                                                                              |===================================                                   |  50%  |                                                                              |============================================                          |  62%  |                                                                              |====================================================                  |  75%  |                                                                              |=============================================================         |  88%  |                                                                              |======================================================================| 100%
 #> $mod.data.out
 #>                                         modname
 #> null                                       null
@@ -915,7 +944,7 @@ full_subsets_gam(
 #>            complexity      depth       ZONE
 #> complexity 1.00000000 0.33364348 0.01410832
 #> depth      0.33364348 1.00000000 0.08234682
-#> ZONE       0.01410832 0.08234682 0.99999940
+#> ZONE       0.01410832 0.08234682 1.00000000
 #> 
 #> $failed.models
 #> named list()

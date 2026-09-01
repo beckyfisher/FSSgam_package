@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">FSSgam</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -88,8 +88,8 @@ This wrapper was required to allow full_subsets_gam and fit_model_set to be appl
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">case_study1</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">base.fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">Herbivore.abundance</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">depth</span>, k <span class="op">=</span> <span class="fl">3</span>, bs <span class="op">=</span> <span class="st">"cr"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                 family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/Tweedie.html" class="external-link">tw</a></span><span class="op">(</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">case_study1</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu">fit_mod_l</span><span class="op">(</span>formula.l <span class="op">=</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">complexity</span>, k <span class="op">=</span> <span class="fl">3</span>, bs <span class="op">=</span> <span class="st">"cr"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>          test.fit. <span class="op">=</span> <span class="va">base.fit</span>, use.dat <span class="op">=</span> <span class="va">case_study1</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">FSSgam</span><span class="fu">:::</span><span class="fu">fit_mod_l</span><span class="op">(</span>formula.l <span class="op">=</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">complexity</span>, k <span class="op">=</span> <span class="fl">3</span>, bs <span class="op">=</span> <span class="st">"cr"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                   test.fit. <span class="op">=</span> <span class="va">base.fit</span>, use.dat <span class="op">=</span> <span class="va">case_study1</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Family: Tweedie(p=1.284) </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Link function: log </span>
