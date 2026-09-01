@@ -157,3 +157,35 @@ The duplicated-name check now reports only names in `all.predictors`, since thos
 are the only ones indexed.
 
 ---
+
+#### Issue #15, review round 4 (fresh session)
+
+**Claude (reviewer):** Nothing blocking or substantive. The name-based indexing
+was attacked directly: membership is identical between the two forms, the
+ordering difference is a symmetric permutation wherever the dimnames agree, and
+both triangles are screened, so the outcome is unchanged, which is why the golden
+master holds at 31 of 31. Non-square selection is unreachable at both sites.
+Four nits, including two figures that do not reproduce and one undocumented
+behaviour change: a factor named twice in `pred.vars.fact` used to select a 1x1
+sub-matrix whose empty triangles gave `max()` an empty vector, so the combination
+survived and a `ZONE.I.ZONE` column was built; by name it is the 2x2 whose
+off-diagonal is 1, and the combination is dropped.
+
+**Claude:** The behaviour change is now tested and recorded in `NEWS.md`. The
+residual half of it is not fixed here: `enumerate_candidate_models()`
+deduplicates a candidate's terms before indexing, so it still reaches a 1x1
+sub-matrix for a duplicated term and still admits a nonsense `ZONE+ZONE`
+candidate with two `-Inf` warnings. That is pre-existing and unchanged, and was
+raised as FSSgam_package#28, with the observation that rejecting a duplicated
+entry in `pred.vars.cont`, `pred.vars.fact` or `linear.vars` up front is a
+clearer error than anything downstream can give.
+
+Both figures were re-measured: 10 of the 15 new blocks fail against `master`'s
+`R/`, 8 of them with the missing-predictors error, and the permuted-matrix
+candidate counts in `NEWS.md` now state the `max.predictors` they were measured
+at, since 7 against 5 holds at 2 and 8 against 5 at the default of 3.
+
+Rounds 3 and 4 both found nothing blocking, and round 4 nothing substantive, so
+the cycle on this pull request is closed.
+
+---

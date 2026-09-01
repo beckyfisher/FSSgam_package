@@ -1113,3 +1113,27 @@ test_that("a duplicated name that is not a predictor is accepted", {
   model.set <- fixture_cs1_model_set(fit = fit, cor.matrix = cm)
   expect_gt(model.set$n.mods, 1)
 })
+
+test_that("a factor named twice yields no interaction of itself", {
+  # A side effect of indexing the sub-matrix by name. Where the same factor was
+  # named twice, selecting rows by position returned a 1x1 sub-matrix, both
+  # triangles of which are empty, so max() warned "no non-missing arguments to
+  # max" and returned -Inf, the combination survived, and a ZONE.I.ZONE column
+  # was built. Selecting by name returns the 2x2 sub-matrix whose off-diagonal
+  # is the correlation of the factor with itself, which is 1, so the
+  # combination is dropped as perfectly collinear.
+  #
+  # enumerate_candidate_models() deduplicates its terms before indexing, so it
+  # still reaches a 1x1 sub-matrix and still admits a nonsense ZONE+ZONE
+  # candidate with two "no non-missing arguments to max" warnings. That is
+  # pre-existing and unchanged, and is FSSgam_package#28.
+  fit <- fixture_cs1_gaussian()
+
+  model.set <- suppressWarnings(fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE", "ZONE"),
+      factor.factor.interactions = TRUE, max.predictors = 2
+  ))
+  expect_false("ZONE.I.ZONE" %in% colnames(model.set$used.data))
+  expect_false(any(grepl("ZONE.I.ZONE", names(model.set$mod.formula), fixed = TRUE)))
+})
