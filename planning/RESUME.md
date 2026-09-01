@@ -52,13 +52,25 @@ regression test.
 Still open from Phase 13 and unaffected by this work: #6, #9 (now fixed by the
 `progress` argument — close it), #12 (fixed here — close it).
 
+## The parallel path
+
+Verified against the final code, one cluster per process:
+
+```
+path=saved    AICc matches sequential=TRUE  failed=0  rows=8
+path=unsaved  AICc matches sequential=TRUE  failed=1  rows=9
+```
+
+The test file itself could not be run to completion: it creates about seven
+clusters, and at the roughly one-in-two per-cluster stall rate of
+FSSgam_package#14 the chance of all seven completing is about one per cent.
+Measured, 10 attempts at the whole file, 10 stalls. Check the parallel path with
+a single-cluster script rather than the test file, and do not read a whole-file
+stall as a failure of the code under test. Recorded on the issue.
+
 ## Before submitting to CRAN
 
-1. Re-run the parallel suite. It is opt-in and stalls intermittently through
-   FSSgam_package#14, so it needs retrying rather than one attempt:
-   `R CMD INSTALL .` then `FSSGAM_TEST_PARALLEL=true NOT_CRAN=true` on
-   `test-fit_model_set_parallel.R`.
-2. Decide whether the behaviour changes warrant `1.1.0` rather than `1.0.0`.
+1. Decide whether the behaviour changes warrant `1.1.0` rather than `1.0.0`.
    Four are user-visible and two change output: candidate model names in a
    non-C locale, and which interaction terms are built when a `cor.matrix` is
    supplied. `NEWS.md` describes each.
