@@ -66,3 +66,34 @@ Full suite after the change: 571 passing, 0 failing, 7 skipped, against 568 on
 `master`.
 
 ---
+
+#### Review round 1 (independent session)
+
+**Claude (reviewer):** No blocking defect. The `complete.counts` shortcut was
+confirmed exactly equivalent to refitting the null for every pair, by running a
+variant with the condition replaced by `if(TRUE)` over 150 generated data frames
+and comparing with `identical()`; all 150 matched, and the 10 frames with no
+missing values matched `origin/master` as well. `complete.counts` was confirmed
+to reach the doSNOW workers. Two substantive points were raised: the null is
+refitted before the `try-error` guard, so a pair whose fitted model has already
+failed pays for a discarded fit and emits its warnings (measured: 5 warnings
+against master's 3 on a pair with no overlapping complete cases); and the second
+test's name claims it detects whether a refit occurred, which it cannot.
+
+**Claude:** Both were addressed. The refit condition now also requires `fit` to
+have succeeded, which restores the warning count to 3. The second test was
+renamed to what it asserts, and a third block was added that does pin the
+shortcut: six ordered pairs over three factors with missingness in different
+rows, each compared against the null refitted for that pair, so any divergence
+between the retained value and the refitted one fails. The defensive nature of
+the `null.fit` guard is now stated on the face of the code, the `na.action`
+comment was qualified, and `check_non_linear_correlations()` gained the matching
+`@details` paragraph.
+
+The sibling function's own missing `null.fit` guard was raised as
+FSSgam_package#19 rather than fixed here.
+
+`DESCRIPTION` was bumped to 1.1.0.9000 so that the development `NEWS.md` section
+and the declared version agree.
+
+---

@@ -126,10 +126,17 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
   # per-factor value is kept and refitted only for a pair that drops rows the
   # factor's own column does not.
   #
-  # multinom() applies na.action itself, so the per-factor null is already
-  # fitted on that factor's own complete cases, and complete.counts records how
-  # many rows that is. The pair's rows are a subset of them, so equal counts
-  # mean an identical row set and the per-factor value is exact.
+  # Under the default na.action multinom() drops incomplete cases itself, so
+  # the per-factor null is already fitted on that factor's own complete cases,
+  # and complete.counts records how many rows that is. na.omit() of the pair
+  # intersects the two presence sets, so the pair's rows are contained in the
+  # factor's; a subset of equal size is the same set, and the per-factor value
+  # is then exact rather than merely close.
+  #
+  # The refit is conditional on `fit` having succeeded as well, so a pair whose
+  # fitted model failed does not pay for a null whose value is never read, and
+  # does not emit that fit's warnings. try() suppresses errors but not
+  # warnings.
   null.deviances=lapply(fact.vars,function(v){
     try(nnet::multinom(dat[,v] ~ 1,trace=FALSE)$deviance,silent=TRUE)})
   names(null.deviances)=fact.vars
@@ -148,9 +155,15 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
     # the spurious "NaNs produced" warnings came from (FSSgam_package#10).
     fit <- try(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE)$deviance,silent=TRUE)
     null.fit=null.deviances[[var.1]]
-    if(nrow(dat.r)<complete.counts[[var.1]]){
+    if(!inherits(fit,"try-error")&&nrow(dat.r)<complete.counts[[var.1]]){
       null.fit=try(nnet::multinom(dat.r[,var.1] ~ 1,trace=FALSE)$deviance,silent=TRUE)}
-    if(!inherits(fit,"try-error")&!inherits(null.fit,"try-error")){
+    # The null.fit half of this guard is defensive and no case reaching it is
+    # known: both models are fitted on the same rows and multinom()'s relevant
+    # failure ("need two or more classes") depends only on the response, which
+    # they share. Without it a failed null would reach round() as the character
+    # vector try() returns rather than leaving the cell NA, which is how a
+    # failed `fit` is already handled.
+    if(!inherits(fit,"try-error")&&!inherits(null.fit,"try-error")){
        if(round(fit,4)==round(null.fit,4)){r.est=0}else{
       r.est=sqrt(1-(fit/null.fit))}
       c(var.1,var.2,r.est)}}
@@ -166,10 +179,10 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
           fit <- try(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE)$deviance,silent=TRUE)
           null.fit=null.deviances[[var.1]]
           # see the matching comment on complete.counts above
-          if(nrow(dat.r)<complete.counts[[var.1]]){
+          if(!inherits(fit,"try-error")&&nrow(dat.r)<complete.counts[[var.1]]){
             null.fit=try(nnet::multinom(dat.r[,var.1] ~ 1,trace=FALSE)$deviance,silent=TRUE)}
           out=NA
-          if(!inherits(fit,"try-error")&!inherits(null.fit,"try-error")){
+          if(!inherits(fit,"try-error")&&!inherits(null.fit,"try-error")){
            if(round(fit,4)==round(null.fit,4)){r.est=0}else{
                    r.est=sqrt(1-(fit/null.fit))}
                    out=c(var.1,var.2,r.est)}

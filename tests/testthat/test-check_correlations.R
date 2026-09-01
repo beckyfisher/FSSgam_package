@@ -188,12 +188,14 @@ test_that("a factor-factor pair with missing values compares deviances on one ro
                                 tolerance = 1e-6)))
 })
 
-test_that("the null model is not refitted when a pair drops no extra rows", {
+test_that("the estimate is unchanged where the pair drops no extra rows", {
   # The per-factor null is kept for any pair whose complete-case row set is the
   # factor's own, which is every pair when nothing is missing and, for the
   # direction in which the NA-bearing factor is the response, also when
-  # something is. Asserted by value: fitting the null on those same rows must
-  # give the same answer as the hoisted one.
+  # something is. This block asserts the value in that direction; it cannot
+  # observe whether a refit happened, and passes against both the unfixed code
+  # and a variant that refits unconditionally. The block below is what pins the
+  # shortcut.
   f1 <- factor(rep(c("a", "b", "c"), each = 30))
   f2 <- as.character(f1)
   shift <- c(a = "b", b = "c", c = "a")
@@ -210,4 +212,39 @@ test_that("the null model is not refitted when a pair drops no extra rows", {
   cm <- check_correlations(dat)
   expect_equal(unname(cm["f2", "f1"]), sqrt(1 - (fit / null.fit)),
                tolerance = 1e-6)
+})
+
+test_that("the retained per-factor null agrees with refitting it for every pair", {
+  # The shortcut in fill_factor_factor_correlations() keeps the hoisted
+  # per-factor null for any pair whose complete-case count matches the factor's
+  # own. This block asserts the property that justifies it: the matrix is what
+  # refitting the null for every pair, with no shortcut at all, would give.
+  #
+  # Three factors with missingness in different rows, so that each ordered pair
+  # falls on a different side of the condition: f1 as response against f2 or f3
+  # drops rows and refits, f2 and f3 as responses against each other or against
+  # f1 drop only their own missing rows and take the retained value.
+  shift <- c(a = "b", b = "c", c = "a")
+  f1 <- factor(rep(c("a", "b", "c"), each = 30))
+  f2 <- as.character(f1)
+  f2[seq(1, 90, by = 4)] <- shift[f2[seq(1, 90, by = 4)]]
+  f3 <- as.character(f1)
+  f3[seq(2, 90, by = 3)] <- shift[f3[seq(2, 90, by = 3)]]
+  dat <- data.frame(f1 = f1, f2 = factor(f2), f3 = factor(f3))
+  dat$f2[1:25] <- NA
+  dat$f3[70:90] <- NA
+
+  pairs <- list(c("f1", "f2"), c("f2", "f1"), c("f1", "f3"), c("f3", "f1"),
+                c("f2", "f3"), c("f3", "f2"))
+  expected <- vapply(pairs, function(vars) {
+    dat.r <- stats::na.omit(dat[, vars])
+    fit <- nnet::multinom(dat.r[, vars[1]] ~ dat.r[, vars[2]], trace = FALSE)$deviance
+    null.fit <- nnet::multinom(dat.r[, vars[1]] ~ 1, trace = FALSE)$deviance
+    sqrt(1 - (fit / null.fit))
+  }, numeric(1))
+
+  cm <- check_correlations(dat)
+  observed <- vapply(pairs, function(vars) unname(cm[vars[1], vars[2]]), numeric(1))
+
+  expect_equal(observed, expected, tolerance = 1e-6)
 })
