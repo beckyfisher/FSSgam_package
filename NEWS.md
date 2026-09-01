@@ -70,7 +70,7 @@
   linear predictor absent from `linear.vars`. The model table then reported two
   identical fits under different names.
 * Substantially expanded the `testthat` suite, from 105 passing expectations at
-  1.0.0 to 567 at this release, and from 71.33% to 94.3% line coverage
+  1.0.0 to 567 at this release, and from 71.33% to 94.4% line coverage
   (FSSgam_package#5 covered the first 447 of those; the rest accompany the fixes
   below). New coverage includes: every non-default argument of `generate_model_set()`,
   `fit_model_set()` and `full_subsets_gam()`; the `save.model.fits = FALSE`

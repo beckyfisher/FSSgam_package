@@ -696,3 +696,87 @@ passing, 0 failing, 12 skipped, from a baseline of 438/0/11.
 `resolve_factor_interactions()` is 109 lines against 161 at the start.
 
 ---
+
+## Session: pre-CRAN refactor -- review of PR #17
+Date: 2026-09-01
+Model: Claude Opus 5 (claude-opus-5)
+
+### Prompts and Responses
+
+**User:** Please review this PR: https://github.com/beckyfisher/FSSgam_package/pull/17
+[then, in a loop: review, fix what the review finds, redraft the PR body,
+review again]
+
+**Claude:** Five changes to the package followed from the review. Each was
+reproduced against the branch before being fixed.
+
+**A supplied `cor.matrix` did not replace the automatic estimate, only override
+it.** `build_predictor_correlation_matrix()` computed
+`check_correlations()` (or `check_non_linear_correlations()`) over every
+predictor and then discarded the result whenever a matrix had been supplied.
+Confirmed by rebinding `check_correlations` in the namespace and counting: one
+call with a matrix supplied, where the branch's own premise (FSSgam_package#13,
+"a supplied `cor.matrix` now governs every correlation screen") implies none.
+Two consequences, the second reproduced: the `multinom()` and `gam()` fits still
+ran, and a `Date` predictor column still aborted the call inside
+`classify_correlation_predictors()` even though its correlations had been
+supplied. `resolve_factor_interactions()` had been given exactly this treatment
+in the branch, through its local `factor_correlations()`; this function had not.
+The estimate is now computed only in the `length(cor.matrix)==1` branch, which
+is the only place that reads it.
+
+**With `save.model.fits = FALSE`, a run in which nothing fitted returned a table
+of `NA`** rather than the "None of your models fitted successfully" error the
+`save.model.fits = TRUE` path raises. `compute_model_weights()` then took
+`min()` of an all-NA column and filled `delta.AICc` and `wi.AICc` with `NaN`.
+Which of the two behaviours a user got depended only on a memory setting. The
+same guard, with the same message, now runs on both paths. This is
+long-standing rather than introduced by the branch, but the branch is what
+restored `.errorhandling='pass'` on that path, which is what makes total failure
+survivable rather than fatal.
+
+**Three validation gaps of the same kind the branch set out to close.**
+`full_subsets_gam()` validated `r2.type` at entry, on the stated ground that an
+unrecognised value should be reported before the candidate set is built, but did
+not do the same for `VI.mods`; building the set is not free, since it fits a
+`multinom()` per ordered factor pair and, under `non.linear.correlations`, a
+`gam()` per pair. `progress`, the other argument added in this release, had no
+validation at all, so `progress = NA` failed inside a fitting helper naming
+neither the argument nor the function. `validate_progress()` was added to
+`R/utils.R` alongside the other shared validators.
+
+**`smooth.smooth.interactions` naming a column of `use.dat` that is not a
+predictor** was reported as "not supplied in use.dat", which is not what the
+check tests: the branch had moved that check from `colnames(use.dat)` to the
+rows of the resolved correlation matrix. The message now names the variable and
+the requirement. The change of check is itself a fix, and the test says why:
+such a variable has no row in the matrix, so `combine_uncorrelated()` took
+`max()` of an empty sub-matrix, warned, and admitted the `te()` term regardless
+of its correlations.
+
+`man/FSSgam-package.Rd` was regenerated; it had not been rebuilt after
+`DESCRIPTION`'s Description field was rewritten.
+
+**The suite figures quoted throughout this work do not reproduce, and were
+re-measured.** The branch reported 546 passing and 12 skipped against a baseline
+of 438 and 11. Measured at the branch head on this host (Debian WSL2, R 4.6.1,
+testthat 3.3.2) with `testthat::test_local()` and
+`sum(as.data.frame(res)$passed)`: 567 passing, 0 failing, 7 skipped blocks, from
+447 and 6 on `master`. The differences are constant, 9 expectations and 5
+blocks, at both ends, which points at a run that was regenerating
+`tests/testthat/_snaps/numerical-regression.md`: creating a snapshot skips the
+block, and those five blocks hold nine expectations. `NEWS.md`, `CLAUDE.md` and
+the pull request body are corrected together, which is what the Phase 13 note
+in `CLAUDE.md` asks for and what was not done here.
+
+`planning/RESUME.md` was removed. It was a session handoff note rather than one
+of the two planning documents the parent `CLAUDE.md` Section 13 defines, and it
+was stale at the branch head in every respect that mattered -- "nothing is
+pushed; nothing is merged", thirty-three commits against thirty-six, and the
+figures above. Its one item not recorded elsewhere, that the parallel path must
+be checked with a single-cluster script rather than with
+`test-fit_model_set_parallel.R`, moved into `CLAUDE.md` Phase 14.
+
+`R CMD check`: 0 errors, 0 warnings, 0 notes, before and after.
+
+---
