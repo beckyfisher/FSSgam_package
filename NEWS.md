@@ -18,10 +18,17 @@
   machine load, one cluster per fresh R process, gave 44 stalls in 140 runs
   before and 25 in 140 after (chi-squared p = 0.013, this host, 2026-09-01).
 
+  The narrower comparison agrees. A `foreach()` whose body is `i * 2`, so that no
+  package code runs at all, was run 50 times with `gamm4` in the packages the
+  workers attach and 50 times without, alternating run by run: 34 stalls against
+  19 (chi-squared p = 0.005, same host and date).
+
   Three qualifications. That is a reduction and not a removal, and
-  FSSgam_package#14 stays open. It is one session's measurement of a rate on one
-  host; an independent replication of a smaller comparison did not separate the
-  two arms. And it does not extend to a `uGamm(lme4 = TRUE)` test.fit:
+  FSSgam_package#14 stays open. Both figures are one session's measurement of a
+  rate on one host, and an earlier run of the narrower comparison with its two
+  arms taken one after the other rather than alternated gave a result an
+  independent replication could not reproduce; only alternating designs are
+  quoted here. And neither extends to a `uGamm(lme4 = TRUE)` test.fit:
   unserialising such an object loads `gamm4` and `lme4` on the worker by itself,
   before the packages are attached, so for those users the worker side is
   substantially unchanged.

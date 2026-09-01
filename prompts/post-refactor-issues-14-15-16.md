@@ -187,3 +187,22 @@ expectation covers neither of them, only `gamm4` being made a hard dependency
 again.
 
 ---
+
+#### Issue #14, the withdrawn measurement remade
+
+**Claude:** The host's load fell back to about 5 on 22 cores once the unrelated
+job finished, and the narrower comparison was run again, this time alternating
+run by run rather than taking the two arms one after the other: 34 stalls in 50
+with `gamm4` in the packages the workers attach and 19 in 50 without, chi-squared
+p = 0.005. It agrees with the end-to-end figure in direction and in rough
+magnitude.
+
+The lesson is about the design rather than the number. The original 23 in 60
+against 0 in 60 was measured with one arm run to completion before the other
+began, so it is confounded with anything that changed on the host in between, and
+the reviewing session's failure to reproduce it is what that design predicts. The
+figure now recorded was taken under the same design as the end-to-end one, which
+is the only reason it can be quoted alongside it. Both remain one session's
+measurement of a rate on one host.
+
+---
