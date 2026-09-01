@@ -1005,3 +1005,52 @@ test_that("a continuous predictor omitted from cor.matrix is still reported", {
   expect_match(conditionMessage(err), "complexity")
   expect_false(grepl("ZONE.I.ZONE.copy", conditionMessage(err), fixed = TRUE))
 })
+
+test_that("a derived name supplied in one dimension keeps the values given there", {
+  # The missing names are tracked per dimension. Pooling them meant that a
+  # derived column named as a column and not as a row was treated as missing
+  # from both, and the computed values overwrote the column the user did supply.
+  #
+  # What the user sees changed is predictor.correlations. The candidate set is
+  # not, in this configuration: enumerate_candidate_models() screens both
+  # triangles, and the row was not supplied, so the computed 1 excludes
+  # ZONE+ZONE.I.ZONE.copy whichever way the column is resolved.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  rows <- c("depth", facts)
+  cols <- c(rows, "ZONE.I.ZONE.copy")
+  cm <- matrix(0, length(rows), length(cols), dimnames = list(rows, cols))
+  cm[cbind(rows, rows)] <- 1
+  cm[, "ZONE.I.ZONE.copy"] <- c(0.11, 0.22, 0.33)
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  pc <- model.set$predictor.correlations
+
+  expect_equal(unname(pc[rows, "ZONE.I.ZONE.copy"]), c(0.11, 0.22, 0.33))
+  # the row was not supplied, so it is computed
+  expect_equal(unname(pc["ZONE.I.ZONE.copy", "ZONE"]), 1, tolerance = 1e-6)
+  expect_identical(rownames(pc), c(rows, "ZONE.I.ZONE.copy"))
+  expect_identical(colnames(pc), cols)
+})
+
+test_that("a supplied cor.matrix with a duplicated name is reported", {
+  # unique() over the dimnames would otherwise keep one of the two silently, and
+  # which of them governs a screen depends on how the sub-matrix is indexed.
+  fit <- fixture_cs1_gaussian()
+  vars <- c("depth", "complexity", "complexity")
+  cm <- matrix(0, 3, 3, dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = c("depth", "complexity"),
+      pred.vars.fact = NA, cor.matrix = cm
+    ),
+    "duplicated names"
+  )
+})

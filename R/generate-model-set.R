@@ -611,10 +611,23 @@ build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.co
    # which(cor.matrix == "NaN"), which coerces the matrix to character and
    # happens to work.
    cor.matrix[is.na(cor.matrix)]=0}else{
-      # check if the user defined matrix has the same rownames and colnames
-      check.predictors=c(match(all.predictors,colnames(cor.matrix)),
-                         match(all.predictors,rownames(cor.matrix)))
-      missing.predictors=unique(rep(all.predictors,2)[which(is.na(check.predictors))])
+      # A duplicated name makes the matrix ambiguous: which of the two rows
+      # governs a screen depends on how the sub-matrix is indexed, and the
+      # augmentation below keeps only one of them. Reported rather than
+      # resolved arbitrarily.
+      duplicated.names=unique(c(rownames(cor.matrix)[duplicated(rownames(cor.matrix))],
+                                colnames(cor.matrix)[duplicated(colnames(cor.matrix))]))
+      if(length(duplicated.names)>0){
+            stop(paste("Supplied cor.matrix has duplicated names: ",
+            paste(duplicated.names,collapse=", "),".",sep=""))}
+
+      # Tracked per dimension rather than pooled. A derived column the user
+      # supplied as a column and not as a row is missing from the rows only, and
+      # splicing computed values over both dimensions would overwrite the column
+      # they did supply.
+      missing.cols=all.predictors[which(is.na(match(all.predictors,colnames(cor.matrix))))]
+      missing.rows=all.predictors[which(is.na(match(all.predictors,rownames(cor.matrix))))]
+      missing.predictors=unique(c(missing.rows,missing.cols))
 
       # A predictor the user named and did not supply is still an error, so a
       # misspelled name is reported rather than quietly computed. A hard coded
@@ -623,15 +636,17 @@ build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.co
       # screen, which itself depends on the supplied matrix, so a user cannot
       # know in advance which of them to supply (FSSgam_package#15). Those rows
       # and columns are computed from use.dat instead.
-      derived.missing=intersect(missing.predictors,derived.predictors)
+      derived.missing.rows=intersect(missing.rows,derived.predictors)
+      derived.missing.cols=intersect(missing.cols,derived.predictors)
       named.missing=setdiff(missing.predictors,derived.predictors)
       if(length(named.missing)>0){
             stop(paste("Supplied cor.matrix is missing required predictors: ",
             paste(named.missing,collapse=", "),".",sep=""))}
-      if(length(derived.missing)>0){
+      if(length(derived.missing.rows)>0|length(derived.missing.cols)>0){
         cor.matrix=augment_supplied_correlation_matrix(use.dat=use.dat,
                           cor.matrix=cor.matrix,
-                          derived.missing=derived.missing,
+                          derived.missing.rows=derived.missing.rows,
+                          derived.missing.cols=derived.missing.cols,
                           all.predictors=all.predictors,
                           non.linear.correlations=non.linear.correlations)}
   }
@@ -661,8 +676,9 @@ build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.co
 # predictors, so such a name can reach combine_uncorrelated(), where max() of an
 # all-NA sub-matrix returns NA and `if (NA)` raises an error naming neither the
 # matrix nor the argument.
-augment_supplied_correlation_matrix=function(use.dat,cor.matrix,derived.missing,
-                          all.predictors,non.linear.correlations){
+augment_supplied_correlation_matrix=function(use.dat,cor.matrix,derived.missing.rows,
+                          derived.missing.cols,all.predictors,non.linear.correlations){
+  derived.missing=unique(c(derived.missing.rows,derived.missing.cols))
   computed=try(if(non.linear.correlations==TRUE){
       check_non_linear_correlations(use.dat[,all.predictors,drop=FALSE])
     }else{
@@ -681,24 +697,28 @@ augment_supplied_correlation_matrix=function(use.dat,cor.matrix,derived.missing,
   # assignment then fails on what is no longer a matrix. A data.frame cor.matrix
   # is accepted everywhere else.
   cor.matrix=as.matrix(cor.matrix)
-  row.vars=unique(c(rownames(cor.matrix),derived.missing))
-  col.vars=unique(c(colnames(cor.matrix),derived.missing))
+  row.vars=unique(c(rownames(cor.matrix),derived.missing.rows))
+  col.vars=unique(c(colnames(cor.matrix),derived.missing.cols))
   out=matrix(NA_real_,nrow=length(row.vars),ncol=length(col.vars),
              dimnames=list(row.vars,col.vars))
   out[rownames(cor.matrix),colnames(cor.matrix)]=cor.matrix
   known.cols=intersect(col.vars,colnames(computed))
   known.rows=intersect(row.vars,rownames(computed))
-  out[derived.missing,known.cols]=computed[derived.missing,known.cols,drop=FALSE]
-  out[known.rows,derived.missing]=computed[known.rows,derived.missing,drop=FALSE]
 
-  # only the cells this function created; an NA the user supplied among their
-  # own predictors is left alone
-  new.rows=out[derived.missing,,drop=FALSE]
-  new.rows[is.na(new.rows)]=0
-  out[derived.missing,]=new.rows
-  new.cols=out[,derived.missing,drop=FALSE]
-  new.cols[is.na(new.cols)]=0
-  out[,derived.missing]=new.cols
+  # Each dimension is spliced with its own set, so a derived name the user
+  # supplied in one dimension keeps the values they gave for it there.
+  if(length(derived.missing.rows)>0){
+    out[derived.missing.rows,known.cols]=
+      computed[derived.missing.rows,known.cols,drop=FALSE]
+    new.rows=out[derived.missing.rows,,drop=FALSE]
+    new.rows[is.na(new.rows)]=0
+    out[derived.missing.rows,]=new.rows}
+  if(length(derived.missing.cols)>0){
+    out[known.rows,derived.missing.cols]=
+      computed[known.rows,derived.missing.cols,drop=FALSE]
+    new.cols=out[,derived.missing.cols,drop=FALSE]
+    new.cols[is.na(new.cols)]=0
+    out[,derived.missing.cols]=new.cols}
   out
 }
 

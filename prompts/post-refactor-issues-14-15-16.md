@@ -90,3 +90,41 @@ with an existing column was raised as FSSgam_package#22. The redirecting URLs th
 reviewer found in `cran-comments.md` are FSSgam_package#20, already open.
 
 ---
+
+#### Issue #15, review round 2 (fresh session)
+
+**Claude (reviewer):** All four behavioural claims from round 1 reproduce, and
+the suite figures are exact. One substantive defect remains: `derived.missing`
+was the union over the two dimensions, so a derived name the user supplied as a
+column and not as a row was treated as missing from both, and the splice
+overwrote the column they did supply. That contradicts the guarantee the change
+is justified by. Two figures quoted in the text do not reproduce: the mutation
+described in the round 1 comment fails a pre-existing block rather than passing
+the suite, and the count of blocks failing against `master` is higher than
+stated. Six nits and two out-of-scope findings.
+
+**Claude:** The missing names are now tracked per dimension and each splice is
+indexed with its own set. A test supplies `ZONE.I.ZONE.copy` as a column only,
+with values 0.11, 0.22 and 0.33, and asserts they survive; it fails against the
+previous commit.
+
+One correction to the reviewer's account of the consequence. The values in
+`predictor.correlations` were indeed overwritten, but the candidate set was not
+changed in that configuration: `enumerate_candidate_models()` screens both
+triangles, and the row was not supplied, so the computed 1 excludes
+`ZONE+ZONE.I.ZONE.copy` whichever way the column is resolved. The test records
+that rather than asserting a candidate-set difference that does not occur.
+
+A duplicated name in a supplied matrix is now reported rather than collapsed by
+`unique()`, which would have kept one of the two silently.
+
+Both figures were re-measured rather than adjusted: 9 blocks of the branch's
+interaction test file fail against `master`'s `R/`, not 3.
+
+The two out-of-scope findings were raised as FSSgam_package#26, a 1x1 supplied
+`cor.matrix` being silently discarded through the `length(cor.matrix)==1`
+sentinel, and FSSgam_package#27, an `NA` between two predictors in a supplied
+matrix failing with a message naming nothing. Both reproduce unchanged on
+`master`.
+
+---
