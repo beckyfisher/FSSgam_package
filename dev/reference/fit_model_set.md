@@ -14,7 +14,8 @@ fit_model_set(
   n.cores = 4,
   r2.type = "r2.lm.est",
   report.unique.r2 = FALSE,
-  VI.mods = "min.n"
+  VI.mods = "min.n",
+  progress = interactive()
 )
 ```
 
@@ -27,8 +28,8 @@ fit_model_set(
 - max.models:
 
   The total number of models allowed to be fit and the model fits to be
-  saved during fitting. If the candidate set is bigger than this value,
-  a warning message will be returned.
+  saved during fitting. Defaults to 200. If the candidate set is bigger
+  than this value, a warning message will be returned.
 
 - save.model.fits:
 
@@ -68,6 +69,12 @@ fit_model_set(
   variable (n being the minimum number of models any one predictor is
   present in). Set to 'all' to use all models in the candidate set
   instead.
+
+- progress:
+
+  Should a text progress bar be written to the console while models are
+  fitted. Defaults to interactive(), so the bar appears at the console
+  but not in scripts, reports or checks.
 
 ## Value
 
@@ -152,7 +159,6 @@ model.set <- generate_model_set(
   k = 3
 )
 fit_model_set(model.set, parallel = FALSE)
-#>   |                                                                              |                                                                      |   0%  |                                                                              |=========                                                             |  12%  |                                                                              |==================                                                    |  25%  |                                                                              |==========================                                            |  38%  |                                                                              |===================================                                   |  50%  |                                                                              |============================================                          |  62%  |                                                                              |====================================================                  |  75%  |                                                                              |=============================================================         |  88%  |                                                                              |======================================================================| 100%
 #> $mod.data.out
 #>                                         modname
 #> null                                       null

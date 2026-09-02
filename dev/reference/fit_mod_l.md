@@ -55,8 +55,8 @@ library(mgcv)
 data(case_study1)
 base.fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
                  family = tw(), data = case_study1)
-fit_mod_l(formula.l = ~ s(complexity, k = 3, bs = "cr"),
-          test.fit. = base.fit, use.dat = case_study1)
+FSSgam:::fit_mod_l(formula.l = ~ s(complexity, k = 3, bs = "cr"),
+                   test.fit. = base.fit, use.dat = case_study1)
 #> 
 #> Family: Tweedie(p=1.284) 
 #> Link function: log 

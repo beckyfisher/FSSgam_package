@@ -82,19 +82,19 @@ generate_model_set(
   NA if there are no cyclic predictors, or if there are cyclic
   predictors, a character vector containing the names of any of the
   continuous predictors that should be modelled as cyclic variables.
-  Note that these must also be contained in the pred.vars.cont
-  charactervector. Please also note there are issues with bs='cc' and
-  model selection as this uses by default shrinkage. With shrinkage,
-  variables are retained in models but with zero edf, which makes
-  interpretation of AICc and BIC confusing. To account for this always
-  select only the most parsimonious model (that with the fewest
-  parameters), not just that with the lowest AICc. Reported estimated
-  degrees of freedom (edf) in the model output table represent the sum
-  of the edf of the smooth terms plus the number of parametric
-  coefficients. When cyclic variables are included and shrinkage is
-  used, any estimated edf of the smooth terms that are less than 1 are
-  reset to 1 before summing to ensure the the total number of predictors
-  in the model is captured properly.
+  Note that these must also be contained in the pred.vars.cont character
+  vector. Please also note there are issues with bs='cc' and model
+  selection as this uses by default shrinkage. With shrinkage, variables
+  are retained in models but with zero edf, which makes interpretation
+  of AICc and BIC confusing. To account for this always select only the
+  most parsimonious model (that with the fewest parameters), not just
+  that with the lowest AICc. Reported estimated degrees of freedom (edf)
+  in the model output table represent the sum of the edf of the smooth
+  terms plus the number of parametric coefficients. When cyclic
+  variables are included and shrinkage is used, any estimated edf of the
+  smooth terms that are less than 1 are reset to 1 before summing to
+  ensure the the total number of predictors in the model is captured
+  properly.
 
 - linear.vars:
 
@@ -144,9 +144,9 @@ generate_model_set(
   automatically checks for collinearity, there is no issue with
   constructing model sets with multiple factor arguments that are higher
   order factors of each other, as these are invariably collinear and
-  subsequently removed (see cov.cutoff below). If a user defined
-  cor.matrix is passed to the function (see cor.matrix) this must
-  include these hard coded interactions.
+  subsequently removed (see cov.cutoff below). A user defined cor.matrix
+  (see cor.matrix) need not include these hard coded interactions: rows
+  and columns for any it does not name are computed from use.dat.
 
 - smooth.smooth.interactions:
 
@@ -170,23 +170,47 @@ generate_model_set(
 
 - cor.matrix:
 
-  By default predictor correlations are evaluated via a call to
-  check_correlations, a function taking a data.frame (containing all
-  predictors) as argument and generating a correlation matrix comprised
-  of: 1) correlation coefficients between all continuous predictors via
-  a call to cor; 2) approximate correlation values between continuous
-  predictors and factors, as the square-route of the R2 value obtained
-  via a call to lm, where the continuous predictor is modelled as a
-  response and the factor variable as a single fixed factor; and 3)
-  approximate correlations values between factor predictors, as the
-  square-route of the R2 value obtained via a call multinom (from
-  package nnet, Venables & Ripley 2002). Note that any user constructed
-  pairwise matrix can be passed to the function and used for pairwise
-  exclusion of variables from individual models.
+  A user-supplied pairwise correlation matrix, or NA (the default) to
+  compute one from use.dat. When supplied it governs every stage that
+  screens on correlation: which factor-factor interaction columns are
+  built, which te smooth-smooth interaction terms are built, and which
+  assembled candidate models are excluded. It must therefore carry a row
+  and a column for every predictor named in pred.vars.cont,
+  pred.vars.fact and linear.vars; any that are missing are reported by
+  name. The hard coded factor interaction columns that setting
+  factor.factor.interactions causes to be created are the exception,
+  because which of them exist depends on the supplied matrix itself and
+  so cannot be known in advance. Rows and columns for any of those the
+  matrix does not carry are computed from use.dat and appended, leaving
+  every supplied value as supplied. Each dimension is treated
+  separately, so a name supplied as a column and not as a row keeps the
+  column given for it and has only its row computed; because
+  collinearity is screened in both directions, a value supplied in one
+  dimension alone can tighten a screen but never loosen it. Computing
+  them reads the data of every predictor, so this is the one case in
+  which a predictor of a class check_correlations cannot classify has to
+  be named in the supplied matrix along with the interaction columns.
+  When supplied it replaces the automatic estimate rather than
+  overriding it: except in the interaction case above,
+  check_correlations is not called at all, and a predictor of a class it
+  does not accept can be used. By default predictor correlations are
+  evaluated via a call to check_correlations, a function taking a
+  data.frame (containing all predictors) as argument and generating a
+  correlation matrix comprised of: 1) correlation coefficients between
+  all continuous predictors via a call to cor; 2) approximate
+  correlation values between continuous predictors and factors, as the
+  square root of the R2 value obtained via a call to lm, where the
+  continuous predictor is modelled as a response and the factor variable
+  as a single fixed factor; and 3) approximate correlations values
+  between factor predictors, as the square root of the R2 value obtained
+  via a call multinom (from package nnet, Venables & Ripley 2002). Note
+  that any user constructed pairwise matrix can be passed to the
+  function and used for pairwise exclusion of variables from individual
+  models.
 
 - non.linear.correlations:
 
-  Set this argument to TRUE of you would like to exclude continuous
+  Set this argument to TRUE if you would like to exclude continuous
   predictor combinations that are potentially "correlated" through
   non-linear relationships. See ?check_non_linear_correlations for more
   details.
@@ -225,7 +249,7 @@ generate_model_set(
   gam.mgcv to be used. see ?s and links therein. Note: make sure you use
   gam instead of uGamm to make sure PQL is not used. to fit a
   correlation structure only (but no random effects) this must be
-  acheived through a call the gamm via , with no random effects, fitted
+  achieved through a call the gamm via , with no random effects, fitted
 
 ## Value
 

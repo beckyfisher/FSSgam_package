@@ -31,11 +31,17 @@ a correlation matrix
 
 ## Details
 
-The function uses cor to calcualte the Pearson correlation coefficient
+The function uses cor to calculate the Pearson correlation coefficient
 among continuous variables, lm to approximate the correlation
 coefficient among a continuous variable and a factor variable through
-the call lm(continuous~factor), and nnet to apporoximate the correlation
-among factor variables using a multnomial model fit.
+the call lm(continuous~factor), and nnet to approximate the correlation
+among factor variables using a multinomial model fit.
+
+Missing values are handled pairwise: each pair of predictors is
+evaluated on the rows for which both are present. For a factor-factor
+pair this applies to the intercept-only model as well as the fitted one,
+so the two deviances the estimate is a ratio of are always computed on
+the same rows.
 
 ## Examples
 
@@ -45,5 +51,5 @@ check_correlations(case_study1[, c("depth", "complexity", "ZONE")])
 #>                 depth complexity       ZONE
 #> depth      1.00000000 0.33364348 0.08234682
 #> complexity 0.33364348 1.00000000 0.01410832
-#> ZONE       0.08234682 0.01410832 0.99999940
+#> ZONE       0.08234682 0.01410832 1.00000000
 ```

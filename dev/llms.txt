@@ -72,8 +72,6 @@ not intended to be called directly.
   : extract_mod_dat
 - [`build_inclusion_mat()`](https://beckyfisher.github.io/FSSgam_package/dev/reference/build_inclusion_mat.md)
   : build_inclusion_mat
-- [`fit_mod_l()`](https://beckyfisher.github.io/FSSgam_package/dev/reference/fit_mod_l.md)
-  : fit_mod_l
 
 ## Deprecated aliases
 
