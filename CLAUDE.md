@@ -207,13 +207,28 @@ planning/                 # the two planning documents for the 1.1.0 pre-CRAN re
   longer exists, or "topics not in any index" if a new exported function is
   missing from every group).
 
+- **New work branches off `dev`; pull requests target `dev`.** `master`
+  receives `dev` at a release, and nothing is committed to `master`
+  directly. This was not the practice until 2026-09-02: every pull request
+  from #1 to #29 was opened against `master`, and `dev` sat 64 commits
+  behind carrying no commits of its own. It was fast-forwarded to `master`
+  on that date, which required no history rewrite because it was a strict
+  ancestor, and GitHub's default branch was changed from `master` to `dev`
+  so that `gh pr create` and the web interface base there without being
+  told. One consequence is already in place: `master` carries the
+  development version `1.1.0.9000` and an unreleased `NEWS.md` section,
+  because that is where the merged work landed. Both workflows already
+  trigger on `dev`, and pkgdown builds `dev` in devel mode to `docs/dev/`
+  while `master` keeps the release site at the root (Phase 11).
+
 - **`master` and `dev` share the same `DESCRIPTION` `Version`.** This was
   not always true. Originally `dev` ran `1.0.0.9000` so pkgdown's
   `development: mode: auto` could resolve `master` to `release` and `dev`
   to `devel` purely from the Version string (Phase 8) — but that meant
-  every ordinary merge/PR between the branches fought the deliberate
-  divergence. It broke for real once (PR #2, 2026-06-22: merging `dev` into
-  `master` dragged `1.0.0.9000` across, fixed by hand afterward) before
+  every ordinary merge/PR between the branches worked against the
+  deliberate divergence. It failed once in practice (PR #2, 2026-06-22:
+  merging `dev` into `master` carried `1.0.0.9000` over, corrected by hand
+  afterward) before
   being designed out altogether. Phase 11 moved the release/devel decision
   into `.github/workflows/pkgdown.yaml` (keyed off the branch name via the
   `PKGDOWN_MODE` env var, passed into a manual `as_pkgdown()`/`build_site()`
@@ -235,8 +250,9 @@ planning/                 # the two planning documents for the 1.1.0 pre-CRAN re
   formula** — `mgcv::s(...)` inside a formula breaks `model.frame()`
   construction silently (caught by `try()`, surfaces as an unexplained `NA`).
   mgcv resolves these by literal symbol name during formula parsing, not via
-  normal namespaced function dispatch. This bit us once during the 1.0.0
-  refactor (see the comment in `function_check_non_linear_correlations_v1.00.R`)
+  normal namespaced function dispatch. This was encountered once during
+  the 1.0.0 refactor (see the comment in
+  `function_check_non_linear_correlations_v1.00.R`)
   — when adding `package::function()` namespacing elsewhere, never apply it
   to a smooth constructor written inside a formula, even though it's safe
   (and required for `R CMD check`) everywhere else, including the outer
@@ -262,6 +278,21 @@ planning/                 # the two planning documents for the 1.1.0 pre-CRAN re
   vignettes in the same `vignettes/` folder (e.g. `case-study-1.Rmd`) are
   the best source of real, working `generate.model.set()`/`fit.model.set()`
   call patterns to adapt for examples and tests.
+
+- **Prose conventions come from the parent `CLAUDE.md`, sections 12 to 14**,
+  which hold the register, the rules for issue and pull request text, and
+  the two-document form for planning. They apply here to `NEWS.md`, commit
+  messages, issue and pull request text, and roxygen2 documentation. None of
+  them is restated in this file, and the ruling section 12 distils is
+  `bayesnec/notes/vignette_numbering.md` (RF, 2026-08-24). Two applications
+  are specific to this repository and are recorded in full where they were
+  learned rather than as general style: qualify every issue number by
+  repository, since #10, #12 and #15 each exist in both
+  `beckyfisher/FSSgam` and `beckyfisher/FSSgam_package` (Section 6, Phase
+  13); and attribute every measurement with what was run, on what host and
+  at which package versions, since the test expectation count went out of
+  step between `NEWS.md`, this file and a pull request body in five
+  consecutive review rounds in Phase 13, and again in Phase 14.
 
 ---
 
@@ -762,8 +793,9 @@ once.
 
 **Three statements this caution originally carried were wrong, and were
 corrected on 2026-09-01 after the stall was measured properly. Do not
-re-derive them.** Each one sent a later session down a blind alley. See
-FSSgam_package#14, which holds the measurements and a reprex.
+re-derive them.** Each one led a later session to an incorrect
+conclusion. See FSSgam_package#14, which holds the measurements and a
+reprex.
 
 - *"cluster startup stalled"*. Startup completes. Instrumenting
   `fit_and_summarise_unsaved_models()` and running until a stall showed
