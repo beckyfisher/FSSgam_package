@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">FSSgam</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.1.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -31,6 +31,16 @@
       <small>Source: <a href="https://github.com/beckyfisher/FSSgam_package/blob/HEAD/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="development version" id="fssgam-development-version">FSSgam (development version)<a class="anchor" aria-label="anchor" href="#fssgam-development-version"></a></h2>
+<ul><li><p><code>gamm4</code> moves from <code>Imports</code> to <code>Suggests</code>. <strong>A fresh install of this package no longer installs <code>gamm4</code> or <code>lme4</code>. If you fit through <code>MuMIn::uGamm(lme4 = TRUE)</code>, as the companion repository’s case study 2 does, install <code>gamm4</code> yourself.</strong> Nothing in this package calls it: the only uses are <code>inherits(x, "gamm4")</code> class tests, which need no package, and an <code>@importFrom gamm4 gamm4</code> directive for a function never called. That directive is what made every parallel worker load <code>gamm4</code> and <code>lme4</code>, through the <code>FSSgam</code> namespace, for every model set regardless of the family fitted.</p></li>
+<li>
+<p><code>fit_model_set(parallel = TRUE)</code> no longer names <code>gamm4</code> in the packages it attaches on the <code>doSNOW</code> workers. Together with the change above this is the only direction recorded on FSSgam_package#14 that measured as reducing the dispatch stall, in which the call hangs indefinitely with no output and no error. Running <code>fit_model_set(parallel = TRUE)</code> on <code>case_study1</code> from installed copies of each version, alternating in blocks of ten so that both saw the same machine load, one cluster per fresh R process, gave 44 stalls in 140 runs before and 25 in 140 after (chi-squared p = 0.013, this host, 2026-09-01).</p>
+<p>The narrower comparison agrees. A <code>foreach()</code> whose body is <code>i * 2</code>, so that no package code runs at all, was run 50 times with <code>gamm4</code> in the packages the workers attach and 50 times without, alternating run by run: 34 stalls against 19 (chi-squared p = 0.005, same host and date).</p>
+<p>Three qualifications. That is a reduction and not a removal, and FSSgam_package#14 stays open. Both figures are one session’s measurement of a rate on one host, and an earlier run of the narrower comparison with its two arms taken one after the other rather than alternated gave a result an independent replication could not reproduce; only alternating designs are quoted here. And neither extends to a <code>uGamm(lme4 = TRUE)</code> test.fit: unserialising such an object loads <code>gamm4</code> and <code>lme4</code> on the worker by itself, before the packages are attached, so for those users the worker side is substantially unchanged.</p>
+<p><code>check_correlations(parallel = TRUE)</code> benefits as well, without any change of its own: its workers load the <code>FSSgam</code> namespace and so used to load <code>gamm4</code> through it.</p>
+</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.1.0" id="fssgam-110">FSSgam 1.1.0<a class="anchor" aria-label="anchor" href="#fssgam-110"></a></h2>
 <ul><li><p>Completed the snake_case rename across the public API. <code><a href="../reference/full.subsets.gam.html">full.subsets.gam()</a></code> is now a deprecated wrapper around the new <code><a href="../reference/full_subsets_gam.html">full_subsets_gam()</a></code> (same treatment as <code><a href="../reference/generate.model.set.html">generate.model.set()</a></code> and <code><a href="../reference/fit.model.set.html">fit.model.set()</a></code>, since it’s used directly in the companion docs repository’s published case studies). <code>check.correlations()</code>, <code>check.non.linear.correlations()</code>, <code>build.inclusion.mat()</code>, <code>extract.mod.dat()</code>, and <code>fit.mod.l()</code> are renamed outright to <code><a href="../reference/check_correlations.html">check_correlations()</a></code>, <code><a href="../reference/check_non_linear_correlations.html">check_non_linear_correlations()</a></code>, <code><a href="../reference/build_inclusion_mat.html">build_inclusion_mat()</a></code>, <code><a href="../reference/extract_mod_dat.html">extract_mod_dat()</a></code>, and <code><a href="../reference/fit_mod_l.html">fit_mod_l()</a></code> with no backward-compatible alias – a breaking change for any code calling these five directly, but none of them appear anywhere in the companion repo’s published vignettes/FAQ.</p></li>
