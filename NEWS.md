@@ -37,6 +37,17 @@
   its own: its workers load the `FSSgam` namespace and so used to load `gamm4`
   through it.
 
+* Bug fix: `check_correlations()` estimated the correlation between two factor
+  predictors from deviances computed on different sets of rows whenever either
+  factor contained missing values. The fitted model was fitted on the pair's
+  complete cases and the intercept-only model on the whole column, so the ratio
+  the estimate is built from was not comparable and the reported correlation was
+  wrong by an amount that depended on how much of the column was missing. Both
+  models are now fitted on the pair's complete cases. Values are unchanged for
+  data with no missing predictor values, which is every call made by
+  `generate_model_set()`, since it rejects predictors containing `NA`
+  (FSSgam_package#16).
+
 # FSSgam 1.1.0
 
 * Completed the snake_case rename across the public API.

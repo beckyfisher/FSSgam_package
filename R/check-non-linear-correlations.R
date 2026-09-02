@@ -24,6 +24,10 @@
 #' through the call lm(continuous~factor),
 #' and nnet to approximate the correlation for factor variables as responses using a multinomial
 #' model fit through a call to multinom(factor~factor) or (factor~continuous).
+#'
+#' Missing values are handled pairwise: each pair of predictors is evaluated on
+#' the rows for which both are present, including the intercept-only model the
+#' factor-response estimates are scaled by.
 #' @export
 #' @return an approximate correlation matrix
 #' @note The resulting "correlation" matrix is asymmetric as the row variable
