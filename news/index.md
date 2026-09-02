@@ -58,6 +58,39 @@
   [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md),
   since it rejects predictors containing `NA` (FSSgam_package#16).
 
+- Bug fix:
+  [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
+  screened the wrong pairs for collinearity when a supplied `cor.matrix`
+  carried the same names in a different order in its rows and its
+  columns. The correlation sub-matrix for a candidate was built from two
+  positional indices, one in rowname order and one in colname order, so
+  where the two orders differed the diagonal of that sub-matrix held
+  cross correlations and the triangles held the ones from the original
+  diagonal, and the candidate was dropped whatever its predictors’
+  correlation. Both sites now index by name in one order. Measured on
+  `master`, with a supplied matrix over `depth`, `complexity` and
+  `ZONE`, `pred.vars.fact = "ZONE"` and everything else at its default:
+  the matrix with its columns permuted returned 5 candidates where the
+  same matrix unpermuted returned 9 at `max.predictors = 2` and 13 at
+  `max.predictors = 3`. On this branch the two orders agree, at 9
+  and 13. The same change means a factor named twice in `pred.vars.fact`
+  no longer yields an interaction of that factor with itself
+  (FSSgam_package#15).
+
+- [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
+  no longer requires a user-supplied `cor.matrix` to name the hard coded
+  factor interaction columns that `factor.factor.interactions` causes to
+  be created. Which of those columns exist depends on the supplied
+  matrix itself, through the collinearity screen that decides which
+  factor combinations survive, so a user could not know in advance which
+  names to supply; the call stopped partway through model set
+  construction demanding them. Rows and columns for any interaction
+  column the matrix does not carry are now computed from `use.dat` and
+  appended, and every value the user supplied is kept as supplied. A
+  predictor the user named and did not supply is still an error, so a
+  misspelled name is still reported rather than quietly computed
+  (FSSgam_package#15).
+
 ## FSSgam 1.1.0
 
 - Completed the snake_case rename across the public API.

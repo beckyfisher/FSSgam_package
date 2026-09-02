@@ -144,9 +144,9 @@ generate_model_set(
   automatically checks for collinearity, there is no issue with
   constructing model sets with multiple factor arguments that are higher
   order factors of each other, as these are invariably collinear and
-  subsequently removed (see cov.cutoff below). If a user defined
-  cor.matrix is passed to the function (see cor.matrix) this must
-  include these hard coded interactions.
+  subsequently removed (see cov.cutoff below). A user defined cor.matrix
+  (see cor.matrix) need not include these hard coded interactions: rows
+  and columns for any it does not name are computed from use.dat.
 
 - smooth.smooth.interactions:
 
@@ -175,11 +175,24 @@ generate_model_set(
   screens on correlation: which factor-factor interaction columns are
   built, which te smooth-smooth interaction terms are built, and which
   assembled candidate models are excluded. It must therefore carry a row
-  and a column for every predictor, including any hard coded factor
-  interactions that setting factor.factor.interactions causes to be
-  created; missing names are reported by name. When supplied it replaces
-  the automatic estimate rather than overriding it, so
-  check_correlations is not called at all and a predictor of a class it
+  and a column for every predictor named in pred.vars.cont,
+  pred.vars.fact and linear.vars; any that are missing are reported by
+  name. The hard coded factor interaction columns that setting
+  factor.factor.interactions causes to be created are the exception,
+  because which of them exist depends on the supplied matrix itself and
+  so cannot be known in advance. Rows and columns for any of those the
+  matrix does not carry are computed from use.dat and appended, leaving
+  every supplied value as supplied. Each dimension is treated
+  separately, so a name supplied as a column and not as a row keeps the
+  column given for it and has only its row computed; because
+  collinearity is screened in both directions, a value supplied in one
+  dimension alone can tighten a screen but never loosen it. Computing
+  them reads the data of every predictor, so this is the one case in
+  which a predictor of a class check_correlations cannot classify has to
+  be named in the supplied matrix along with the interaction columns.
+  When supplied it replaces the automatic estimate rather than
+  overriding it: except in the interaction case above,
+  check_correlations is not called at all, and a predictor of a class it
   does not accept can be used. By default predictor correlations are
   evaluated via a call to check_correlations, a function taking a
   data.frame (containing all predictors) as argument and generating a
