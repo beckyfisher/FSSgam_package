@@ -193,11 +193,14 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
   family.list <- lapply(seq_len(length(mod.formula)),function(i.) resolve_candidate_family(test.fit))
 
   if(parallel==TRUE){
+   # gamm4 is not loaded onto the workers (FSSgam_package#14). See
+   # worker_packages() in R/utils.R for what is, and why.
+   worker.packages <- worker_packages()
    cl=parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
    opts <- if(progress) list(progress = update_pb) else list()
    out.dat<-foreach::foreach(l = seq_along(mod.formula),
-                   .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
+                   .packages=worker.packages,
                    .errorhandling='pass',
                    .options.snow = opts)%dopar%{
      fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
@@ -260,11 +263,13 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
   family.list <- lapply(seq_len(length(mod.formula)),function(i.) resolve_candidate_family(test.fit))
 
   if(parallel==TRUE){
+   # see the matching comment in fit_and_summarise_saved_models() above
+   worker.packages <- worker_packages()
    cl <- parallel::makeCluster(n.cores)
    doSNOW::registerDoSNOW(cl)
    opts <- if(progress) list(progress = update_pb) else list()
    mod.dat <- foreach::foreach(l = seq_along(mod.formula),
-                   .packages=c('mgcv','gamm4','MuMIn','FSSgam'),
+                   .packages=worker.packages,
                    .errorhandling='pass',
                    .options.snow = opts)%dopar%{
       unlist(extract_mod_dat(fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]]),

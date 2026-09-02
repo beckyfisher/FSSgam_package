@@ -45,6 +45,5 @@
 #' library(FSSgam)
 #' @importFrom foreach %dopar%
 #' @importFrom mgcv s
-#' @importFrom gamm4 gamm4
 "_PACKAGE"
 NULL

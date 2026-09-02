@@ -104,3 +104,33 @@ clone_independent_family=function(fam){
   },fam[is.fn][local.idx],match.idx)
   fam
 }
+
+# The packages attached on a doSNOW worker before it refits one candidate.
+#
+# mgcv is necessary. fit_mod_l() refits through stats::update(), which for a
+# gam() test.fit evaluates the stored call by ordinary lexical lookup ending at
+# the worker's search path, and the function symbol in that call is `gam`.
+# Measured: a gam() test.fit refits 0 of 4 candidates without mgcv attached,
+# failing with "could not find function gam".
+#
+# MuMIn is not, and is kept defensively. A uGamm test.fit dispatches to
+# MuMIn's own update.gamm method, whose body runs inside the MuMIn namespace
+# where `uGamm` is bound, so the search path never enters into it; that
+# namespace is loaded by unserialising the test.fit itself. Measured: 8 of 8
+# candidates refit with MuMIn absent from this vector. It stays because a
+# test.fit whose class carries no such method would need it, and attaching an
+# already-loaded namespace costs nothing.
+#
+# gamm4 is absent. Nothing in this package calls it, it is declared under
+# Suggests, and naming it here would attach it on every worker for every model
+# set. For a uGamm(lme4 = TRUE) test.fit that changes nothing: unserialising
+# that object loads gamm4 and lme4 on the worker regardless, and doSNOW sends
+# the export environment in the same call that carries this vector, so the load
+# happens before the library() loop either way. What this vector controls is
+# whether every other model set pays for it as well.
+#
+# A dsm test.fit is not covered, and was not covered by the hard coded vector
+# this replaced either (FSSgam_package#30).
+worker_packages=function(){
+  c("mgcv","MuMIn","FSSgam")
+}
