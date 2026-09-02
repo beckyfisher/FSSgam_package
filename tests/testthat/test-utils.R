@@ -216,3 +216,35 @@ test_that("compute_variable_importance sums every model for 'all'", {
   expect_equal(vi$aic$variable.weights.raw, c(a = 0.95, b = 0.55))
   expect_equal(vi$bic$variable.weights.raw, c(a = 0.9, b = 0.5))
 })
+
+# ---- worker_packages() ------------------------------------------------------
+
+test_that("worker_packages carries what update() needs and not gamm4", {
+  # FSSgam_package#14. mgcv is necessary: fit_mod_l() refits through
+  # stats::update(), which for a gam() test.fit resolves the stored call's
+  # `gam` symbol by lexical lookup ending at the worker's search path. MuMIn is
+  # not necessary and is kept defensively, since a uGamm test.fit dispatches to
+  # MuMIn's own update.gamm method, whose body runs inside that namespace.
+  #
+  # gamm4 is absent because nothing in this package calls it and naming it would
+  # attach it on every worker for every model set.
+  pkgs <- FSSgam:::worker_packages()
+
+  expect_true(all(c("mgcv", "MuMIn", "FSSgam") %in% pkgs))
+  expect_false("gamm4" %in% pkgs)
+})
+
+test_that("gamm4 is not a hard dependency of this package", {
+  # The invariant that makes the above effective. An @importFrom directive makes
+  # the FSSgam namespace load gamm4 wherever it is loaded, workers included, so
+  # leaving gamm4 out of the .packages vector achieves nothing on its own. The
+  # directive and the DESCRIPTION entry had to go together, and R CMD check
+  # covers each direction separately: an Imports entry with no NAMESPACE import
+  # raises the "All declared Imports should be used" NOTE, and a NAMESPACE
+  # import with no DESCRIPTION entry raises "Namespace dependency missing from
+  # DESCRIPTION Imports/Depends entries", which is an ERROR. This expectation
+  # covers neither; it covers gamm4 being made a hard dependency again.
+  desc <- utils::packageDescription("FSSgam")
+  hard <- paste(desc$Depends, desc$Imports, desc$LinkingTo)
+  expect_false(grepl("gamm4", hard, fixed = TRUE))
+})
