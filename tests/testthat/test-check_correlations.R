@@ -87,12 +87,21 @@ test_that("check_correlations parallel = TRUE matches the sequential result", {
   dat$ZONE2 <- factor(
     ifelse(dat$SCORE2 > stats::median(dat$SCORE2), "high", "low")
   )
+  # ZONE2 is given missing values so that the two branches are compared on the
+  # conditional null refit as well (FSSgam_package#16). The condition is
+  # written once in the %dopar% body and once in the sequential loop, and
+  # case_study1 alone has no missing values, so without this every pair takes
+  # the retained path and the parallel copy is never reached.
+  dat$ZONE2[seq(1, nrow(dat), by = 5)] <- NA
   use.dat <- dat[, c("depth", "ZONE", "ZONE2")]
 
   sequential <- check_correlations(use.dat)
   parallel <- check_correlations(use.dat, parallel = TRUE, n.cores = 2)
 
   expect_equal(parallel, sequential, tolerance = 1e-8)
+  # the refit path is what this fixture adds: ZONE as the response against
+  # ZONE2 drops rows that ZONE's own column does not
+  expect_false(is.na(sequential["ZONE", "ZONE2"]))
 })
 
 test_that("two exactly balanced factors are reported as uncorrelated", {
@@ -153,4 +162,125 @@ test_that("the factor-factor diagonal is exactly one and no self pairs are fitte
   expect_identical(unname(diag(cm)), rep(1, 4))
   # the continuous block still comes from cor(), which is 1 on its diagonal
   expect_identical(unname(cm["depth", "depth"]), 1)
+})
+
+test_that("a factor-factor pair with missing values compares deviances on one row set", {
+  # FSSgam_package#16. r.est is sqrt(1 - fit/null.fit). The pair model is
+  # fitted on the pair's complete cases; the null used to be fitted on the
+  # whole column, so for a factor carrying NAs the ratio was taken between
+  # deviances computed on different numbers of rows.
+  #
+  # f2 reproduces f1 on three rows in four and is missing for most of level
+  # "a", so the two row sets differ by 25 of 90 rows and the estimate moves
+  # from 0.848 (whole-column null) to 0.728 (pair null).
+  f1 <- factor(rep(c("a", "b", "c"), each = 30))
+  f2 <- as.character(f1)
+  shift <- c(a = "b", b = "c", c = "a")
+  idx <- seq(1, 90, by = 4)
+  f2[idx] <- shift[f2[idx]]
+  dat <- data.frame(f1 = f1, f2 = factor(f2))
+  dat$f2[1:25] <- NA
+
+  dat.r <- stats::na.omit(dat[, c("f1", "f2")])
+  fit <- nnet::multinom(dat.r$f1 ~ dat.r$f2, trace = FALSE)$deviance
+  null.matched <- nnet::multinom(dat.r$f1 ~ 1, trace = FALSE)$deviance
+  null.whole <- nnet::multinom(dat$f1 ~ 1, trace = FALSE)$deviance
+
+  cm <- check_correlations(dat)
+
+  expect_equal(unname(cm["f1", "f2"]), sqrt(1 - (fit / null.matched)),
+               tolerance = 1e-6)
+  # the value the unfixed code returned, asserted as absent so that reverting
+  # the fix fails here rather than only in the equality above
+  expect_false(isTRUE(all.equal(unname(cm["f1", "f2"]),
+                                sqrt(1 - (fit / null.whole)),
+                                tolerance = 1e-6)))
+})
+
+test_that("the estimate is unchanged where the pair drops no extra rows", {
+  # The per-factor null is kept for any pair whose complete-case row set is the
+  # factor's own, which is every pair when nothing is missing and, for the
+  # direction in which the NA-bearing factor is the response, also when
+  # something is. This block asserts the value in that direction; it cannot
+  # observe whether a refit happened, and passes against both the unfixed code
+  # and a variant that refits unconditionally. The block below is what pins the
+  # shortcut.
+  f1 <- factor(rep(c("a", "b", "c"), each = 30))
+  f2 <- as.character(f1)
+  shift <- c(a = "b", b = "c", c = "a")
+  f2[seq(1, 90, by = 4)] <- shift[f2[seq(1, 90, by = 4)]]
+  dat <- data.frame(f1 = f1, f2 = factor(f2))
+  dat$f2[1:25] <- NA
+
+  dat.r <- stats::na.omit(dat[, c("f1", "f2")])
+  fit <- nnet::multinom(dat.r$f2 ~ dat.r$f1, trace = FALSE)$deviance
+  # f2 is the response here, so the pair's rows are exactly f2's own complete
+  # cases and the hoisted per-factor null is already on the right row set
+  null.fit <- nnet::multinom(dat$f2 ~ 1, trace = FALSE)$deviance
+
+  cm <- check_correlations(dat)
+  expect_equal(unname(cm["f2", "f1"]), sqrt(1 - (fit / null.fit)),
+               tolerance = 1e-6)
+})
+
+test_that("the retained per-factor null agrees with refitting it for every pair", {
+  # The shortcut in fill_factor_factor_correlations() keeps the hoisted
+  # per-factor null for any pair whose complete-case count matches the factor's
+  # own. This block asserts the property that justifies it: the matrix is what
+  # refitting the null for every pair, with no shortcut at all, would give.
+  #
+  # Three factors with missingness in different rows, so that the six ordered
+  # pairs fall on both sides of the condition. f2 and f3 are missing in disjoint
+  # blocks, giving complete-case counts of 90, 65 and 69 and pair counts of 65
+  # for f1 with f2, 69 for f1 with f3 and 44 for f2 with f3. Two pairs retain
+  # the per-factor null, f2 against f1 and f3 against f1, because a pair in
+  # which the only NA-bearing column is the response drops nothing extra. The
+  # other four refit.
+  shift <- c(a = "b", b = "c", c = "a")
+  f1 <- factor(rep(c("a", "b", "c"), each = 30))
+  f2 <- as.character(f1)
+  f2[seq(1, 90, by = 4)] <- shift[f2[seq(1, 90, by = 4)]]
+  f3 <- as.character(f1)
+  f3[seq(2, 90, by = 3)] <- shift[f3[seq(2, 90, by = 3)]]
+  dat <- data.frame(f1 = f1, f2 = factor(f2), f3 = factor(f3))
+  dat$f2[1:25] <- NA
+  dat$f3[70:90] <- NA
+
+  pairs <- list(c("f1", "f2"), c("f2", "f1"), c("f1", "f3"), c("f3", "f1"),
+                c("f2", "f3"), c("f3", "f2"))
+  expected <- vapply(pairs, function(vars) {
+    dat.r <- stats::na.omit(dat[, vars])
+    fit <- nnet::multinom(dat.r[, vars[1]] ~ dat.r[, vars[2]], trace = FALSE)$deviance
+    null.fit <- nnet::multinom(dat.r[, vars[1]] ~ 1, trace = FALSE)$deviance
+    sqrt(1 - (fit / null.fit))
+  }, numeric(1))
+
+  cm <- check_correlations(dat)
+  observed <- vapply(pairs, function(vars) unname(cm[vars[1], vars[2]]), numeric(1))
+
+  expect_equal(observed, expected, tolerance = 1e-6)
+})
+
+test_that("a factor with no observed values costs no intercept-only fit", {
+  # The retain condition compares the pair's complete-case count with the
+  # factor's own, and an entirely missing column satisfies it with zero equals
+  # zero. Its null cannot converge and no pair can read it, since every pair it
+  # appears in has no rows, so it is not fitted at all. Asserted by counting
+  # calls, because the returned matrix is the same either way.
+  dat <- data.frame(
+    f1 = factor(rep(c("a", "b"), each = 20)),
+    f2 = factor(rep(NA_character_, 40), levels = c("x", "y"))
+  )
+
+  calls <- 0L
+  suppressMessages(trace(nnet::multinom, tracer = function() calls <<- calls + 1L,
+                         print = FALSE))
+  on.exit(suppressMessages(untrace(nnet::multinom)), add = TRUE)
+  cm <- suppressWarnings(check_correlations(dat))
+
+  # two pair fits, both of which fail on a zero-row frame, and no null at all
+  expect_identical(calls, 2L)
+  expect_identical(unname(diag(cm)), c(1, 1))
+  expect_true(is.na(cm["f1", "f2"]))
+  expect_true(is.na(cm["f2", "f1"]))
 })

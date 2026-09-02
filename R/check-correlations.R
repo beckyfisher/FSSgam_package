@@ -27,6 +27,11 @@
 #' among a continuous variable and a factor variable through the call lm(continuous~factor),
 #' and nnet to approximate the correlation among factor variables using a multinomial
 #' model fit.
+#'
+#' Missing values are handled pairwise: each pair of predictors is evaluated on
+#' the rows for which both are present. For a factor-factor pair this applies to
+#' the intercept-only model as well as the fitted one, so the two deviances the
+#' estimate is a ratio of are always computed on the same rows.
 #' @export
 #' @return a correlation matrix
 #' @examples
@@ -114,19 +119,50 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
   lm.grid=expand.grid(list(fact.var1=fact.vars,fact.var2=fact.vars))
   lm.grid=lm.grid[as.character(lm.grid$fact.var1)!=as.character(lm.grid$fact.var2),,drop=FALSE]
 
-  # The null model depends only on fact.var1 and was already fitted on the
-  # whole dat column rather than on the pair's complete cases, so refitting it
-  # inside the loop recomputed the same value n-1 times per factor. Fitted once
-  # per factor here instead. Values are unchanged, which was checked rather
-  # than assumed.
+  # r.est is sqrt(1 - fit/null.fit), so both deviances have to be computed on
+  # the same rows. `fit` below is fitted on na.omit() of the pair, so the null
+  # has to be too (FSSgam_package#16). Fitting the null per pair
+  # unconditionally would undo the reduction from n(n-1) null fits to n, so the
+  # per-factor value is kept and refitted only for a pair that drops rows the
+  # factor's own column does not.
   #
-  # The asymmetry it exposes is pre-existing and deliberately left alone: the
-  # null deviance comes from the whole column while `fit` below comes from
-  # na.omit() of the pair, so for a factor carrying NAs the two are computed on
-  # different row sets. Changing that would change reported correlations.
-  # generate_model_set() rejects predictors containing NA, so it is reachable
-  # only through a direct call to check_correlations().
+  # Under the default na.action multinom() drops incomplete cases itself, so
+  # the per-factor null is already fitted on that factor's own complete cases,
+  # and complete.counts records how many rows that is. na.omit() of the pair
+  # intersects the two presence sets, so the pair's rows are contained in the
+  # factor's; a subset of equal size is the same set, and the per-factor value
+  # is then exact rather than merely close.
+  #
+  # The refit is conditional on `fit` having succeeded as well, so a pair whose
+  # fitted model failed does not pay for a null whose value is never read, and
+  # does not emit that fit's warnings. try() suppresses errors but not
+  # warnings.
+  #
+  # null.deviances[[v]] is NULL for a factor that no pair retains, and for one
+  # with no observed values at all. Neither is read as a deviance: the first
+  # refits for every pair in which it is the response, and the second reaches
+  # the guard only with `fit` already failed, because its pairs have no rows.
+  # The guard tests for NULL as well, so it does not rely on the order in which
+  # its operands are evaluated.
+  present=lapply(fact.vars,function(v){!is.na(dat[,v])})
+  names(present)=fact.vars
+  complete.counts=lapply(present,sum)
+
+  # A factor's own null is read only by a pair that drops none of the rows on
+  # which that factor is present, so it is fitted only where such a pair
+  # exists. Where every factor is missing in rows the others are not, no pair
+  # retains, and fitting all n of them would add n discarded fits, and any
+  # warnings they raise, to the n(n-1) refits.
+  retains=vapply(fact.vars,function(v){
+    any(vapply(setdiff(fact.vars,v),function(w){
+      sum(present[[v]]&present[[w]])==complete.counts[[v]]},logical(1)))},logical(1))
+  names(retains)=fact.vars
+  # complete.counts of zero satisfies the equality above for every pair, so a
+  # column with no observed values at all would otherwise be fitted once for a
+  # null that cannot converge and is never read, since every pair it appears in
+  # has no rows.
   null.deviances=lapply(fact.vars,function(v){
+    if(!retains[[v]]||complete.counts[[v]]==0){return(NULL)}
     try(nnet::multinom(dat[,v] ~ 1,trace=FALSE)$deviance,silent=TRUE)})
   names(null.deviances)=fact.vars
   if(parallel==TRUE){
@@ -142,7 +178,18 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
     # the spurious "NaNs produced" warnings came from (FSSgam_package#10).
     fit <- try(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE)$deviance,silent=TRUE)
     null.fit=null.deviances[[var.1]]
-    if(!inherits(fit,"try-error")){
+    if(!inherits(fit,"try-error")&&nrow(dat.r)<complete.counts[[var.1]]){
+      null.fit=try(nnet::multinom(dat.r[,var.1] ~ 1,trace=FALSE)$deviance,silent=TRUE)}
+    # The null.fit half of this guard is reached under a non-default
+    # na.action. Under options(na.action = "na.fail") the pair fit succeeds,
+    # because dat.r has already had its incomplete rows removed, while a
+    # retained null was fitted on the raw column and fails. Without the guard
+    # that failed null reaches round() as the character vector try() returns;
+    # with it the cell is left NA, which is how a failed `fit` is already
+    # handled. It is not reachable under the default na.action, where both
+    # models are fitted on the same rows.
+    if(!inherits(fit,"try-error")&&!is.null(null.fit)&&
+       !inherits(null.fit,"try-error")){
        if(round(fit,4)==round(null.fit,4)){r.est=0}else{
       r.est=sqrt(1-(fit/null.fit))}
       c(var.1,var.2,r.est)}}
@@ -157,8 +204,12 @@ fill_factor_factor_correlations=function(dat,fact.vars,out.cor.mat,parallel,n.co
           # see the matching comment in the parallel branch above
           fit <- try(nnet::multinom(dat.r[,var.1] ~ dat.r[,var.2],trace=FALSE)$deviance,silent=TRUE)
           null.fit=null.deviances[[var.1]]
+          # see the matching comment on complete.counts above
+          if(!inherits(fit,"try-error")&&nrow(dat.r)<complete.counts[[var.1]]){
+            null.fit=try(nnet::multinom(dat.r[,var.1] ~ 1,trace=FALSE)$deviance,silent=TRUE)}
           out=NA
-          if(!inherits(fit,"try-error")){
+          if(!inherits(fit,"try-error")&&!is.null(null.fit)&&
+             !inherits(null.fit,"try-error")){
            if(round(fit,4)==round(null.fit,4)){r.est=0}else{
                    r.est=sqrt(1-(fit/null.fit))}
                    out=c(var.1,var.2,r.est)}

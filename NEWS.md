@@ -1,5 +1,53 @@
 # FSSgam (development version)
 
+* `gamm4` moves from `Imports` to `Suggests`. **A fresh install of this package
+  no longer installs `gamm4` or `lme4`. If you fit through
+  `MuMIn::uGamm(lme4 = TRUE)`, as the companion repository's case study 2 does,
+  install `gamm4` yourself.** Nothing in this package calls it: the only uses are
+  `inherits(x, "gamm4")` class tests, which need no package, and an
+  `@importFrom gamm4 gamm4` directive for a function never called. That directive
+  is what made every parallel worker load `gamm4` and `lme4`, through the
+  `FSSgam` namespace, for every model set regardless of the family fitted.
+
+* `fit_model_set(parallel = TRUE)` no longer names `gamm4` in the packages it
+  attaches on the `doSNOW` workers. Together with the change above this is the
+  only direction recorded on FSSgam_package#14 that measured as reducing the
+  dispatch stall, in which the call hangs indefinitely with no output and no
+  error. Running `fit_model_set(parallel = TRUE)` on `case_study1` from installed
+  copies of each version, alternating in blocks of ten so that both saw the same
+  machine load, one cluster per fresh R process, gave 44 stalls in 140 runs
+  before and 25 in 140 after (chi-squared p = 0.013, this host, 2026-09-01).
+
+  The narrower comparison agrees. A `foreach()` whose body is `i * 2`, so that no
+  package code runs at all, was run 50 times with `gamm4` in the packages the
+  workers attach and 50 times without, alternating run by run: 34 stalls against
+  19 (chi-squared p = 0.005, same host and date).
+
+  Three qualifications. That is a reduction and not a removal, and
+  FSSgam_package#14 stays open. Both figures are one session's measurement of a
+  rate on one host, and an earlier run of the narrower comparison with its two
+  arms taken one after the other rather than alternated gave a result an
+  independent replication could not reproduce; only alternating designs are
+  quoted here. And neither extends to a `uGamm(lme4 = TRUE)` test.fit:
+  unserialising such an object loads `gamm4` and `lme4` on the worker by itself,
+  before the packages are attached, so for those users the worker side is
+  substantially unchanged.
+
+  `check_correlations(parallel = TRUE)` benefits as well, without any change of
+  its own: its workers load the `FSSgam` namespace and so used to load `gamm4`
+  through it.
+
+* Bug fix: `check_correlations()` estimated the correlation between two factor
+  predictors from deviances computed on different sets of rows whenever either
+  factor contained missing values. The fitted model was fitted on the pair's
+  complete cases and the intercept-only model on the whole column, so the ratio
+  the estimate is built from was not comparable and the reported correlation was
+  wrong by an amount that depended on how much of the column was missing. Both
+  models are now fitted on the pair's complete cases. Values are unchanged for
+  data with no missing predictor values, which is every call made by
+  `generate_model_set()`, since it rejects predictors containing `NA`
+  (FSSgam_package#16).
+
 * Bug fix: `generate_model_set()` screened the wrong pairs for collinearity when
   a supplied `cor.matrix` carried the same names in a different order in its rows
   and its columns. The correlation sub-matrix for a candidate was built from two
