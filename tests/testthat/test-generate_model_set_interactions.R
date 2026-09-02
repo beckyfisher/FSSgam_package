@@ -758,3 +758,385 @@ test_that("a supplied cor.matrix covers a predictor check_correlations cannot cl
   expect_true("depth+when" %in% names(model.set$mod.formula))
   expect_identical(model.set$predictor.correlations, cm)
 })
+
+# ---- a supplied cor.matrix and the interaction columns it causes -------------
+
+test_that("a supplied cor.matrix need not name the interaction columns it causes", {
+  # FSSgam_package#15. With factor.factor.interactions set, the hard coded
+  # interaction columns are named by resolve_factor_interactions() from the
+  # combinations that survive the screen, and that screen reads the supplied
+  # matrix. A user therefore cannot know which of them to supply, and the call
+  # used to stop partway through construction demanding them by name.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts)
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  pc <- model.set$predictor.correlations
+
+  expect_false("ZONE.I.ZONE.copy" %in% colnames(fit$use.dat))
+  expect_true("ZONE.I.ZONE.copy" %in% colnames(model.set$used.data))
+  expect_true("ZONE.I.ZONE.copy" %in% rownames(pc))
+
+  # every cell the user supplied is kept as supplied
+  expect_equal(pc[vars, vars], cm)
+
+  # the derived row and column are what check_correlations gives for that column
+  computed <- check_correlations(
+    model.set$used.data[, c("depth", facts, "ZONE.I.ZONE.copy")]
+  )
+  expect_equal(
+    unname(pc["ZONE.I.ZONE.copy", vars]),
+    unname(computed["ZONE.I.ZONE.copy", vars]),
+    tolerance = 1e-6
+  )
+  expect_equal(
+    unname(pc[vars, "ZONE.I.ZONE.copy"]),
+    unname(computed[vars, "ZONE.I.ZONE.copy"]),
+    tolerance = 1e-6
+  )
+})
+
+test_that("a supplied value for an interaction column is used, not recomputed", {
+  # Supplying the derived names is still honoured: the pasted column is
+  # perfectly predicted by each of its components, so computing would give 1,
+  # and a supplied 0 has to survive. This passes against the pre-fix code as
+  # well; it pins behaviour the fix must not take away, rather than the fix.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts, "ZONE.I.ZONE.copy")
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  expect_equal(model.set$predictor.correlations, cm)
+  # and with the components declared uncorrelated with the interaction, the
+  # candidate set contains a model holding both, which the computed matrix
+  # would have excluded
+  expect_true("ZONE+ZONE.I.ZONE.copy" %in% names(model.set$mod.formula))
+})
+
+test_that("only the predictors the user named are reported as missing", {
+  # A misspelled or forgotten predictor of the user's own is still an error.
+  # The interaction column absent from the same matrix is not named in it,
+  # because supplying it was never possible. This also passes against the
+  # pre-fix code, where resolve_factor_interactions() rejects the named factor
+  # before any interaction column exists; it is here so that the fallback
+  # cannot start swallowing a user's own missing predictor.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  cm <- matrix(c(1, 0, 0, 1), 2, 2,
+               dimnames = list(c("depth", "ZONE"), c("depth", "ZONE")))
+
+  err <- expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE", "ZONE.copy"),
+      factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+    )
+  )
+  expect_match(conditionMessage(err), "ZONE\\.copy")
+  expect_false(grepl("ZONE.I.ZONE.copy", conditionMessage(err), fixed = TRUE))
+})
+
+test_that("the interaction rows are computed under non.linear.correlations too", {
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts)
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2,
+    non.linear.correlations = TRUE, cor.matrix = cm
+  )
+  pc <- model.set$predictor.correlations
+  expect_true("ZONE.I.ZONE.copy" %in% rownames(pc))
+  expect_equal(pc[vars, vars], cm)
+
+  computed <- check_non_linear_correlations(
+    model.set$used.data[, c("depth", facts, "ZONE.I.ZONE.copy")]
+  )
+  expect_equal(
+    unname(pc["ZONE.I.ZONE.copy", vars]),
+    unname(computed["ZONE.I.ZONE.copy", vars]),
+    tolerance = 1e-6
+  )
+})
+
+test_that("an unclassifiable predictor and a missing interaction column report both", {
+  # A supplied cor.matrix lets a predictor of a class check_correlations rejects
+  # be used (FSSgam_package#13), but computing rows for an interaction column
+  # needs every predictor's data, so the two cannot be combined. The error says
+  # so rather than reporting the class on its own.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  fit$use.dat$when <- as.Date("2020-01-01") + seq_len(nrow(fit$use.dat))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", "when", facts)
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+      linear.vars = "when", factor.factor.interactions = TRUE,
+      max.predictors = 2, cor.matrix = cm
+    ),
+    "could not be computed from use.dat"
+  )
+})
+
+test_that("a cor.matrix supplied as a data.frame is augmented as well", {
+  # Assigning a data.frame into a sub-block of a matrix replaces the matrix with
+  # a plain list, so the augmentation failed with "incorrect number of
+  # subscripts on matrix", naming neither the argument nor the cause. A
+  # data.frame is accepted everywhere else, including by this branch when the
+  # matrix is complete.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts)
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  from.matrix <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  from.frame <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2,
+    cor.matrix = as.data.frame(cm)
+  )
+  expect_equal(from.frame$predictor.correlations,
+               from.matrix$predictor.correlations)
+  expect_identical(names(from.frame$mod.formula), names(from.matrix$mod.formula))
+})
+
+test_that("a name in the supplied matrix that is not a predictor gets no NA cell", {
+  # The branch that computes the whole matrix replaces every NA with zero. The
+  # augmented one has to as well: the character form of
+  # smooth.smooth.interactions validates against the rownames of the resolved
+  # matrix rather than against the predictors, so a name the user supplied that
+  # is not a predictor reaches combine_uncorrelated(), where max() of an all-NA
+  # sub-matrix returns NA and `if (NA)` raises an error naming nothing.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", "complexity", facts, "junk")
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = c("depth", "complexity"),
+    pred.vars.fact = facts, factor.factor.interactions = TRUE,
+    smooth.smooth.interactions = c("junk", "ZONE.I.ZONE.copy"),
+    max.predictors = 2, cor.matrix = cm
+  )
+  pc <- model.set$predictor.correlations
+  expect_false(anyNA(pc["ZONE.I.ZONE.copy", ]))
+  expect_false(anyNA(pc[, "ZONE.I.ZONE.copy"]))
+  expect_identical(unname(pc["junk", "ZONE.I.ZONE.copy"]), 0)
+})
+
+test_that("a supplied matrix keeps its own row and column names", {
+  # The supplied names are kept in their own order and the derived ones
+  # appended to each dimension separately, so a matrix whose two dimnames
+  # differ is not reshaped into a square one with an invented all-NA row.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts)
+  cm <- matrix(0, length(vars), length(vars) + 1,
+               dimnames = list(vars, c(vars, "extra.col")))
+  cm[cbind(vars, vars)] <- 1
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  pc <- model.set$predictor.correlations
+  expect_identical(rownames(pc), c(vars, "ZONE.I.ZONE.copy"))
+  expect_identical(colnames(pc), c(vars, "extra.col", "ZONE.I.ZONE.copy"))
+  expect_false("extra.col" %in% rownames(pc))
+})
+
+test_that("a continuous predictor omitted from cor.matrix is still reported", {
+  # The named/derived split. The blocks above omit a factor, which
+  # resolve_factor_interactions() rejects several stages earlier, so they pass
+  # whatever the split does. A continuous predictor is not screened there, so
+  # this is the case that reaches build_predictor_correlation_matrix() with
+  # both a named and a derived predictor missing.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  vars <- c("depth", facts)
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  err <- expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = c("depth", "complexity"),
+      pred.vars.fact = facts, factor.factor.interactions = TRUE,
+      max.predictors = 2, cor.matrix = cm
+    )
+  )
+  expect_match(conditionMessage(err), "complexity")
+  expect_false(grepl("ZONE.I.ZONE.copy", conditionMessage(err), fixed = TRUE))
+})
+
+test_that("a derived name supplied in one dimension keeps the values given there", {
+  # The missing names are tracked per dimension. Pooling them meant that a
+  # derived column named as a column and not as a row was treated as missing
+  # from both, and the computed values overwrote the column the user did supply.
+  #
+  # What the user sees changed is predictor.correlations. The candidate set is
+  # not, in this configuration: enumerate_candidate_models() screens both
+  # triangles, and the row was not supplied, so the computed 1 excludes
+  # ZONE+ZONE.I.ZONE.copy whichever way the column is resolved.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+
+  rows <- c("depth", facts)
+  cols <- c(rows, "ZONE.I.ZONE.copy")
+  cm <- matrix(0, length(rows), length(cols), dimnames = list(rows, cols))
+  cm[cbind(rows, rows)] <- 1
+  cm[, "ZONE.I.ZONE.copy"] <- c(0.11, 0.22, 0.33)
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = facts,
+    factor.factor.interactions = TRUE, max.predictors = 2, cor.matrix = cm
+  )
+  pc <- model.set$predictor.correlations
+
+  expect_equal(unname(pc[rows, "ZONE.I.ZONE.copy"]), c(0.11, 0.22, 0.33))
+  # the row was not supplied, so it is computed
+  expect_equal(unname(pc["ZONE.I.ZONE.copy", "ZONE"]), 1, tolerance = 1e-6)
+  expect_identical(rownames(pc), c(rows, "ZONE.I.ZONE.copy"))
+  expect_identical(colnames(pc), cols)
+})
+
+test_that("a supplied cor.matrix with a duplicated name is reported", {
+  # unique() over the dimnames would otherwise keep one of the two silently, and
+  # which of them governs a screen depends on how the sub-matrix is indexed.
+  fit <- fixture_cs1_gaussian()
+  vars <- c("depth", "complexity", "complexity")
+  cm <- matrix(0, 3, 3, dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = c("depth", "complexity"),
+      pred.vars.fact = NA, cor.matrix = cm
+    ),
+    "duplicated names"
+  )
+})
+
+test_that("where a supplied derived name sits in its dimension does not change the model set", {
+  # The derived names are appended to the end of each dimension, so a user who
+  # supplied one as a column anywhere other than last gets a resolved matrix
+  # whose two dimnames hold the same set in different orders. The screens used
+  # to index the sub-matrix by position in each dimension separately, so the
+  # cells they compared were not the pairs they intended and the candidate set
+  # moved. Both are now indexed by name in one order.
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
+  facts <- c("ZONE", "ZONE.copy")
+  rows <- c("depth", "complexity", facts)
+
+  make.cm <- function(cols) {
+    cm <- matrix(0, length(rows), length(cols), dimnames = list(rows, cols))
+    cm[cbind(rows, rows)] <- 1
+    cm[, "ZONE.I.ZONE.copy"] <- c(0.11, 0.12, 0.22, 0.33)
+    cm
+  }
+  run <- function(cm) {
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = c("depth", "complexity"),
+      pred.vars.fact = facts, factor.factor.interactions = TRUE,
+      factor.smooth.interactions = NA, max.predictors = 3, cor.matrix = cm
+    )
+  }
+  last <- run(make.cm(c(rows, "ZONE.I.ZONE.copy")))
+  first <- run(make.cm(c("ZONE.I.ZONE.copy", rows)))
+
+  expect_identical(names(last$mod.formula), names(first$mod.formula))
+})
+
+test_that("a complete supplied matrix screens the same however its columns are ordered", {
+  # The same defect without any interaction column: a square matrix whose
+  # colnames are a permutation of its rownames used to drop candidates whose
+  # correlation was well below cov.cutoff.
+  fit <- fixture_cs1_gaussian()
+  vars <- c("depth", "complexity", "ZONE")
+  cm <- matrix(0, 3, 3, dimnames = list(vars, vars))
+  diag(cm) <- 1
+  permuted <- cm[, c("ZONE", "depth", "complexity")]
+
+  plain <- fixture_cs1_model_set(fit = fit, cor.matrix = cm)
+  shuffled <- fixture_cs1_model_set(fit = fit, cor.matrix = permuted)
+
+  expect_identical(names(shuffled$mod.formula), names(plain$mod.formula))
+})
+
+test_that("a duplicated name that is not a predictor is accepted", {
+  # Only a duplicated name the model set indexes is ambiguous. One nothing reads
+  # is left alone, as it is when no matrix is supplied at all.
+  fit <- fixture_cs1_gaussian()
+  vars <- c("depth", "complexity", "ZONE", "spare", "spare")
+  cm <- matrix(0, 5, 5, dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  model.set <- fixture_cs1_model_set(fit = fit, cor.matrix = cm)
+  expect_gt(model.set$n.mods, 1)
+})
+
+test_that("a factor named twice yields no interaction of itself", {
+  # A side effect of indexing the sub-matrix by name. Where the same factor was
+  # named twice, selecting rows by position returned a 1x1 sub-matrix, both
+  # triangles of which are empty, so max() warned "no non-missing arguments to
+  # max" and returned -Inf, the combination survived, and a ZONE.I.ZONE column
+  # was built. Selecting by name returns the 2x2 sub-matrix whose off-diagonal
+  # is the correlation of the factor with itself, which is 1, so the
+  # combination is dropped as perfectly collinear.
+  #
+  # enumerate_candidate_models() deduplicates its terms before indexing, so it
+  # still reaches a 1x1 sub-matrix and still admits a nonsense ZONE+ZONE
+  # candidate with two "no non-missing arguments to max" warnings. That is
+  # pre-existing and unchanged, and is FSSgam_package#28.
+  fit <- fixture_cs1_gaussian()
+
+  model.set <- suppressWarnings(fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth",
+      pred.vars.fact = c("ZONE", "ZONE"),
+      factor.factor.interactions = TRUE, max.predictors = 2
+  ))
+  # both assertions below are negative, so a degenerate return would satisfy
+  # them; this one fails if the model set collapses for an unrelated reason
+  expect_true("ZONE+depth" %in% names(model.set$mod.formula))
+  expect_false("ZONE.I.ZONE" %in% colnames(model.set$used.data))
+  expect_false(any(grepl("ZONE.I.ZONE", names(model.set$mod.formula), fixed = TRUE)))
+})
