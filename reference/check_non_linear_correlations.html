@@ -62,6 +62,9 @@ between a continuous variable (as response) and a factor variable (as a predicto
 through the call lm(continuous~factor),
 and nnet to approximate the correlation for factor variables as responses using a multinomial
 model fit through a call to multinom(factor~factor) or (factor~continuous).</p>
+<p>Missing values are handled pairwise: each pair of predictors is evaluated on
+the rows for which both are present, including the intercept-only model the
+factor-response estimates are scaled by.</p>
     </div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>

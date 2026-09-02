@@ -37,6 +37,12 @@ coefficient among a continuous variable and a factor variable through
 the call lm(continuous~factor), and nnet to approximate the correlation
 among factor variables using a multinomial model fit.
 
+Missing values are handled pairwise: each pair of predictors is
+evaluated on the rows for which both are present. For a factor-factor
+pair this applies to the intercept-only model as well as the fitted one,
+so the two deviances the estimate is a ratio of are always computed on
+the same rows.
+
 ## Examples
 
 ``` r
