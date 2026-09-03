@@ -74,6 +74,10 @@ build_continuous_correlation_matrix=function(dat,cont.vars){
 build_factor_continuous_skeleton=function(dat,fact.vars,cont.vars,cor.mat){
    if(length(cont.vars)>0){
     lm.grid=expand.grid(list(fact.var=fact.vars,cont.var=cont.vars))
+    # Not wrapped in try(), unlike the multinom() fits below. A single-level
+    # factor makes lm() stop and the error propagates out of
+    # check_correlations(): FSSgam_package#33. The same shape is present in
+    # check_non_linear_correlations().
     r.estimates=cbind(lm.grid,apply(lm.grid,MARGIN=1,FUN=function(x){
         sqrt(summary(stats::lm(dat[,x[2]]~factor(dat[,x[1]])))$r.sq)}))
 
