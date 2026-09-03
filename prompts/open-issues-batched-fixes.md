@@ -627,3 +627,41 @@ the change edits, were corrected.
 Suite: 636 passing, from 616.
 
 ---
+**Review cycle 5 (independent session, batch 3).** Three substantive findings.
+
+- **The zero-fill turns an error into a model set holding the same model twice,
+  and `NEWS.md` did not say so.** An `NA` becoming zero means "uncorrelated", so
+  a factor-factor pair that previously stopped the call is now admitted. Where
+  the `NA` came from a single-level factor the interaction column is a copy of
+  the other factor: `fa.I.const` is `paste(fa, "a")`, so `fa` and `fa.I.const`
+  are the same model under two names and both enter the AICc table and the
+  variable importance scores. Confirmed here.
+
+  Recorded in `NEWS.md` as a behaviour change, together with what makes it
+  acceptable and what it is not a fix for: the real defect is that a
+  single-level factor is accepted as a predictor, FSSgam_package#33, batch 4's
+  work. A test now pins the zero-fill and says the same on its face.
+
+  The risk this cycle was set to look for did not materialise. A 432-scenario
+  sweep -- six factor sets, three continuous sets, both forms of
+  `factor.factor.interactions`, `max.predictors` 1 to 3, both settings of
+  `non.linear.correlations`, two forms of `factor.smooth.interactions` -- gave
+  392 identical, 40 error to built, and **none** built to a different model set
+  or built to error. No call that worked before behaves differently.
+
+- **`Matrix::nearPD()` does not return a matrix.** It returns an S3 object of
+  seven components whose `mat` component is the matrix, so only that component
+  was ever accepted, on this branch and before it. Named as an accepted input in
+  `NEWS.md`, a code comment, a test comment and a commit message. Corrected in
+  all four; `Matrix::Matrix()` alone is the example.
+
+- **A pull request body edit had not taken.** One of two replacements silently
+  failed to match, so the body still said `combine_uncorrelated()` is unchanged
+  while being one of the two functions the change edits -- a collapsed-block
+  statement contradicting the open section, which parent `CLAUDE.md` §14 forbids.
+  Checking that an edit landed, rather than that the command returned a URL, is
+  the lesson.
+
+Suite: 638 passing, from 616.
+
+---

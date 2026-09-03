@@ -12,9 +12,11 @@
   The test is now on the default value rather than on length, in both places it
   was made -- `build_predictor_correlation_matrix()` and the `factor_correlations()`
   helper inside `resolve_factor_interactions()`, which had its own copy. It tests
-  dimensionality rather than a list of accepted classes, so the S4 objects
-  `Matrix::Matrix()` and `Matrix::nearPD()` return are accepted, as they were
-  before this argument was validated at all.
+  dimensionality rather than a list of accepted classes, so the S4 matrix
+  `Matrix::Matrix()` returns is accepted, as it was before this argument was
+  validated at all. Note that `Matrix::nearPD()` is not such a case: it returns
+  a list whose `mat` component is the matrix, and only that component was ever
+  accepted.
 
   **Behaviour change:** `cor.matrix` is now validated, and a value that is
   neither a matrix, a data.frame, nor `NA` is rejected naming its class. What
@@ -60,6 +62,24 @@
   `check_correlations()` returns `NA` for a pair involving a single-level factor
   (FSSgam_package#33) -- and the call stopped with `missing value where
   TRUE/FALSE needed` (FSSgam_package#27).
+
+  **Behaviour change, and a poor outcome that is better than the error it
+  replaces.** An `NA` becoming zero means "uncorrelated", so a factor-factor pair
+  that previously stopped the call is now admitted. Where the `NA` came from a
+  single-level factor the interaction column is a copy of the other factor:
+  `fa.I.const` is `paste(fa, "a")`, so `fa` and `fa.I.const` are the same model
+  under two names, and both enter the AICc table and the variable importance
+  scores. That is not a good model set, and the real defect is that a
+  single-level factor is accepted as a predictor at all, which is
+  FSSgam_package#33.
+
+  Measured over 432 scenarios -- six factor sets, three continuous sets, both
+  forms of `factor.factor.interactions`, `max.predictors` 1 to 3, both settings
+  of `non.linear.correlations`, two forms of `factor.smooth.interactions` -- 392
+  are identical between this version and the previous one, 40 change from an
+  error to a built model set, and none changes from one built model set to a
+  different one or from a built model set to an error. No call that worked
+  before behaves differently.
 
   `combine_uncorrelated()` and `enumerate_candidate_models()` are otherwise
   unchanged: stopping on an `NA` is the right behaviour at both, the alternative

@@ -668,8 +668,9 @@ stop_on_na_correlations=function(cor.mat.m){
 cor_matrix_supplied=function(cor.matrix){
   # Tested on dimensionality rather than on a list of accepted classes. A
   # whitelist of matrix and data.frame rejected anything else two-dimensional,
-  # including the S4 objects Matrix::Matrix() and Matrix::nearPD() return, which
-  # worked before this argument was validated at all.
+  # including the S4 matrix Matrix::Matrix() returns, which worked before this
+  # argument was validated at all. Matrix::nearPD() is not such a case: it
+  # returns a list, and only its mat component was ever accepted.
   if(length(dim(cor.matrix))==2){return(TRUE)}
   if(length(cor.matrix)==1&&is.na(cor.matrix)){return(FALSE)}
   stop(paste0("cor.matrix must be a two-dimensional matrix or data.frame of predictor ",

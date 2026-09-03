@@ -449,10 +449,38 @@ test_that("an NA is reported on a pair crossing a derived column and a screened 
   )
 })
 
+test_that("the computed factor-factor matrix is zero-filled", {
+  # check_correlations() returns NA for a pair involving a single-level factor
+  # (FSSgam_package#33), and factor_correlations() computes its own matrix
+  # without the zero-fill build_predictor_correlation_matrix() applies. So a
+  # call supplying no cor.matrix at all reached the screen with NA in it and
+  # stopped -- latterly with a message naming a supplied cor.matrix, when
+  # nothing had been supplied (FSSgam_package#27).
+  #
+  # The model set this now builds is a poor one: fa.I.const is paste(fa, "a"),
+  # so fa and fa.I.const are the same model twice. That is FSSgam_package#33,
+  # not this. What is asserted here is only that the call no longer stops, and
+  # no longer stops with a message about an argument the user did not give.
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$const <- factor("a")
+  test.fit <- mgcv::gam(log.Herbivore.biomass ~ s(site, bs = "re"), data = use.dat)
+
+  model.set <- generate_model_set(
+    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = NA,
+    pred.vars.fact = c("fa", "const"), factor.factor.interactions = TRUE,
+    max.predictors = 2
+  )
+
+  expect_true("fa.I.const" %in% names(model.set$mod.formula))
+  expect_false(anyNA(model.set$predictor.correlations))
+})
+
 test_that("an S4 Matrix is accepted as a cor.matrix", {
   # cor_matrix_supplied() tests dimensionality rather than a list of accepted
-  # classes. A whitelist of matrix and data.frame rejected the S4 objects
-  # Matrix::Matrix() and Matrix::nearPD() return, which worked before this
+  # classes. A whitelist of matrix and data.frame rejected the S4 matrix
+  # Matrix::Matrix() returns, which worked before this
   # argument was validated at all.
   skip_if_not_installed("Matrix")
   fit <- fixture_cs1_gaussian()
