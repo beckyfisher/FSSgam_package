@@ -1,5 +1,20 @@
 # FSSgam (development version)
 
+* Bug fix: a user-supplied `cor.matrix` with exactly one cell was silently
+  discarded and recomputed from `use.dat`. A model set with a single predictor
+  is the only case in which a supplied matrix is 1x1, and
+  `length(cor.matrix) == 1` was the test for "nothing supplied", which a 1x1
+  matrix also satisfies. The supplied value governed no screen and did not
+  appear in `predictor.correlations`, which is the opposite of the documented
+  contract that a supplied matrix replaces the automatic estimate
+  (FSSgam_package#26).
+
+  The test is now on the default value rather than on length. A consequence is
+  that `cor.matrix` is validated: a value that is neither a matrix, a
+  data.frame, nor `NA` is rejected naming its class. Such a value previously
+  fell through to the supplied branch and failed further on, against the
+  missing-predictor check, reporting predictors rather than the argument.
+
 * **`DESCRIPTION` now declares `Depends: R (>= 4.4.0)`, raised from
   `R (>= 3.5)`.** The old floor was not reachable: `MuMIn` and `mgcv`, both
   hard `Imports`, each declare `Depends: R (>= 4.4.0)` at the versions current

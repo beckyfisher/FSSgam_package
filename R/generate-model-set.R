@@ -593,9 +593,30 @@ resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interac
 # Resolves the predictor correlation matrix used for collinearity-based
 # model exclusion: either computed from use.dat, or validated if the caller
 # supplied their own cor.matrix.
+# TRUE where the caller supplied a correlation matrix, FALSE where they left the
+# NA default and it is to be computed from use.dat.
+#
+# Tested on the default value rather than on length. length(cor.matrix)==1 was
+# the sentinel, and a 1x1 matrix has length 1, so a model set with exactly one
+# predictor -- the only case in which a supplied matrix is 1x1 -- had its
+# supplied matrix silently discarded and recomputed (FSSgam_package#26).
+#
+# Anything that is neither a matrix, a data.frame, nor the NA default is
+# rejected here. Under the old sentinel such a value fell through to the
+# supplied branch and failed further on, against the missing-predictor check,
+# with a message about predictors rather than about the argument's class.
+cor_matrix_supplied=function(cor.matrix){
+  if(is.matrix(cor.matrix)||is.data.frame(cor.matrix)){return(TRUE)}
+  if(length(cor.matrix)==1&&is.na(cor.matrix)){return(FALSE)}
+  stop(paste0("cor.matrix must be a matrix or data.frame of predictor correlations, ",
+       "or NA to have them computed from use.dat. Supplied: ",
+       paste(class(cor.matrix),collapse="/"),
+       " of length ",length(cor.matrix),"."))
+}
+
 build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.correlations,
                           cor.matrix,derived.predictors=character(0)){
-  if(length(cor.matrix)==1){
+  if(!cor_matrix_supplied(cor.matrix)){
    # Computed only when the caller supplied nothing. It used to be computed
    # either way and then discarded in the else branch below, which meant a
    # supplied cor.matrix did not actually replace the automatic estimate: the

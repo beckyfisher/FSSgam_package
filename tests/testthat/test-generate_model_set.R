@@ -206,6 +206,39 @@ test_that("generate_model_set errors when a supplied cor.matrix omits a predicto
   )
 })
 
+test_that("a 1x1 supplied cor.matrix is used rather than recomputed", {
+  # The only case in which a supplied matrix is 1x1 is a single-predictor model
+  # set, and a 1x1 matrix has length 1, which was the sentinel for "nothing
+  # supplied" -- so the matrix was silently discarded and computed from use.dat
+  # (FSSgam_package#26). The supplied value is deliberately not what
+  # check_correlations() would give, which for a single predictor is 1.
+  fit <- fixture_cs1_gaussian()
+  supplied.cor <- matrix(0.5, 1, 1, dimnames = list("ZONE", "ZONE"))
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = NA, pred.vars.fact = "ZONE",
+    max.predictors = 1, cor.matrix = supplied.cor
+  )
+
+  expect_equal(model.set$predictor.correlations, supplied.cor)
+})
+
+test_that("cor.matrix rejects a value that is neither a matrix nor the NA default", {
+  # Under the length-based sentinel these fell through to the supplied branch
+  # and failed against the missing-predictor check, reporting predictors rather
+  # than the class of the argument (FSSgam_package#26).
+  fit <- fixture_cs1_gaussian()
+
+  expect_error(
+    fixture_cs1_model_set(fit = fit, cor.matrix = NULL),
+    "cor.matrix must be a matrix or data.frame"
+  )
+  expect_error(
+    fixture_cs1_model_set(fit = fit, cor.matrix = "oops"),
+    "cor.matrix must be a matrix or data.frame"
+  )
+})
+
 # ---- factor.smooth.interactions ---------------------------------------------
 
 test_that("factor.smooth.interactions = NA suppresses all by-terms", {
