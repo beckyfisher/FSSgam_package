@@ -77,16 +77,35 @@
   sets, both forms of `factor.factor.interactions`, `max.predictors` 1 to 3,
   both settings of `non.linear.correlations`, two forms of
   `factor.smooth.interactions` -- comparing this version against the previous
-  one: 144 identical, 40 changing from an error to a built model set, 80
-  changing from one error to a different error, and **none** changing from a
-  built model set to a different one or from a built model set to an error. No
-  call that produced a model set before produces a different one, or fails, now.
+  one:
 
-  The 80 error-to-error cells are scenarios in which a predictor contains `NA`,
-  rejected before any of this code runs. An earlier count of this grid reported
-  392 identical and was not a measurement of what it claimed: 288 of those cells
+  | outcome | cells |
+  |---|---|
+  | identical model set | 104 |
+  | identical error | 208 |
+  | error before, model set now | 40 |
+  | error before, a different error now | 80 |
+  | model set before, a different model set now | 0 |
+  | model set before, an error now | 0 |
+
+  No call that produced a model set before produces a different one, or fails,
+  now.
+
+  Two things bound the change. Every one of the 40 cells that now build has
+  `pred.vars.cont = NA`: name a continuous predictor and the call still stops,
+  in `check_correlations()`, on the same single-level factor
+  (FSSgam_package#33). And all 80 differing errors are single-level-factor
+  scenarios reaching a later failure than before; the scenarios whose predictors
+  contain `NA` are 144 of the 208 that error identically, rejected before any of
+  this code runs.
+
+  Two earlier counts of this grid were wrong and are recorded so the figures are
+  not taken from them. The first reported 392 identical, of which 288 cells
   passed an invalid `null.terms` and were identical only in the error string
   `validate_null_terms()` returns, so no model set was compared in them at all.
+  The second reported 144 identical, which double-counted the 40: 144 is the
+  number of cells that build under this version, not the number that are
+  unchanged.
 
   `combine_uncorrelated()` and `enumerate_candidate_models()` are otherwise
   unchanged: stopping on an `NA` is the right behaviour at both, the alternative

@@ -700,3 +700,32 @@ one.
   `max.predictors` and the interaction arguments.
 
 ---
+**Review cycle 7 (independent session, batch 3).** Two substantive findings, both
+in the one paragraph cycle 6 had just corrected. No code defect, and both quoted
+error messages and every `@param cor.matrix` claim were verified correct.
+
+- **"144 identical" double-counted.** 144 is the number of cells that build under
+  this version, not the number unchanged. Reclassified here from the saved
+  results rather than taken on trust: 104 identical model sets, 208 identical
+  errors, 40 error to built, 80 error to a different error, and none built to a
+  different model set or built to an error. The four sum to 432.
+- **The explanatory sentence was false.** The 80 differing errors are
+  single-level-factor scenarios, not `NA`-predictor ones; the `NA`-predictor
+  scenarios are 144 of the 208 that error identically. Confirmed by
+  cross-tabulating the outcome against the factor set.
+
+Verifying that also produced the qualification the paragraph most needed, which
+no earlier count had stated: **every one of the 40 cells that now build has
+`pred.vars.cont = NA`.** Name a continuous predictor and the call still stops, in
+`check_correlations()`, on the same single-level factor (FSSgam_package#33). The
+behaviour change is bounded much more tightly than the raw count suggested.
+
+`NEWS.md` now gives the classification as a table, states both bounds, and
+records both wrong counts so the figures are not taken from them.
+
+**Three counts of the same grid were wrong in three different ways** -- comparing
+error strings, double-counting a category, and mischaracterising a category.
+Each was arithmetic or classification over results already computed, not a
+measurement problem. Classify the cells and check they sum to the grid size.
+
+---
