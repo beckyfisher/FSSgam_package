@@ -299,6 +299,24 @@ validate_interaction_predictors=function(factor.factor.interactions,
          "factor.factor.interactions","pred.vars.fact")
   report(smooth.smooth.interactions,c(pred.vars.cont,linear.vars),
          "smooth.smooth.interactions","pred.vars.cont (or linear.vars)")
+
+  # A name repeated within either argument is the third route to
+  # FSSgam_package#28, and the one the other two checks miss.
+  # factor.factor.interactions=c("fa","fa","fb") builds the interaction column
+  # fa.I.fb twice, so use.dat gains two columns of that name -- the shape of
+  # FSSgam_package#22 -- and the candidate set gains fa.I.fb+fa.I.fb. It used to
+  # announce itself with the two "-Inf" warnings; exceeds_cutoff() removed those,
+  # so without this check the route would be silent.
+  repeated=function(named,arg){
+    if(!is.character(named)){return(invisible(NULL))}
+    x=as.character(stats::na.omit(named))
+    dup=unique(x[duplicated(x)])
+    if(length(dup)==0){return(invisible(NULL))}
+    stop(paste0("Each variable may be named once in ",arg,". Named twice: ",
+         paste(dup,collapse=", "),"."))
+  }
+  repeated(factor.factor.interactions,"factor.factor.interactions")
+  repeated(smooth.smooth.interactions,"smooth.smooth.interactions")
 }
 
 # Rejects a factor predictor with fewer than two levels among the rows used.

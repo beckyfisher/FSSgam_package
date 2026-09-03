@@ -1216,3 +1216,77 @@ test_that("a predictor named as both a factor and continuous is rejected", {
     "named as both a factor and a continuous predictor: ZONE"
   )
 })
+
+test_that("the factor-factor screen indexes the supplied matrix by name", {
+  # combine_uncorrelated() indexes its sub-matrix by name, both dimensions in
+  # the order of the combination. Selecting by position instead returns, for a
+  # matrix whose two dimensions carry the same names in different orders, a
+  # sub-matrix whose diagonal holds cross correlations and whose triangles hold
+  # the 1s of the original diagonal -- dropping the combination whatever its
+  # correlation.
+  #
+  # The block that used to cover this named a factor twice, which is now
+  # rejected (FSSgam_package#28), so it is asserted here through a supplied
+  # matrix whose dimensions are ordered differently.
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
+    pred.vars.fact = c("fa", "fb"), factor.factor.interactions = TRUE,
+    max.predictors = 2
+  )
+
+  nms <- c("depth", "fa", "fb")
+  cor.mat <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  diag(cor.mat) <- 1
+  reordered <- cor.mat[, rev(nms), drop = FALSE]
+
+  straight <- do.call(generate_model_set, c(args, list(cor.matrix = cor.mat)))
+  swapped <- do.call(generate_model_set, c(args, list(cor.matrix = reordered)))
+
+  # uncorrelated either way, so the interaction column is built either way
+  expect_true("fa.I.fb" %in% colnames(straight$used.data))
+  expect_true("fa.I.fb" %in% colnames(swapped$used.data))
+  expect_equal(names(swapped$mod.formula), names(straight$mod.formula))
+})
+
+test_that("a variable named twice within an interaction argument is rejected", {
+  # The third route to FSSgam_package#28, and the one the other two checks miss.
+  # factor.factor.interactions = c("fa", "fa", "fb") built the interaction
+  # column fa.I.fb twice, so use.dat gained two columns of that name and the
+  # candidate set gained fa.I.fb+fa.I.fb. It announced itself only through the
+  # two "-Inf" warnings, which exceeds_cutoff() now suppresses.
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+
+  expect_error(
+    generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
+      pred.vars.fact = c("fa", "fb"),
+      factor.factor.interactions = c("fa", "fa", "fb"), max.predictors = 2
+    ),
+    "Each variable may be named once in factor.factor.interactions"
+  )
+
+  expect_error(
+    generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("depth", "complexity"), pred.vars.fact = NA,
+      smooth.smooth.interactions = c("depth", "depth", "complexity"),
+      max.predictors = 2
+    ),
+    "Each variable may be named once in smooth.smooth.interactions"
+  )
+})

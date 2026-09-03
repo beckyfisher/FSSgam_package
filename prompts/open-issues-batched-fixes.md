@@ -853,3 +853,42 @@ Suite: 644 passing, from 638.
 Suite: 653 passing, from 638.
 
 ---
+**Review cycle 2 (independent session, batch 4).** Five substantive findings.
+`exceeds_cutoff()` itself was cleared: equivalent to the two `max()` calls it
+replaced on 454 of 460 constructed inputs, the six exceptions needing an
+`NA`/`NaN` `cov.cutoff`, which is out of contract; and identical model sets
+across 179 scenarios, so "which combinations survive is unchanged" holds.
+
+- **FSSgam_package#28 survived by a third route, and this batch removed its only
+  signal.** `factor.factor.interactions = c("fa","fa","fb")` builds the
+  interaction column `fa.I.fb` twice, so `use.dat` gains two columns of that
+  name -- the FSSgam_package#22 shape -- and the candidate set gains
+  `fa.I.fb+fa.I.fb`. The two `-Inf` warnings were the only indication, and
+  `exceeds_cutoff()` suppressed them. Confirmed here: the parent warns, this
+  branch was silent. A repeated name within either interaction argument is now
+  rejected.
+
+  Worth recording as the shape of the mistake: silencing a warning is safe only
+  once every defect it was the sole evidence of is closed.
+
+- **Two branches were left asserted by nothing**, both because the covering test
+  was one this batch rewrote. Reverting `combine_uncorrelated()`'s by-name
+  indexing to positional failed two tests on the parent and none here; deleting
+  the zero-fill in `factor_correlations()` failed one on the parent and none
+  here. The first is now asserted through a supplied matrix whose two dimensions
+  carry the same names in different orders. The second is not, and the test that
+  claimed to assert it now says so instead: no public call reaches the zero-fill
+  with an `NA` since a single-level factor is rejected, so it is defensive and
+  its title and comment no longer imply coverage.
+
+- **The pull request said three tests were rewritten; eight were changed**, five
+  rewritten, one renamed and two modified in place. Corrected.
+
+- **FSSgam_package#37's evidence block still did not reproduce.** `macro`, the
+  obvious variable from `case_study1`, correlates -0.335 with `depth` and so
+  exceeds the default `cov.cutoff`, meaning no `te()` term is built. The block
+  now draws an uncorrelated variable and says why.
+
+Suite: 652 passing, from 638.
+
+---

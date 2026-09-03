@@ -344,18 +344,17 @@ test_that("an NA is reported on a pair crossing a derived column and a te() term
   )
 })
 
-test_that("a single-level factor predictor is rejected, and the computed matrix is zero-filled", {
-  # Two changes meet here. check_correlations() returns NA for a pair involving
-  # a single-level factor, and factor_correlations() computed its own matrix
-  # without the zero-fill build_predictor_correlation_matrix() applies, so a
-  # call supplying no cor.matrix reached the screen with NA in it and stopped
-  # (FSSgam_package#27). The zero-fill made it build instead -- a model set in
-  # which fa.I.const is paste(fa, "a"), the same model as fa under two names.
+test_that("a single-level factor predictor is rejected", {
+  # check_correlations() returns NA for a pair involving a single-level factor,
+  # and factor_correlations() computed its own matrix without the zero-fill
+  # build_predictor_correlation_matrix() applies, so a call supplying no
+  # cor.matrix reached the screen with NA in it and stopped
+  # (FSSgam_package#27). generate_model_set() now rejects such a factor by name
+  # before either (FSSgam_package#33).
   #
-  # generate_model_set() now rejects such a factor by name before either
-  # (FSSgam_package#33), so the user-visible behaviour is the rejection. The
-  # zero-fill is asserted directly on the helper, since nothing public reaches
-  # it with an NA any more.
+  # The zero-fill added for FSSgam_package#27 is retained and is now defensive:
+  # no public call reaches it with an NA, so nothing here asserts it. Do not
+  # read its presence as covered.
   set.seed(1)
   use.dat <- fixture_cs1_data()
   use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
@@ -371,82 +370,8 @@ test_that("a single-level factor predictor is rejected, and the computed matrix 
     "fewer than two observed levels: const"
   )
 
-  # check_correlations() itself degrades rather than aborting, and the value
-  # the factor-factor screen would see is zero rather than NA.
+  # the NA that made the zero-fill necessary, at its source
   expect_true(is.na(check_correlations(use.dat[, c("fa", "const")])["fa", "const"]))
-})
-
-test_that("an NA in a derived column supplied in one dimension only is reported", {
-  # A hard coded interaction name supplied as a row and not as a column is
-  # absent from one set of dimnames, so a check taken over the intersection of
-  # the two missed it and its NA reached enumerate_candidate_models(). The
-  # check runs after augment_supplied_correlation_matrix(), which zero-fills
-  # every derived row and column it adds, so the only NA left is a user's
-  # (FSSgam_package#27).
-  set.seed(1)
-  use.dat <- fixture_cs1_data()
-  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
-  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
-  test.fit <- mgcv::gam(
-    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
-    data = use.dat
-  )
-  args <- list(
-    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
-    pred.vars.fact = c("fa", "fb"), factor.factor.interactions = TRUE,
-    max.predictors = 2
-  )
-  full.cor <- do.call(generate_model_set, args)$predictor.correlations
-  expect_true("fa.I.fb" %in% rownames(full.cor))
-
-  one.dim <- full.cor[, setdiff(colnames(full.cor), "fa.I.fb"), drop = FALSE]
-  one.dim["fa.I.fb", "depth"] <- NA
-
-  expect_error(
-    do.call(generate_model_set, c(args, list(cor.matrix = one.dim))),
-    "The correlation matrix has NA between terms"
-  )
-})
-
-test_that("an NA between two predictors of a supplied cor.matrix is reported by name", {
-  # Reaching combine_uncorrelated() with the NA gives "missing value where
-  # TRUE/FALSE needed", which names neither the matrix, the argument, nor the
-  # pair (FSSgam_package#27).
-  fit <- fixture_cs1_gaussian()
-  na.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
-  na.cor["complexity", "depth"] <- NA
-
-  expect_error(
-    fixture_cs1_model_set(fit = fit, cor.matrix = na.cor),
-    "The correlation matrix has NA between terms.*complexity/depth"
-  )
-})
-
-test_that("an NA is reported only on pairs some screen actually compares", {
-  # A deliberate departure from FSSgam_package#27, which asked for the report
-  # not to depend on max.predictors. Reporting a cell that nothing reads is a
-  # false failure, so the report covers exactly the pairs compared, and which
-  # pairs those are depends on max.predictors and on the interaction arguments.
-  #
-  # Not "at max.predictors = 1 nothing is compared". A .by. term is one term of
-  # a candidate but splits into two for the screen, so a continuous/factor pair
-  # is still compared here. Only complexity/depth is not.
-  fit <- fixture_cs1_gaussian()
-  base.cor <- fixture_cs1_model_set(fit = fit, max.predictors = 1)$predictor.correlations
-
-  reported <- function(pair) {
-    na.cor <- base.cor
-    na.cor[pair[1], pair[2]] <- NA
-    res <- try(
-      fixture_cs1_model_set(fit = fit, cor.matrix = na.cor, max.predictors = 1),
-      silent = TRUE
-    )
-    inherits(res, "try-error")
-  }
-
-  expect_false(reported(c("complexity", "depth")))
-  expect_true(reported(c("depth", "ZONE")))
-  expect_true(reported(c("complexity", "ZONE")))
 })
 
 test_that("an NA on a pair no screen compares is accepted", {

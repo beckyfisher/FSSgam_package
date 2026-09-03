@@ -19,10 +19,16 @@
   every cutoff.
 
   A name appearing in both `pred.vars.fact` and `pred.vars.cont` or
-  `linear.vars` is rejected too. A name appearing in both `pred.vars.cont` and
-  `linear.vars` is **not**: that is the documented way to fit a continuous
-  predictor linearly, `setdiff(pred.vars.cont, linear.vars)` deciding which
-  predictors get a smooth.
+  `linear.vars` is rejected too, as is a name repeated within the character form
+  of `factor.factor.interactions` or `smooth.smooth.interactions`. That last is
+  a third route to the same defect and the one the others miss:
+  `factor.factor.interactions = c("fa", "fa", "fb")` built the interaction
+  column `fa.I.fb` twice, so `use.dat` gained two columns of that name and the
+  candidate set gained `fa.I.fb+fa.I.fb`.
+
+  A name appearing in both `pred.vars.cont` and `linear.vars` is **not**
+  rejected: that is the documented way to fit a continuous predictor linearly,
+  `setdiff(pred.vars.cont, linear.vars)` deciding which predictors get a smooth.
 
 * **Behaviour change:** a variable named in the character form of
   `factor.factor.interactions` or `smooth.smooth.interactions` must be a
