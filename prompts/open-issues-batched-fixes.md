@@ -665,3 +665,38 @@ Suite: 636 passing, from 616.
 Suite: 638 passing, from 616.
 
 ---
+**Review cycle 6 (independent session, batch 3).** Three findings, all in text.
+No code defect, and that session states it looked for a sixth and did not find
+one.
+
+- **The 432-scenario sweep did not measure what `NEWS.md` said it did.**
+  Classifying the saved results rather than trusting the count: 336 of the 432
+  cells were identical *error strings*, not identical model sets. 288 of those
+  passed `null.terms = NA`, which `validate_null_terms()` rejects before any of
+  the code under test runs, so no scenario with a continuous predictor was
+  exercised at all; 48 more had `NA` predictors, rejected equally early. Only 56
+  model sets were ever compared.
+
+  Re-run with a valid `null.terms`: 144 identical, 40 error to built, 80 error
+  to a different error, and none built to a different model set or built to
+  error. The conclusion stands; the evidence as recorded did not support it.
+  `NEWS.md` now gives the corrected figures and says what the earlier count
+  actually measured.
+
+  The lesson is the one this project has now met several times in another form:
+  a comparison that reports "identical" can be comparing two failures.
+
+- **A pull request body edit had again not fully applied.** The stale error
+  message was still quoted; it had been split across a line break, so the
+  patterns grepped for it did not match and the check that the edit had landed
+  passed wrongly. It is now verified by capturing the message the code actually
+  produces and comparing it with the body whitespace-insensitively, rather than
+  by searching for the string being replaced.
+
+- **`@param cor.matrix` documented neither new rejection rule** while inviting
+  hand-built matrices. Both are now stated: the argument must be
+  two-dimensional, and it must not carry `NA` between two terms that are
+  actually screened -- with the note that which cells those are depends on
+  `max.predictors` and the interaction arguments.
+
+---

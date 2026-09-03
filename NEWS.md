@@ -73,13 +73,20 @@
   single-level factor is accepted as a predictor at all, which is
   FSSgam_package#33.
 
-  Measured over 432 scenarios -- six factor sets, three continuous sets, both
-  forms of `factor.factor.interactions`, `max.predictors` 1 to 3, both settings
-  of `non.linear.correlations`, two forms of `factor.smooth.interactions` -- 392
-  are identical between this version and the previous one, 40 change from an
-  error to a built model set, and none changes from one built model set to a
-  different one or from a built model set to an error. No call that worked
-  before behaves differently.
+  Measured over a grid of 432 scenarios -- six factor sets, three continuous
+  sets, both forms of `factor.factor.interactions`, `max.predictors` 1 to 3,
+  both settings of `non.linear.correlations`, two forms of
+  `factor.smooth.interactions` -- comparing this version against the previous
+  one: 144 identical, 40 changing from an error to a built model set, 80
+  changing from one error to a different error, and **none** changing from a
+  built model set to a different one or from a built model set to an error. No
+  call that produced a model set before produces a different one, or fails, now.
+
+  The 80 error-to-error cells are scenarios in which a predictor contains `NA`,
+  rejected before any of this code runs. An earlier count of this grid reported
+  392 identical and was not a measurement of what it claimed: 288 of those cells
+  passed an invalid `null.terms` and were identical only in the error string
+  `validate_null_terms()` returns, so no model set was compared in them at all.
 
   `combine_uncorrelated()` and `enumerate_candidate_models()` are otherwise
   unchanged: stopping on an `NA` is the right behaviour at both, the alternative
