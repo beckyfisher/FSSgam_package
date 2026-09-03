@@ -667,7 +667,7 @@ test_that("a supplied cor.matrix missing a factor is reported by name", {
   expect_error(
     fixture_cs1_model_set(
       fit = fit, pred.vars.cont = c("depth", "complexity"),
-      pred.vars.fact = c("ZONE", "ZONE"), factor.factor.interactions = TRUE,
+      pred.vars.fact = "ZONE", factor.factor.interactions = TRUE,
       max.predictors = 2, cor.matrix = cm
     ),
     "missing required predictors"
@@ -942,20 +942,60 @@ test_that("a name in the supplied matrix that is not a predictor gets no NA cell
   fit$use.dat$ZONE.copy <- factor(paste0(fit$use.dat$ZONE, ".copy"))
   facts <- c("ZONE", "ZONE.copy")
 
-  vars <- c("depth", "complexity", facts, "junk")
+  # "junk" named a variable that is not a predictor. That is now rejected by
+  # validate_interaction_predictors() before this point (FSSgam_package#37), so
+  # the augmentation is exercised with a real predictor instead.
+  vars <- c("depth", "complexity", facts)
   cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
   diag(cm) <- 1
 
   model.set <- fixture_cs1_model_set(
     fit = fit, pred.vars.cont = c("depth", "complexity"),
     pred.vars.fact = facts, factor.factor.interactions = TRUE,
-    smooth.smooth.interactions = c("junk", "ZONE.I.ZONE.copy"),
+    smooth.smooth.interactions = c("depth", "complexity"),
     max.predictors = 2, cor.matrix = cm
   )
   pc <- model.set$predictor.correlations
   expect_false(anyNA(pc["ZONE.I.ZONE.copy", ]))
   expect_false(anyNA(pc[, "ZONE.I.ZONE.copy"]))
-  expect_identical(unname(pc["junk", "ZONE.I.ZONE.copy"]), 0)
+  # depth is a real predictor, so this cell is the computed correlation rather
+  # than the zero a non-predictor's cell was filled with. What matters is that
+  # augmentation filled it at all.
+  expect_false(is.na(pc["depth", "ZONE.I.ZONE.copy"]))
+})
+
+test_that("a variable named in smooth.smooth.interactions must be a predictor", {
+  # smooth.smooth.interactions was validated against rownames(cor.matrix), so a
+  # supplied matrix carrying an extra name admitted a non-predictor: it was
+  # screened against cov.cutoff and contributed te() terms while appearing in no
+  # other candidate and in no inclusion column (FSSgam_package#37).
+  fit <- fixture_cs1_gaussian()
+  vars <- c("depth", "complexity", "junk")
+  cm <- matrix(0, length(vars), length(vars), dimnames = list(vars, vars))
+  diag(cm) <- 1
+
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = c("depth", "complexity"), pred.vars.fact = NA,
+      smooth.smooth.interactions = c("junk", "depth"),
+      max.predictors = 2, cor.matrix = cm
+    ),
+    "junk named in smooth.smooth.interactions are not predictors"
+  )
+})
+
+test_that("a variable named in factor.factor.interactions must be a factor predictor", {
+  # factor.factor.interactions was validated against colnames(use.dat), so any
+  # column was accepted (FSSgam_package#37).
+  fit <- fixture_cs1_gaussian()
+
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth", pred.vars.fact = "ZONE",
+      factor.factor.interactions = c("ZONE", "site"), max.predictors = 2
+    ),
+    "site named in factor.factor.interactions are not predictors"
+  )
 })
 
 test_that("a supplied matrix keeps its own row and column names", {
@@ -1114,29 +1154,50 @@ test_that("a duplicated name that is not a predictor is accepted", {
   expect_gt(model.set$n.mods, 1)
 })
 
-test_that("a factor named twice yields no interaction of itself", {
-  # A side effect of indexing the sub-matrix by name. Where the same factor was
-  # named twice, selecting rows by position returned a 1x1 sub-matrix, both
-  # triangles of which are empty, so max() warned "no non-missing arguments to
-  # max" and returned -Inf, the combination survived, and a ZONE.I.ZONE column
-  # was built. Selecting by name returns the 2x2 sub-matrix whose off-diagonal
-  # is the correlation of the factor with itself, which is 1, so the
-  # combination is dropped as perfectly collinear.
+test_that("a factor named twice is rejected", {
+  # A factor named twice used to reach enumerate_candidate_models(), which
+  # deduplicates a candidate's terms before indexing the correlation matrix. A
+  # candidate holding one term twice therefore gave a 1x1 sub-matrix whose
+  # triangles are both empty; max() of an empty vector warns "no non-missing
+  # arguments to max" and returns -Inf, which is below any cov.cutoff, so a
+  # nonsense ZONE+ZONE candidate survived and two warnings naming nothing were
+  # emitted (FSSgam_package#28).
   #
-  # enumerate_candidate_models() deduplicates its terms before indexing, so it
-  # still reaches a 1x1 sub-matrix and still admits a nonsense ZONE+ZONE
-  # candidate with two "no non-missing arguments to max" warnings. That is
-  # pre-existing and unchanged, and is FSSgam_package#28.
+  # Rejected at the top of generate_model_set(), where the repeated name is
+  # known, rather than screened out downstream.
   fit <- fixture_cs1_gaussian()
 
-  model.set <- suppressWarnings(fixture_cs1_model_set(
-      fit = fit, pred.vars.cont = "depth",
-      pred.vars.fact = c("ZONE", "ZONE"),
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "depth", pred.vars.fact = c("ZONE", "ZONE"),
       factor.factor.interactions = TRUE, max.predictors = 2
+    ),
+    "Named twice: ZONE \\(pred.vars.fact\\)"
+  )
+})
+
+test_that("a predictor named in both pred.vars.cont and linear.vars is still accepted", {
+  # The duplicate check must not reach across these two. Naming a predictor in
+  # both is the documented way to fit it linearly: setdiff(pred.vars.cont,
+  # linear.vars) decides which predictors get a smooth. Checking across them
+  # broke that idiom (FSSgam_package#28).
+  expect_no_error(fixture_cs1_model_set(
+    pred.vars.cont = c("complexity", "depth"), pred.vars.fact = NA,
+    linear.vars = "depth", max.predictors = 1
   ))
-  # both assertions below are negative, so a degenerate return would satisfy
-  # them; this one fails if the model set collapses for an unrelated reason
-  expect_true("ZONE+depth" %in% names(model.set$mod.formula))
-  expect_false("ZONE.I.ZONE" %in% colnames(model.set$used.data))
-  expect_false(any(grepl("ZONE.I.ZONE", names(model.set$mod.formula), fixed = TRUE)))
+})
+
+test_that("a predictor named as both a factor and continuous is rejected", {
+  # Unlike the pair above this is not an idiom: the two lists decide how the
+  # term is written into the formula, and a name in both is written both ways
+  # (FSSgam_package#28).
+  fit <- fixture_cs1_gaussian()
+
+  expect_error(
+    fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = c("depth", "ZONE"), pred.vars.fact = "ZONE",
+      max.predictors = 2
+    ),
+    "named as both a factor and a continuous predictor: ZONE"
+  )
 })

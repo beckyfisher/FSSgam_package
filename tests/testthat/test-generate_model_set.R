@@ -281,146 +281,41 @@ test_that("a supplied cor.matrix is validated before the factor interaction scre
   )
 })
 
-test_that("an NA is reported for a name screened but not in pred.vars.cont", {
-  # The character form of smooth.smooth.interactions is validated against
-  # rownames(cor.matrix), not against the predictor lists, so it accepts a
-  # variable that is screened against cov.cutoff without being a predictor of
-  # the model set (FSSgam_package#37). A check scoped to all.predictors alone
-  # missed such a pair and it reached combine_uncorrelated() with the NA still
-  # in it (FSSgam_package#27).
+test_that("a name screened but not a predictor is now rejected outright", {
+  # This case used to reach the screen. The character form of
+  # smooth.smooth.interactions was validated against rownames(cor.matrix), so a
+  # supplied matrix carrying an extra name admitted a non-predictor, and the NA
+  # check had to be widened to cover it (FSSgam_package#27). That widening is
+  # now belt and braces: the argument is validated against the predictor lists
+  # before either screen runs (FSSgam_package#37), so the name never reaches
+  # them.
   use.dat <- fixture_cs1_data()
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
     data = use.dat
   )
   cor.mat <- check_correlations(use.dat[, c("depth", "complexity", "macro")])
-  args <- list(
-    use.dat = use.dat, test.fit = test.fit, k = 3,
-    pred.vars.cont = c("depth", "complexity"),
-    smooth.smooth.interactions = c("macro", "depth"), max.predictors = 2
-  )
-
-  # macro is not a predictor, so the pair is outside all.predictors
-  expect_no_error(do.call(generate_model_set, c(args, list(cor.matrix = cor.mat))))
-
-  na.cor <- cor.mat
-  na.cor["macro", "depth"] <- NA
-  expect_error(
-    do.call(generate_model_set, c(args, list(cor.matrix = na.cor))),
-    "The correlation matrix has NA between terms"
-  )
-})
-
-test_that("an NA in a derived column supplied in one dimension only is reported", {
-  # A hard coded interaction name supplied as a row and not as a column is
-  # absent from one set of dimnames, so a check taken over the intersection of
-  # the two missed it and its NA reached enumerate_candidate_models(). The
-  # check runs after augment_supplied_correlation_matrix(), which zero-fills
-  # every derived row and column it adds, so the only NA left is a user's
-  # (FSSgam_package#27).
-  set.seed(1)
-  use.dat <- fixture_cs1_data()
-  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
-  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
-  test.fit <- mgcv::gam(
-    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
-    data = use.dat
-  )
-  args <- list(
-    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
-    pred.vars.fact = c("fa", "fb"), factor.factor.interactions = TRUE,
-    max.predictors = 2
-  )
-  full.cor <- do.call(generate_model_set, args)$predictor.correlations
-  expect_true("fa.I.fb" %in% rownames(full.cor))
-
-  one.dim <- full.cor[, setdiff(colnames(full.cor), "fa.I.fb"), drop = FALSE]
-  one.dim["fa.I.fb", "depth"] <- NA
 
   expect_error(
-    do.call(generate_model_set, c(args, list(cor.matrix = one.dim))),
-    "The correlation matrix has NA between terms"
+    generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("depth", "complexity"),
+      smooth.smooth.interactions = c("macro", "depth"), max.predictors = 2,
+      cor.matrix = cor.mat
+    ),
+    "macro named in smooth.smooth.interactions are not predictors"
   )
 })
 
-test_that("an NA between two predictors of a supplied cor.matrix is reported by name", {
-  # Reaching combine_uncorrelated() with the NA gives "missing value where
-  # TRUE/FALSE needed", which names neither the matrix, the argument, nor the
-  # pair (FSSgam_package#27).
-  fit <- fixture_cs1_gaussian()
-  na.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
-  na.cor["complexity", "depth"] <- NA
-
-  expect_error(
-    fixture_cs1_model_set(fit = fit, cor.matrix = na.cor),
-    "The correlation matrix has NA between terms.*complexity/depth"
-  )
-})
-
-test_that("an NA is reported only on pairs some screen actually compares", {
-  # A deliberate departure from FSSgam_package#27, which asked for the report
-  # not to depend on max.predictors. Reporting a cell that nothing reads is a
-  # false failure, so the report covers exactly the pairs compared, and which
-  # pairs those are depends on max.predictors and on the interaction arguments.
-  #
-  # Not "at max.predictors = 1 nothing is compared". A .by. term is one term of
-  # a candidate but splits into two for the screen, so a continuous/factor pair
-  # is still compared here. Only complexity/depth is not.
-  fit <- fixture_cs1_gaussian()
-  base.cor <- fixture_cs1_model_set(fit = fit, max.predictors = 1)$predictor.correlations
-
-  reported <- function(pair) {
-    na.cor <- base.cor
-    na.cor[pair[1], pair[2]] <- NA
-    res <- try(
-      fixture_cs1_model_set(fit = fit, cor.matrix = na.cor, max.predictors = 1),
-      silent = TRUE
-    )
-    inherits(res, "try-error")
-  }
-
-  expect_false(reported(c("complexity", "depth")))
-  expect_true(reported(c("depth", "ZONE")))
-  expect_true(reported(c("complexity", "ZONE")))
-})
-
-test_that("an NA is accepted on a pair outside every screen", {
-  # A name given in the character form of factor.factor.interactions is
-  # screened against the others in that argument and never against
-  # pred.vars.cont. An earlier check over a union of every name that might be
-  # screened failed on this cell, which nothing reads.
-  set.seed(1)
-  use.dat <- fixture_cs1_data()
-  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
-  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
-  use.dat$gc <- factor(sample(c("m", "n"), nrow(use.dat), TRUE))
-  test.fit <- mgcv::gam(
-    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
-    data = use.dat
-  )
-  args <- list(
-    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
-    pred.vars.fact = c("fa", "fb"),
-    factor.factor.interactions = c("fa", "gc"), max.predictors = 2
-  )
-  na.cor <- check_correlations(use.dat[, c("fa", "fb", "gc", "depth")])
-
-  # The factor-factor block must actually run, or this passes for the wrong
-  # reason: with a single entry in pred.vars.fact it is skipped entirely.
-  built <- do.call(generate_model_set, c(args, list(cor.matrix = na.cor)))
-  expect_true("fa.I.gc" %in% colnames(built$used.data))
-
-  # gc is screened against fa, and never against depth
-  na.cor["gc", "depth"] <- NA
-  expect_no_error(do.call(generate_model_set, c(args, list(cor.matrix = na.cor))))
-})
-
-test_that("an NA is reported on a pair crossing a derived column and a screened non-predictor", {
+test_that("an NA is reported on a pair crossing a derived column and a te() term", {
   # enumerate_candidate_models() indexes all.predictors, the hard coded .I.
   # columns, and the names given in the character form of
   # smooth.smooth.interactions. A pair crossing the last two is screened and was
   # covered by neither of two earlier placements of this check
   # (FSSgam_package#27).
+  #
+  # zz is a real predictor here. It was a non-predictor when this was written,
+  # which is now rejected before either screen (FSSgam_package#37).
   set.seed(1)
   use.dat <- fixture_cs1_data()
   use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
@@ -430,51 +325,55 @@ test_that("an NA is reported on a pair crossing a derived column and a screened 
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
     data = use.dat
   )
-  cor.mat <- check_correlations(use.dat[, c("fa", "fb", "depth", "zz")])
-  nms <- c(rownames(cor.mat), "fa.I.fb")
-  big <- matrix(0, length(nms), length(nms), dimnames = list(nms, nms))
-  diag(big) <- 1
-  big[rownames(cor.mat), colnames(cor.mat)] <- cor.mat
-  big["fa.I.fb", "zz"] <- NA
-  big["zz", "fa.I.fb"] <- NA
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3,
+    pred.vars.cont = c("depth", "zz"), pred.vars.fact = c("fa", "fb"),
+    factor.factor.interactions = TRUE,
+    smooth.smooth.interactions = c("zz", "depth"), max.predictors = 3
+  )
+  full.cor <- do.call(generate_model_set, args)$predictor.correlations
+  expect_true("fa.I.fb" %in% rownames(full.cor))
+
+  na.cor <- full.cor
+  na.cor["fa.I.fb", "zz"] <- NA
+  na.cor["zz", "fa.I.fb"] <- NA
 
   expect_error(
-    generate_model_set(
-      use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
-      pred.vars.fact = c("fa", "fb"), factor.factor.interactions = TRUE,
-      smooth.smooth.interactions = c("zz", "depth"), max.predictors = 3,
-      cor.matrix = big
-    ),
+    do.call(generate_model_set, c(args, list(cor.matrix = na.cor))),
     "The correlation matrix has NA between terms"
   )
 })
 
-test_that("the computed factor-factor matrix is zero-filled", {
-  # check_correlations() returns NA for a pair involving a single-level factor
-  # (FSSgam_package#33), and factor_correlations() computes its own matrix
-  # without the zero-fill build_predictor_correlation_matrix() applies. So a
-  # call supplying no cor.matrix at all reached the screen with NA in it and
-  # stopped -- latterly with a message naming a supplied cor.matrix, when
-  # nothing had been supplied (FSSgam_package#27).
+test_that("a single-level factor predictor is rejected, and the computed matrix is zero-filled", {
+  # Two changes meet here. check_correlations() returns NA for a pair involving
+  # a single-level factor, and factor_correlations() computed its own matrix
+  # without the zero-fill build_predictor_correlation_matrix() applies, so a
+  # call supplying no cor.matrix reached the screen with NA in it and stopped
+  # (FSSgam_package#27). The zero-fill made it build instead -- a model set in
+  # which fa.I.const is paste(fa, "a"), the same model as fa under two names.
   #
-  # The model set this now builds is a poor one: fa.I.const is paste(fa, "a"),
-  # so fa and fa.I.const are the same model twice. That is FSSgam_package#33,
-  # not this. What is asserted here is only that the call no longer stops, and
-  # no longer stops with a message about an argument the user did not give.
+  # generate_model_set() now rejects such a factor by name before either
+  # (FSSgam_package#33), so the user-visible behaviour is the rejection. The
+  # zero-fill is asserted directly on the helper, since nothing public reaches
+  # it with an NA any more.
   set.seed(1)
   use.dat <- fixture_cs1_data()
   use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
   use.dat$const <- factor("a")
   test.fit <- mgcv::gam(log.Herbivore.biomass ~ s(site, bs = "re"), data = use.dat)
 
-  model.set <- generate_model_set(
-    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = NA,
-    pred.vars.fact = c("fa", "const"), factor.factor.interactions = TRUE,
-    max.predictors = 2
+  expect_error(
+    generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = NA,
+      pred.vars.fact = c("fa", "const"), factor.factor.interactions = TRUE,
+      max.predictors = 2
+    ),
+    "fewer than two observed levels: const"
   )
 
-  expect_true("fa.I.const" %in% names(model.set$mod.formula))
-  expect_false(anyNA(model.set$predictor.correlations))
+  # check_correlations() itself degrades rather than aborting, and the value
+  # the factor-factor screen would see is zero rather than NA.
+  expect_true(is.na(check_correlations(use.dat[, c("fa", "const")])["fa", "const"]))
 })
 
 test_that("an S4 Matrix is accepted as a cor.matrix", {
@@ -586,7 +485,11 @@ test_that("factor.factor.interactions errors when fewer than two factors are nam
   )
 })
 
-test_that("factor.factor.interactions errors when a named factor is not in use.dat", {
+test_that("factor.factor.interactions errors when a named factor is not a predictor", {
+  # The check was against colnames(use.dat), so it caught only a name absent
+  # from the data and accepted any column, predictor or not. It is now against
+  # pred.vars.fact, which is what the argument documents, so the message
+  # changed with it (FSSgam_package#37).
   fit <- fixture_cs1_gaussian()
   fit$use.dat$ZONE2 <- factor(
     ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
@@ -597,7 +500,7 @@ test_that("factor.factor.interactions errors when a named factor is not in use.d
       fit = fit, pred.vars.fact = c("ZONE", "ZONE2"),
       factor.factor.interactions = c("ZONE", "not_a_column")
     ),
-    "Not all specified factor.factor.interactions are supplied in use.dat"
+    "not_a_column named in factor.factor.interactions are not predictors"
   )
 })
 
@@ -669,4 +572,90 @@ test_that("candidate model names do not depend on the collation locale", {
     c("null", "complexity", "depth", "ZONE", "ZONE+complexity", "ZONE+depth",
       "ZONE+complexity.by.ZONE", "ZONE+depth.by.ZONE")
   )
+})
+
+# ---- predictor validation ----------------------------------------------------
+
+test_that("check_correlations degrades on a single-level factor rather than aborting", {
+  # The lm() in build_factor_continuous_skeleton() was the only fit in either
+  # correlation function not wrapped in try(), so a single-level factor stopped
+  # the whole call with "contrasts can be applied only to factors with 2 or more
+  # levels" -- naming neither the function, the argument, nor the predictor
+  # (FSSgam_package#33).
+  dat <- data.frame(x = rnorm(20), f = factor(rep("a", 20)))
+
+  expect_no_error(check_correlations(dat))
+  expect_no_error(check_non_linear_correlations(dat))
+  expect_true(is.na(check_correlations(dat)["x", "f"]))
+  expect_true(is.na(check_non_linear_correlations(dat)["x", "f"]))
+})
+
+test_that("a factor whose extra levels are unobserved is rejected", {
+  # droplevels() first: a factor declaring levels no row takes has one level in
+  # the data and is the same problem (FSSgam_package#33).
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$decl <- factor(rep("a", nrow(fit$use.dat)), levels = c("a", "b"))
+
+  expect_error(
+    fixture_cs1_model_set(fit = fit, pred.vars.fact = c("ZONE", "decl")),
+    "fewer than two observed levels: decl"
+  )
+})
+
+test_that("a factor interaction column colliding with an existing column is declined", {
+  # cbind() accepts the duplicate, and every later stage selects predictors by
+  # name: use.dat[, "fa.I.fb"] returns the user's own column while the formulas
+  # and the correlation matrix were built for the generated one. Declining
+  # rather than overwriting, because overwriting silently changes a predictor
+  # the user named (FSSgam_package#22).
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
+  use.dat$fa.I.fb <- rnorm(nrow(use.dat))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+
+  expect_warning(
+    model.set <- generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
+      pred.vars.fact = c("fa", "fb"), factor.factor.interactions = TRUE,
+      max.predictors = 2
+    ),
+    "already has a column of the same name: fa.I.fb"
+  )
+
+  expect_equal(sum(colnames(model.set$used.data) == "fa.I.fb"), 1L)
+  expect_true(is.numeric(model.set$used.data$fa.I.fb))
+  expect_false(any(grepl("fa.I.fb", names(model.set$mod.formula), fixed = TRUE)))
+})
+
+test_that("passing used.data back in declines every generated column", {
+  # The shape arises without contrivance: running generate_model_set() twice and
+  # passing the used.data of the first call as the use.dat of the second
+  # presents every generated name as an existing column (FSSgam_package#22).
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  args <- list(
+    test.fit = test.fit, k = 3, pred.vars.cont = "depth",
+    pred.vars.fact = c("fa", "fb"), factor.factor.interactions = TRUE,
+    max.predictors = 2
+  )
+
+  first <- do.call(generate_model_set, c(list(use.dat = use.dat), args))
+  expect_true("fa.I.fb" %in% colnames(first$used.data))
+
+  expect_warning(
+    second <- do.call(generate_model_set, c(list(use.dat = first$used.data), args)),
+    "already has a column of the same name"
+  )
+  expect_equal(sum(colnames(second$used.data) == "fa.I.fb"), 1L)
 })

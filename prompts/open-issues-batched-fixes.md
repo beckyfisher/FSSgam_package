@@ -753,3 +753,53 @@ lines where the diff suggested otherwise.
 Batch 3 converged after eight cycles. Suite: 638 passing, from 616.
 
 ---
+**Claude:** Batch 4 (FSSgam_package#28, #37, #33, #22), branch
+`batch4-predictor-validation`, stacked on batch 3. Re-triage first: batch 3
+raised FSSgam_package#37, already assigned here; nothing else new.
+
+All four are input validation and all four now sit in one block at the top of
+`generate_model_set()`, beside `validate_use_dat()` and `validate_null_terms()`.
+
+- **#28.** `validate_predictor_names()` rejects a name repeated within one
+  argument, and a name given as both a factor and a continuous predictor.
+
+  **It deliberately does not check `pred.vars.cont` against `linear.vars`.** A
+  first version did, and the existing suite caught it: naming a predictor in
+  both is the documented way to fit it linearly, `setdiff(pred.vars.cont,
+  linear.vars)` deciding which predictors get a smooth. The check would have
+  broken a supported idiom that a test already covered. Worth recording as the
+  clearest case so far of the committed suite doing the work a review would
+  otherwise have had to.
+
+- **#37.** `validate_interaction_predictors()` checks the character forms
+  against the predictor lists rather than against `colnames(use.dat)` and
+  `rownames(cor.matrix)`. Placed at the top so neither depends on a supplied
+  matrix and both are settled before either argument is consumed --
+  `factor.factor.interactions` by `resolve_factor_interactions()`, which runs
+  before the resolved matrix exists, and `smooth.smooth.interactions` by
+  `resolve_smooth_smooth_interactions()`, which runs after.
+
+- **#33.** Two halves. `validate_factor_levels()` rejects a factor with fewer
+  than two observed levels, `droplevels()` first so a declared but unobserved
+  level counts as absent. And the `lm()` in each correlation function is wrapped
+  in `try()`, being the one unguarded fit in each; both are exported and
+  callable directly, so the guard matters beyond the `generate_model_set()` path
+  the rejection covers.
+
+- **#22.** `build_factor_interaction_columns()` declines a generated column
+  whose name is already in `use.dat`, warning and dropping the combination from
+  the returned term names as well as the columns, so no later stage refers to a
+  term that was not built.
+
+**Batch 4 closes two things batch 3 could only work around.** The widening of the
+`NA` check to cover names screened without being predictors is now belt and
+braces, since #37 stops such a name reaching a screen at all. And the duplicate
+model set the zero-fill admitted is now unreachable, since a single-level factor
+is rejected first. Three batch-3 tests were rewritten accordingly rather than
+deleted, so each still covers what it was written for: the crossing-pair test now
+uses a real predictor, the non-predictor test asserts the rejection, and the
+zero-fill test asserts the rejection plus the helper's behaviour.
+
+Suite: 644 passing, from 638.
+
+---

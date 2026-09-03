@@ -113,6 +113,13 @@ generate_model_set=function(use.dat,
 
   validate_use_dat(use.dat)
   validate_null_terms(null.terms)
+  validate_predictor_names(pred.vars.cont=pred.vars.cont,
+                          pred.vars.fact=pred.vars.fact,linear.vars=linear.vars)
+  validate_interaction_predictors(factor.factor.interactions=factor.factor.interactions,
+                          smooth.smooth.interactions=smooth.smooth.interactions,
+                          pred.vars.cont=pred.vars.cont,pred.vars.fact=pred.vars.fact,
+                          linear.vars=linear.vars)
+  validate_factor_levels(use.dat=use.dat,pred.vars.fact=pred.vars.fact)
 
   all.predictors=unique(stats::na.omit(c(pred.vars.cont,pred.vars.fact,linear.vars)))
   included.vars=all.predictors
@@ -214,6 +221,112 @@ validate_null_terms=function(null.terms){
   if(!is.character(null.terms) || length(null.terms)!=1 || is.na(null.terms)){
     stop("null.terms must be a single character string (e.g. \"s(site,bs='re')\"), or \"\" if no null term is required.")
   }
+}
+
+# Rejects a predictor named twice in one argument, and a predictor named as both
+# a factor and a continuous predictor.
+#
+# enumerate_candidate_models() deduplicates a candidate's terms before indexing
+# the correlation matrix, so a candidate holding one term twice yields a 1x1
+# sub-matrix whose triangles are both empty. max() of an empty vector warns and
+# returns -Inf, which is below any cov.cutoff, so the candidate survived: the
+# model set held "ZONE+ZONE" and the run emitted two "no non-missing arguments
+# to max; returning -Inf" warnings naming nothing (FSSgam_package#28).
+#
+# pred.vars.cont and linear.vars are deliberately NOT checked against each
+# other. Naming a predictor in both is the documented way to fit it linearly:
+# setdiff(pred.vars.cont, linear.vars) decides which predictors get a smooth,
+# so a name in both is one that does not. Checking across them broke that idiom,
+# which the test suite caught.
+#
+# Reported here rather than downstream because only here is the repeated name
+# known. This also removes the empty-triangle case rather than papering over it.
+validate_predictor_names=function(pred.vars.cont,pred.vars.fact,linear.vars){
+  named=list(pred.vars.cont=pred.vars.cont,pred.vars.fact=pred.vars.fact,
+             linear.vars=linear.vars)
+  named=lapply(named,function(x) as.character(stats::na.omit(x)))
+
+  within=lapply(named,function(x) unique(x[duplicated(x)]))
+  within=within[vapply(within,length,0L)>0]
+  if(length(within)>0){
+    stop(paste0("Each predictor may be named once within an argument. Named ",
+         "twice: ",paste(vapply(names(within),function(a)
+           paste0(paste(within[[a]],collapse=", ")," (",a,")"),""),
+         collapse="; "),"."))}
+
+  # A name cannot be both a factor and a continuous predictor. Unlike the pair
+  # above this is not an idiom: the two lists decide how the term is written
+  # into the formula, and a name in both is written both ways.
+  both=intersect(named$pred.vars.fact,c(named$pred.vars.cont,named$linear.vars))
+  if(length(both)>0){
+    stop(paste0("Predictor(s) named as both a factor and a continuous ",
+         "predictor: ",paste(both,collapse=", "),
+         ". Name each in pred.vars.fact or in pred.vars.cont/linear.vars, not both."))}
+}
+
+
+# Rejects a variable named in the character form of factor.factor.interactions
+# or smooth.smooth.interactions that is not a predictor of this model set.
+#
+# Each argument had a check against the wrong set: factor.factor.interactions
+# against colnames(use.dat), so any column was accepted, and
+# smooth.smooth.interactions against rownames(cor.matrix), so the set depended
+# on whether a cor.matrix was supplied and on what names it carried. A
+# non-predictor named in either was screened against cov.cutoff and contributed
+# interaction terms, while appearing in no other candidate, in included.vars, or
+# in the variable-inclusion columns fit_model_set() returns
+# (FSSgam_package#37).
+#
+# Checked here, against the predictor lists, so that neither depends on a
+# supplied matrix and both are settled before either argument is consumed --
+# factor.factor.interactions by resolve_factor_interactions(), which runs before
+# the resolved correlation matrix exists, and smooth.smooth.interactions by
+# resolve_smooth_smooth_interactions(), which runs after.
+validate_interaction_predictors=function(factor.factor.interactions,
+                          smooth.smooth.interactions,pred.vars.cont,
+                          pred.vars.fact,linear.vars){
+  report=function(named,allowed,arg,requirement){
+    if(!is.character(named)){return(invisible(NULL))}
+    missing.vars=setdiff(as.character(stats::na.omit(named)),
+                         as.character(stats::na.omit(allowed)))
+    if(length(missing.vars)==0){return(invisible(NULL))}
+    stop(paste0("Variable(s) ",paste(missing.vars,collapse=", ")," named in ",
+         arg," are not predictors. Each must appear in ",requirement,"."))
+  }
+  report(factor.factor.interactions,pred.vars.fact,
+         "factor.factor.interactions","pred.vars.fact")
+  report(smooth.smooth.interactions,c(pred.vars.cont,linear.vars),
+         "smooth.smooth.interactions","pred.vars.cont (or linear.vars)")
+}
+
+# Rejects a factor predictor with fewer than two levels among the rows used.
+#
+# check_correlations() and check_non_linear_correlations() both fit lm() with
+# such a factor as the predictor, which stops with "contrasts can be applied
+# only to factors with 2 or more levels" -- an error naming neither the
+# function, the argument, nor the predictor. That lm() is now wrapped in try()
+# in both, so the cell is left NA rather than aborting the call, but a
+# single-level factor is not a usable predictor in any case: it explains
+# nothing, and an interaction column built from it is a copy of the other
+# factor, so the model set holds the same model under two names
+# (FSSgam_package#33).
+#
+# droplevels() first: a factor whose extra levels are declared but unobserved
+# has one level in the data and is the same problem.
+validate_factor_levels=function(use.dat,pred.vars.fact){
+  named=as.character(stats::na.omit(pred.vars.fact))
+  named=named[named %in% colnames(use.dat)]
+  if(length(named)==0){return(invisible(NULL))}
+  n.levels=vapply(named,function(v){
+    x=use.dat[,v]
+    if(!is.factor(x)){x=factor(x)}
+    nlevels(droplevels(x))},integer(1))
+  too.few=named[n.levels<2]
+  if(length(too.few)==0){return(invisible(NULL))}
+  stop(paste0("Factor predictor(s) with fewer than two observed levels: ",
+       paste(paste0(too.few," (",n.levels[too.few],")"),collapse=", "),
+       ". A factor taking one value explains nothing and cannot be screened ",
+       "for collinearity; remove it from pred.vars.fact."))
 }
 
 # Builds the null model formula and confirms test.fit can be updated to it.
@@ -327,6 +440,30 @@ combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff){
 # apart.
 build_factor_interaction_columns=function(use.dat,fact.combns){
   factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
+
+  # A generated name that is already a column of use.dat is declined rather
+  # than appended. cbind() accepts the duplicate, and every later stage selects
+  # predictors by name: use.dat[,"a.I.b"] returns the first of the two, which
+  # is the user's own column, while the model formulas and the correlation
+  # matrix were built for the generated one. They are different variables and
+  # nothing reported the collision (FSSgam_package#22).
+  #
+  # Declining rather than overwriting, because overwriting silently changes a
+  # predictor the user named. The combination is dropped from the returned term
+  # names as well as from the columns, so no later stage refers to a term that
+  # was not built.
+  #
+  # The shape arises without contrivance: running generate_model_set() twice and
+  # passing the used.data of the first call as the use.dat of the second
+  # presents every generated name as an existing column.
+  colliding=factor.interaction.terms %in% colnames(use.dat)
+  if(any(colliding)){
+    warning(paste0("Factor interaction column(s) not created, because use.dat ",
+            "already has a column of the same name: ",
+            paste(factor.interaction.terms[colliding],collapse=", "),
+            ". Rename the existing column(s) if the interaction is wanted."))
+    fact.combns=fact.combns[!colliding]
+    factor.interaction.terms=factor.interaction.terms[!colliding]}
 
   if(length(fact.combns)>0){
     tt=data.frame(lapply(fact.combns,FUN=function(x){

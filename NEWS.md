@@ -1,5 +1,56 @@
 # FSSgam (development version)
 
+* **Behaviour change:** `generate_model_set()` rejects a predictor named twice
+  within `pred.vars.cont`, `pred.vars.fact` or `linear.vars`, naming it. Such a
+  name produced a candidate holding it twice, `ZONE+ZONE`, together with two
+  "no non-missing arguments to max; returning -Inf" warnings naming nothing:
+  `enumerate_candidate_models()` deduplicates a candidate's terms before
+  indexing the correlation matrix, so a candidate holding one term twice gives a
+  1x1 sub-matrix whose triangles are empty, and `max()` of an empty vector
+  returns `-Inf`, which is below any `cov.cutoff` (FSSgam_package#28).
+
+  A name appearing in both `pred.vars.fact` and `pred.vars.cont` or
+  `linear.vars` is rejected too. A name appearing in both `pred.vars.cont` and
+  `linear.vars` is **not**: that is the documented way to fit a continuous
+  predictor linearly, `setdiff(pred.vars.cont, linear.vars)` deciding which
+  predictors get a smooth.
+
+* **Behaviour change:** a variable named in the character form of
+  `factor.factor.interactions` or `smooth.smooth.interactions` must be a
+  predictor of the model set. Each argument was checked against the wrong set --
+  the first against `colnames(use.dat)`, so any column was accepted, and the
+  second against `rownames(cor.matrix)`, so what was accepted depended on
+  whether a `cor.matrix` was supplied and what names it carried. A non-predictor
+  named in either was screened against `cov.cutoff` and contributed interaction
+  terms, while appearing in no other candidate, in `included.vars`, or in the
+  variable-inclusion columns `fit_model_set()` returns (FSSgam_package#37).
+
+* **Behaviour change:** a factor predictor with fewer than two observed levels is
+  rejected, naming it and its level count. Such a factor explains nothing, cannot
+  be screened for collinearity, and produces an interaction column that is a copy
+  of the other factor, so the model set holds the same model under two names.
+  Levels declared but taken by no row are counted as absent (FSSgam_package#33).
+
+* Bug fix: `check_correlations()` and `check_non_linear_correlations()` now wrap
+  their `lm()` call in `try()`, as every other fit in both already was. It was
+  the one unguarded fit in each, so a single-level factor stopped the whole call
+  with "contrasts can be applied only to factors with 2 or more levels" instead
+  of leaving that cell `NA`. Both are exported and callable directly, so the
+  guard matters beyond the `generate_model_set()` path the check above covers
+  (FSSgam_package#33).
+
+* **Behaviour change:** a hard coded factor interaction column whose generated
+  name is already a column of `use.dat` is not created, and a warning names it.
+  `cbind()` accepted the duplicate, and every later stage selects predictors by
+  name: `use.dat[, "a.I.b"]` returned the first of the two, which is the user's
+  own column, while the model formulas and the correlation matrix were built for
+  the generated one. Nothing reported the collision. Declining rather than
+  overwriting, because overwriting silently changes a predictor the user named
+  (FSSgam_package#22).
+
+  This is reached without contrivance: passing the `used.data` of one call as the
+  `use.dat` of the next presents every generated name as an existing column.
+
 * Bug fix: a user-supplied `cor.matrix` with exactly one cell was silently
   discarded and recomputed from `use.dat`. A model set with a single predictor
   is the only case in which a supplied matrix is 1x1, and
