@@ -1,5 +1,37 @@
 # FSSgam (development version)
 
+* **`DESCRIPTION` now declares `Depends: R (>= 4.4.0)`, raised from
+  `R (>= 3.5)`.** The old floor was not reachable: `MuMIn` and `mgcv`, both
+  hard `Imports`, each declare `Depends: R (>= 4.4.0)` at the versions current
+  when this was measured (MuMIn 1.48.19, mgcv 1.9-4), so the package could not
+  be installed on anything lower whatever this field said. Nothing about what
+  the package can do changes; the declaration now states what was already true.
+  A user pinned to an older `MuMIn` and `mgcv` may find the new floor excludes
+  a configuration that did work, which is the reason the change is noted here
+  rather than treated as a correction (FSSgam_package#31).
+
+  The floor is now checked rather than asserted. `tools/check-r-floor.R`
+  compares the declared floor against the `Depends` of every hard dependency,
+  transitively, and fails if the declared one is lower; it runs in CI as a new
+  `r-floor-consistency` job. The closure matters: `Matrix` declares
+  `R (>= 4.4)` and is not a direct dependency of this package, arriving through
+  `mgcv` and `MuMIn`, so a check of the direct `Imports` alone would miss it. The
+  script also stops rather than passing wherever it cannot count a constraint:
+  a dependency that is not installed, an R constraint written in a form it does
+  not read, and a `DESCRIPTION` declaring no floor at all. `.github/workflows/R-CMD-check.yaml` also gains an
+  `ubuntu-latest`, `R 4.4.0` matrix entry, so the package is built, installed
+  and tested on an R at the declared floor for the first time.
+
+  The two check different things, and only the first detects what was wrong
+  here. Installing a package rejects a floor set above the running R and
+  accepts any floor below it, so no matrix of R versions can see a floor that
+  is too low: reverting `DESCRIPTION` to `R (>= 3.5)` leaves every matrix job
+  green.
+
+  Consequently the test suite uses `deparse1()` directly and the local
+  `deparse_one()` in `tests/testthat/helper-fixtures.R`, which existed only
+  because `deparse1()` arrived in R 4.0.0, is removed.
+
 * `fit_model_set()`'s `r2.vals.unique` column is now documented. It was returned
   in `mod.data.out` and described nowhere. The documentation states that the
   column is the model R2 minus the null model's R2, so it is the variance

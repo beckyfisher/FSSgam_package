@@ -237,13 +237,6 @@ break_one_candidate <- function(model.set, modname = "ZONE+depth") {
   model.set
 }
 
-# One-line deparse of a formula or call, with the same joining behaviour as
-# deparse1(): width.cutoff = 500L, and a space between any lines that still wrap.
-#
-# deparse1() would do this, but it was added in R 4.0.0 and DESCRIPTION declares
-# R (>= 3.5). The tests must run on the declared minimum, so they cannot use it.
-deparse_one <- function(x) paste(deparse(x, width.cutoff = 500L), collapse = " ")
-
 # Muffles only nnet's "NaNs produced" warning, leaving every other warning to
 # reach the test.
 #

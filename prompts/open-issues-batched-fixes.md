@@ -168,3 +168,240 @@ they would have had to use to succeed. Not fixed here: whether to support it, or
 to document `uGamm` as the only route to a mixed fit, is a decision.
 
 ---
+**Claude:** Batch 2 (FSSgam_package#31), branch `batch2-r-version-floor`, stacked
+on batch 1.
+
+The declared floor `R (>= 3.5)` was not reachable. The issue names `MuMIn`;
+`mgcv` was found to declare the same thing, so both hard `Imports` require
+R 4.4.0 and the floor was raised to match. Measured at MuMIn 1.48.19 and
+mgcv 1.9-4:
+
+```
+MuMIn    Depends: R (>= 4.4.0)
+mgcv     Depends: R (>= 4.4.0), nlme (>= 3.1-64)
+doSNOW   Depends: R (>= 2.5.0), ...
+foreach  Depends: R (>= 2.5.0)
+nnet     Depends: R (>= 3.0.0), ...
+testthat Depends: R (>= 4.1.0)          [Suggests]
+```
+
+The issue poses two decisions. The first is whether the floor should track the
+hard dependencies: it should, and does. The second is whether anything should
+check it, since `R CMD check` does not verify a declared floor against a
+dependency's. Two things now do, rather than the comment alone the issue
+proposed:
+
+- A comment in `DESCRIPTION` recording that the floor is derived and not chosen.
+  Confirmed that `read.dcf()` ignores `#` lines, that `R CMD check` passes with
+  it, and that `R CMD build` strips it from the tarball's `DESCRIPTION`, so the
+  provenance stays in the source where a reader of the repository finds it and
+  never reaches CRAN.
+- An `ubuntu-latest`, `oldrel-2` job in `.github/workflows/R-CMD-check.yaml`.
+  With the release at 4.6, `oldrel-2` is 4.4, which is the declared floor. It is
+  written as `oldrel-2` rather than as `4.4` so it needs no maintenance, with a
+  comment recording that it stops testing the floor once R moves past 4.6. This
+  is more than the issue asked for and is the part most easily dropped if the
+  job proves unreliable; the comment alone still records the provenance.
+
+Consequences carried out with it: `deparse_one()` in
+`tests/testthat/helper-fixtures.R` existed only because `deparse1()` arrived in
+R 4.0.0, so it was deleted and its 31 call sites across four test files replaced
+with `deparse1()`. `CLAUDE.md`'s note recording that constraint was rewritten,
+as was its `Depends` line. Its `Imports`/`Suggests` list was also corrected while
+adjacent: it still listed `gamm4` under `Imports`, which stopped being true when
+`gamm4` moved to `Suggests`.
+
+Not done: `parallel::makePSOCKcluster(setup_strategy = "sequential")` is now
+available as a mitigation to test against FSSgam_package#14, having been
+rejected partly on the old floor. That belongs to batch 6.
+
+---
+**Review cycle 1 (independent session, batch 2).** Three substantive findings.
+The floor value itself was confirmed correct — 4.4.0 across the whole installed
+dependency closure, nothing in `R/` or `tests/` using anything added after
+R 4.0.0 — and the `deparse1()` substitution exact. All three defects were in the
+two mechanisms meant to record and check the floor, and all three were
+reproduced here before being acted on.
+
+- **The `oldrel-2` job could not detect the defect FSSgam_package#31 reported.**
+  Installing a package rejects a floor set *above* the running R and accepts any
+  floor *below* it, so no matrix of R versions sees a floor that is too low.
+  Confirmed: `R CMD INSTALL` of a copy with `Depends: R (>= 3.5)` succeeds on
+  R 4.6.1. Four documents said the job checked the floor. Replaced with
+  `tools/check-r-floor.R`, which compares the declared floor against the
+  `Depends` of every hard dependency and exits 1 on exactly the state the issue
+  reported, run in CI as an `r-floor-consistency` job. The matrix entry is kept
+  but described accurately, as establishing that the package installs and passes
+  at the declared floor.
+
+  This is the finding worth carrying forward: **an R version in the CI matrix is
+  not a floor check.** It tests the opposite direction from the one that goes
+  wrong.
+
+- **The `DESCRIPTION` comment is deleted by routine tooling.** Any `desc`-based
+  write removes it — `usethis::use_package()`, a version bump,
+  `roxygen2::roxygenise()` updating `Config/roxygen2/version` — and this
+  repository has run two of the three. Writing R Extensions §1.1.1 also states
+  the format does not support `#` comments; `read.dcf()` skipping them is an
+  implementation detail, not a guarantee. The comment was removed and the
+  provenance moved into the script, where it is executed rather than trusted.
+
+- **`oldrel-2` resolves to 4.4.3, not 4.4.0.** A base function added in 4.4.1
+  would pass CI and fail at the declared floor. The matrix entry now names 4.4.0
+  literally. The stated reason for `oldrel-2`, that it needed no maintenance,
+  also contradicted its own comment saying to re-check it when R moves past 4.6.
+
+Minor points acted on: the PR evidence table was headed "every dependency" while
+covering only the direct ones; bare `#14` where `beckyfisher/FSSgam#14` also
+exists; and `planning/pre-cran-refactor-claude.md` still directed a future
+session to the deleted `deparse_one()`. `planning/golden-master/capture.R`
+defines its own copy and was left alone, being a self-contained record of what
+was run. A comment was added to FSSgam_package#14 recording that the constraint
+on its `setup_strategy` mitigation is lifted.
+
+---
+**Review cycle 2 (independent session, batch 2).** Two substantive findings, both
+silent-pass paths in `tools/check-r-floor.R` — the same defect class cycle 1
+found in the CI matrix entry, one level down. Both reproduced here before being
+acted on.
+
+- **The script read only the direct `Imports` and printed "OK".** `Matrix`
+  declares `R (>= 4.4)` and `MASS` declares `R (>= 4.4.0)`, and neither is a
+  direct dependency of this package: both arrive through `mgcv`, `MuMIn` and
+  `gamm4`. Reproduced: a `DESCRIPTION` with `Imports: gamm4, nnet` and
+  `Depends: R (>= 3.5)` exited 0 under the old script and exits 1 under the new
+  one, naming `MASS, Matrix, mgcv`. The script now walks the transitive closure
+  of `Depends`, `Imports` and `LinkingTo`, excluding only base-priority packages
+  — recommended packages are where the binding floor is actually found.
+
+- **An uninstalled dependency contributed no floor and the job stayed green.**
+  `packageDescription()` returns `NA`, `$Depends` errors, the `tryCatch`
+  swallowed it and the row printed as `-`. This repository's `CLAUDE.md` §3
+  records that exact state for `doSNOW`. The script now stops, naming the
+  packages it could not read.
+
+The minor finding that a package moved from `Imports` to `Depends` would be
+unread was fixed with them: the seed set is now `Depends` + `Imports` +
+`LinkingTo`.
+
+Nine edge cases were constructed and run against the rewritten script, since it
+is the only new code in this batch: the floor written `R (>=4.4.0)` and
+`R(>= 4.4.0)` without the usual spaces; `R (>= 4.4)` against `R (>= 4.4.0)`,
+which must compare equal and do so because `package_version()` pads;
+`R (>= 4.10.0)` against `R (>= 4.9.0)`, which string comparison would order
+wrongly and `package_version()` does not; version constraints on the `Imports`
+entries; a hard dependency declared in `Depends` rather than `Imports`; a
+`DESCRIPTION` with no R floor at all; an uninstalled dependency; and package
+names beginning with R -- `Rcpp`, `R6` -- which must not be read as the R entry
+and are not, the pattern being anchored on `R` followed by `(`.
+
+---
+**Review cycle 3 (independent session, batch 2).** One substantive finding: the
+third instance of the same failure mode, this time inside the script written to
+catch it.
+
+`read_r_floor()` returned `NULL` both for a dependency declaring no R constraint
+and for one whose constraint it could not parse. It accepted only `>=`, so any
+other operator fell through, printed as `-` — the same glyph as "declares
+nothing" — and contributed no floor. Reproduced with a scratch dependency
+declaring `Depends: R (<= 9.9.0)`: the script printed "No hard dependency
+declares an R floor; nothing to check" and exited 0. The form exists in
+practice; the reviewer found `R (> 3.0.2)` among 818 R constraints across the
+1119 packages installed here.
+
+Rewritten as `parse_r_constraint()`, returning one of three states rather than
+two: `none`, `ok`, `unparsed`. `>` is now read as well as `>=`, since
+`R (> 3.0.2)` means at least that version and understates the true floor by at
+most a patch level, which is safe in this direction. Anything else stops the
+script naming the package and the constraint. Verified with three scratch
+packages installed for the purpose: `R (> 4.5.9)` is counted as a floor of 4.5.9
+and fails a declared 3.5; `R (<= 9.9.0)` stops the script; `Depends: methods`
+reaches the "nothing to check" path legitimately.
+
+**Three statements of mine were false and are corrected.** They are recorded here
+because each was asserted in several places at once:
+
+- *`MASS` declares `R (>= 4.4.0)` and arrives through `mgcv`, `MuMIn` and
+  `gamm4`.* It arrives only through `gamm4` → `lme4`, and `gamm4` is a
+  `Suggests`, which the script does not walk. `MASS` is not in this package's
+  hard closure and does not appear in the script's own output. `Matrix` alone
+  justifies the closure walk, so the argument survives, but the sentence was in
+  the script, `NEWS.md`, `CLAUDE.md`, the commit message and the pull request
+  body.
+- *Neither new CI job has run yet.* Both had run and passed on `51b296e`.
+  Recorded below with the job names.
+- The pull request body quoted an error message the script no longer emits.
+
+The empty-closure path also crashed at `order(names(rows))` for a package with
+no hard dependencies outside base R, and now exits cleanly.
+
+**Both new CI jobs pass.** Run 33721973950 on `51b296e`: `declared R floor is
+reachable: success`, `ubuntu-latest (4.4.0): success`, alongside the four
+pre-existing matrix jobs. This confirms two things that could not be checked
+locally: that `r-lib/actions` resolves a literal `4.4.0`, and that the script
+runs against a dependency set installed by `setup-r-dependencies` rather than
+this host's.
+
+---
+**Review cycle 4 (independent session, batch 2).** One substantive finding: the
+fourth instance, this time in the ordering of the guards rather than in any one
+of them.
+
+The empty-closure exit added in cycle 3 was placed *above* the
+uninstalled-dependency check added in cycle 2. `rows` is empty exactly when no
+dependency could be read, so a package all of whose hard dependencies were
+missing reached `quit(status = 0)` reporting "This package declares no hard
+dependencies outside base R" — while declaring two — and accepted the declared
+floor having read nothing. Reproduced with `Imports: notinstalledA,
+notinstalledB, stats` and `Depends: R (>= 3.5)`: exit 0 before, exit 1 after.
+
+The reporting section was restructured so that every guard runs before any exit
+path, with a comment saying so and why. Eight cases were then re-run: all
+dependencies uninstalled, one uninstalled, genuinely no hard dependencies, an
+unparsed constraint, a strict `>` constraint, a dependency declaring no R floor,
+the FSSgam_package#31 state, and the package as it stands. All eight behave
+correctly.
+
+Two smaller defects fixed with it: a table row vanished entirely rather than
+printing a blank where a field was zero-length, `sprintf()` returning
+`character(0)` if any argument is; and the advisory to record why a floor is
+higher than its dependencies require was unreachable on the no-floors path.
+
+Two documentation corrections. `CLAUDE.md` labelled as "Measured" the statement
+that reverting `DESCRIPTION` would leave every CI job green — no such CI run was
+made, and it is an inference from `R CMD INSTALL` and `devtools::check()` on this
+host. `NEWS.md` named two of the three cases in which the script stops where two
+other documents named three.
+
+The reviewer also ran `parse_r_constraint()` over every R constraint declared by
+every package installed on this host — 1119 constraint rows across 813 packages —
+and none was classified unparsed, so the parser meets the population it will
+actually see.
+
+---
+**Review cycle 5 (independent session, batch 2).** No substantive finding, and no
+fifth instance. That session traced every exit path and ran 20 constructed
+inputs — the eight from cycle 4 plus a tie at the binding floor, a transitive
+chain, a dependency cycle, a missing `Version` field, `R6`/`Rcpp` names, a
+constraint on a DCF continuation line, a CRLF `DESCRIPTION`, both
+own-`DESCRIPTION` guards, and the advisory path — all correct.
+
+One low finding was worth acting on rather than accepting. `R (> x)` was read as
+a floor of `x`, conflating it with `R (>= x)`, and the comment called the
+resulting understatement "safe in this direction", which is inverted: a declared
+floor of exactly `x` satisfies `>= x` and does not satisfy `> x`, so the check
+could pass a floor one patch level too low. Rather than document the
+approximation, the operator is now recorded and each constraint tested as
+written, which removes it. The maximum is still computed, but only for the
+report. Verified with a scratch dependency declaring `R (> 4.4.0)`: a declared
+`R (>= 4.4.0)` now fails and `R (>= 4.4.1)` passes.
+
+`tools/` was added to the directory tree in `CLAUDE.md` §4, which two earlier
+rounds had raised, and four prose items were corrected.
+
+Two claims in the cycle 4 response were wrong and were corrected before posting:
+the constraint population is 818 R constraints, not 1119, which is the
+`installed.packages()` row count; and "covering every path through the script"
+omitted three exit paths, which cycle 5 verified separately.
+
+---

@@ -167,7 +167,7 @@ test_that("no phantom by-term survives into the model set at higher max.predicto
   )
 
   expect_false(any(grepl("NA.by.", names(model.set$mod.formula), fixed = TRUE)))
-  formulas <- vapply(model.set$mod.formula, deparse_one, character(1))
+  formulas <- vapply(model.set$mod.formula, deparse1, character(1))
   expect_false(any(grepl("s(NA", formulas, fixed = TRUE)))
   expect_setequal(
     names(model.set$mod.formula),
@@ -259,7 +259,7 @@ test_that("factor.smooth.interactions as a list gives per-predictor-type control
   # SCORE2 was named as a linear.var, so it gets a .t. (product) interaction
   expect_true("SCORE2.t.ZONE+ZONE" %in% mod.names)
   expect_match(
-    deparse_one(model.set$mod.formula[["SCORE2.t.ZONE+ZONE"]]), "SCORE2 * ZONE",
+    deparse1(model.set$mod.formula[["SCORE2.t.ZONE+ZONE"]]), "SCORE2 * ZONE",
     fixed = TRUE
   )
 })
