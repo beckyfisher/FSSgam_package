@@ -454,3 +454,52 @@ old defect, which is why it is written as `expect_no_error()`.
 Suite: 622 passing, 0 failing, 7 skipped, from 616.
 
 ---
+**Review cycle 1 (independent session, batch 3).** Four substantive findings.
+Three were paths on which the fixes did not reach, and one was a rationale that
+is false. All were reproduced here before being acted on.
+
+- **The `NA` check was evaded whenever `factor.factor.interactions` was set.**
+  `resolve_factor_interactions()` screens factor pairs against the *raw* supplied
+  matrix and runs before `build_predictor_correlation_matrix()`, which is where
+  the check had been put. An `NA` between two factors still gave "missing value
+  where TRUE/FALSE needed", under both the logical and the character forms of the
+  argument. FSSgam_package#27 was not closed on that path, which `NEWS.md` and the
+  pull request both claimed without qualification.
+
+- **A second copy of the `length(cor.matrix)==1` sentinel.** `factor_correlations()`,
+  the local helper inside `resolve_factor_interactions()`, has its own, so a 1x1
+  supplied matrix was discarded there as well and the class validation was
+  bypassed on that path. FSSgam_package#26 was half fixed.
+
+- **The check was placed before augmentation for a reason that is false, and that
+  placement created a second evasion.** The comment said checking after
+  `augment_supplied_correlation_matrix()` "would have reported cells the user
+  never wrote". It would not: that function fills every derived row and column it
+  adds with zero, so after it runs the only `NA` remaining is a user's.
+  Meanwhile, restricting the check to names present in *both* dimensions excluded
+  a derived interaction name supplied in one dimension only, whose `NA` then
+  reached `enumerate_candidate_models()`.
+
+- **The behaviour change was stated backwards in five places.** A length-one value
+  of any class -- `"oops"`, or a list holding a matrix -- satisfied the old
+  sentinel and was silently treated as nothing supplied, so the model set was
+  built from a computed matrix as though the argument had not been given. Only a
+  value of some other length fell through to the supplied branch and failed
+  against the missing-predictor check. `NEWS.md`, both commit messages, the pull
+  request body and a test comment all asserted the second for both.
+
+The structure that follows from this: the checks are made at two points because
+no single point sees every screen, and the reason is on the face of the code.
+The interaction columns do not exist when the first screen runs, and the resolved
+matrix cannot exist until they do (FSSgam_package#13), so the named predictors
+are checked before the first screen and the full set after the second matrix is
+assembled, the latter after augmentation. `stop_on_na_correlations()` is shared
+between the two.
+
+Three evasions verified closed end to end, each with a construction that
+actually exercises the path. The first attempt at the third did not: two factors
+derived from one another are correlated above `cov.cutoff`, so no interaction
+column was built and the cell was never read. Two independently sampled factors
+were needed. Suite: 627 passing, from 616.
+
+---

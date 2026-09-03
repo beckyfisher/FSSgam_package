@@ -117,6 +117,18 @@ generate_model_set=function(use.dat,
   all.predictors=unique(stats::na.omit(c(pred.vars.cont,pred.vars.fact,linear.vars)))
   included.vars=all.predictors
 
+  # Validated here, before resolve_factor_interactions() screens factor pairs
+  # against the raw supplied matrix. Checking only inside
+  # build_predictor_correlation_matrix() left that earlier screen reached with
+  # an NA still in the matrix, so factor.factor.interactions still failed with
+  # "missing value where TRUE/FALSE needed" (FSSgam_package#27).
+  #
+  # Over the named predictors only. The hard coded interaction columns do not
+  # exist yet, and their cells are checked after they are resolved.
+  if(cor_matrix_supplied(cor.matrix)){
+    stop_on_na_correlations(cor.matrix=cor.matrix,predictors=all.predictors,
+                          where="between named predictors")}
+
   null.fit.l=build_null_model(test.fit=test.fit,use.dat=use.dat,null.terms=null.terms)
   null.formula=null.fit.l$null.formula
 
@@ -415,7 +427,10 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
                           factor.smooth.interactions,pred.vars.cont,linear.vars,
                           all.predictors,max.predictors,cov.cutoff,cor.matrix){
   factor_correlations=function(vars){
-    if(length(cor.matrix)==1){
+    # The same default test as build_predictor_correlation_matrix(). This was a
+    # second copy of the length(cor.matrix)==1 sentinel, so a 1x1 supplied
+    # matrix was discarded here as well (FSSgam_package#26).
+    if(!cor_matrix_supplied(cor.matrix)){
       check_correlations(use.dat[,vars])
     }else{
       missing.vars=vars[which(is.na(match(vars,rownames(cor.matrix))))]
@@ -593,6 +608,32 @@ resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interac
 # Resolves the predictor correlation matrix used for collinearity-based
 # model exclusion: either computed from use.dat, or validated if the caller
 # supplied their own cor.matrix.
+# Stops where a supplied correlation matrix has NA between two predictors that
+# are screened against cov.cutoff, naming the pairs.
+#
+# Off-diagonal only, and only over predictors present in both dimensions. The
+# diagonal is never read: every screen takes max(abs(.)) over upper.tri() and
+# lower.tri(), which exclude it.
+#
+# Called from two places because no single point sees every screen. The factor
+# interaction columns do not exist when the first screen runs, and the resolved
+# matrix cannot exist until they do (FSSgam_package#13), so the pairs screened
+# by resolve_factor_interactions() and the pairs screened by
+# enumerate_candidate_models() are checked at different points
+# (FSSgam_package#27).
+stop_on_na_correlations=function(cor.matrix,predictors,where){
+  present=intersect(intersect(predictors,rownames(cor.matrix)),colnames(cor.matrix))
+  if(length(present)<2){return(invisible(NULL))}
+  sub.mat=as.matrix(cor.matrix)[present,present,drop=FALSE]
+  na.cells=which(is.na(sub.mat)&!diag(TRUE,nrow(sub.mat)),arr.ind=TRUE)
+  if(nrow(na.cells)==0){return(invisible(NULL))}
+  pairs=paste0(rownames(sub.mat)[na.cells[,"row"]],"/",
+               colnames(sub.mat)[na.cells[,"col"]])
+  stop(paste0("Supplied cor.matrix has NA between predictors that are screened ",
+       "against cov.cutoff (",where,"): ",paste(unique(pairs),collapse=", "),
+       ". Supply a correlation for each, or remove the predictor."))
+}
+
 # TRUE where the caller supplied a correlation matrix, FALSE where they left the
 # NA default and it is to be computed from use.dat.
 #
@@ -602,9 +643,13 @@ resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interac
 # supplied matrix silently discarded and recomputed (FSSgam_package#26).
 #
 # Anything that is neither a matrix, a data.frame, nor the NA default is
-# rejected here. Under the old sentinel such a value fell through to the
-# supplied branch and failed further on, against the missing-predictor check,
-# with a message about predictors rather than about the argument's class.
+# rejected here. Under the old sentinel what happened to such a value depended
+# on its length, and neither outcome was right: a length-one value of any class
+# -- a string, a list holding a matrix -- satisfied the sentinel and was
+# silently treated as nothing supplied, so the matrix was computed from use.dat
+# and the model set built as though the argument had not been given; a value of
+# any other length fell through to the supplied branch and failed against the
+# missing-predictor check, reporting predictors rather than the argument.
 cor_matrix_supplied=function(cor.matrix){
   if(is.matrix(cor.matrix)||is.data.frame(cor.matrix)){return(TRUE)}
   if(length(cor.matrix)==1&&is.na(cor.matrix)){return(FALSE)}
@@ -675,40 +720,6 @@ build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.co
             stop(paste("Supplied cor.matrix is missing required predictors: ",
             paste(named.missing,collapse=", "),".",sep=""))}
 
-      # An NA between two predictors is reported here, naming the pairs, rather
-      # than reaching combine_uncorrelated() and enumerate_candidate_models().
-      # There it is compared with cov.cutoff and stops the call with "missing
-      # value where TRUE/FALSE needed", which names neither the matrix, the
-      # argument, nor the pair. Whether it happened at all depended on
-      # max.predictors: at 1 the pair is never enumerated and the same matrix
-      # was accepted (FSSgam_package#27).
-      #
-      # Reported rather than screened out. The comment on combine_uncorrelated()
-      # records that stopping on an NA is the right behaviour there, the
-      # alternative being to drop the combination silently; this check moves the
-      # report to where the pair can be named, and leaves that function alone.
-      #
-      # Checked here, before augment_supplied_correlation_matrix() runs, so that
-      # only cells the user actually supplied are examined. That function fills
-      # the derived rows and columns it adds with zero, and deliberately leaves
-      # a user-supplied NA alone (FSSgam_package#15).
-      #
-      # Off-diagonal only, and only over predictors present in both dimensions
-      # of the supplied matrix. The diagonal is never read: both screens take
-      # max(abs(.)) over upper.tri() and lower.tri(), which exclude it. A
-      # derived name the user did not supply is not examined either, being
-      # computed rather than supplied.
-      supplied.predictors=intersect(intersect(all.predictors,rownames(cor.matrix)),
-                                    colnames(cor.matrix))
-      if(length(supplied.predictors)>1){
-        sub.mat=as.matrix(cor.matrix)[supplied.predictors,supplied.predictors,drop=FALSE]
-        na.cells=which(is.na(sub.mat)&!diag(TRUE,nrow(sub.mat)),arr.ind=TRUE)
-        if(nrow(na.cells)>0){
-          pairs=paste0(rownames(sub.mat)[na.cells[,"row"]],"/",
-                       colnames(sub.mat)[na.cells[,"col"]])
-          stop(paste0("Supplied cor.matrix has NA between predictors that are ",
-               "screened against cov.cutoff: ",paste(pairs,collapse=", "),
-               ". Supply a correlation for each, or remove the predictor."))}}
       if(length(derived.missing.rows)>0|length(derived.missing.cols)>0){
         cor.matrix=augment_supplied_correlation_matrix(use.dat=use.dat,
                           cor.matrix=cor.matrix,
@@ -716,6 +727,16 @@ build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.co
                           derived.missing.cols=derived.missing.cols,
                           all.predictors=all.predictors,
                           non.linear.correlations=non.linear.correlations)}
+
+      # Checked after augmentation, not before. augment_supplied_correlation_matrix()
+      # fills every derived row and column it adds with zero, so once it has run
+      # the only NA left is one the user wrote. Checking beforehand missed a
+      # derived interaction name supplied in one dimension and not the other:
+      # such a name is absent from one set of dimnames, so it was excluded from
+      # the pairs examined, and its NA reached enumerate_candidate_models()
+      # (FSSgam_package#27).
+      stop_on_na_correlations(cor.matrix=cor.matrix,predictors=all.predictors,
+                          where="including the hard coded interaction columns")
   }
   return(cor.matrix)
 }

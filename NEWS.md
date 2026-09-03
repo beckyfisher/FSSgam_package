@@ -9,11 +9,19 @@
   contract that a supplied matrix replaces the automatic estimate
   (FSSgam_package#26).
 
-  The test is now on the default value rather than on length. A consequence is
-  that `cor.matrix` is validated: a value that is neither a matrix, a
-  data.frame, nor `NA` is rejected naming its class. Such a value previously
-  fell through to the supplied branch and failed further on, against the
-  missing-predictor check, reporting predictors rather than the argument.
+  The test is now on the default value rather than on length, in both places it
+  was made -- `build_predictor_correlation_matrix()` and the `factor_correlations()`
+  helper inside `resolve_factor_interactions()`, which had its own copy.
+
+  **Behaviour change:** `cor.matrix` is now validated, and a value that is
+  neither a matrix, a data.frame, nor `NA` is rejected naming its class. What
+  happened to such a value before depended on its length, and neither outcome
+  was right. A length-one value of any class -- a string, or a list holding a
+  matrix -- satisfied the sentinel and was silently treated as nothing supplied,
+  so the model set was built from a computed matrix as though the argument had
+  not been given. A value of any other length fell through to the supplied
+  branch and failed against the missing-predictor check, reporting predictors
+  rather than the argument. Calls of the first kind used to run and now error.
 
 * **Behaviour change:** an `NA` between two predictors of a supplied
   `cor.matrix` is now reported by `generate_model_set()`, naming the pairs,
@@ -24,11 +32,22 @@
   set built against a matrix with a hole in it. A call of that shape now errors
   (FSSgam_package#27).
 
-  The check is on the cells the user supplied, before the derived rows and
-  columns are computed, and off the diagonal only, the diagonal never being read
-  by either screen. `combine_uncorrelated()` is unchanged: stopping on an `NA`
-  is the right behaviour there, the alternative being to drop the combination
-  silently, and this only moves the report to where the pair can be named.
+  The check is made at two points, because no single point sees every screen.
+  `resolve_factor_interactions()` screens factor pairs against the raw supplied
+  matrix and runs before the resolved matrix can exist, the hard coded
+  interaction columns not being built yet; `enumerate_candidate_models()`
+  screens the candidates against the resolved matrix. So the named predictors
+  are checked before the first, and the full set, including the interaction
+  columns, after the second matrix is assembled. Checking at one point only left
+  `factor.factor.interactions` still failing with the old message.
+
+  It is off the diagonal only, the diagonal never being read by any screen, and
+  the second check runs after `augment_supplied_correlation_matrix()`, which
+  fills every derived row and column it adds with zero -- so the only `NA` left
+  by then is one the user wrote. `combine_uncorrelated()` is unchanged: stopping
+  on an `NA` is the right behaviour there, the alternative being to drop the
+  combination silently, and this only moves the report to where the pair can be
+  named.
 
 * **`DESCRIPTION` now declares `Depends: R (>= 4.4.0)`, raised from
   `R (>= 3.5)`.** The old floor was not reachable: `MuMIn` and `mgcv`, both

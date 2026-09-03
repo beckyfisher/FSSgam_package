@@ -224,18 +224,92 @@ test_that("a 1x1 supplied cor.matrix is used rather than recomputed", {
 })
 
 test_that("cor.matrix rejects a value that is neither a matrix nor the NA default", {
-  # Under the length-based sentinel these fell through to the supplied branch
-  # and failed against the missing-predictor check, reporting predictors rather
-  # than the class of the argument (FSSgam_package#26).
+  # Under the length-based sentinel what happened depended on the length, and
+  # neither outcome was right. A length-one value of any class satisfied the
+  # sentinel and was treated as nothing supplied, so the model set was built
+  # from a computed matrix as though the argument had not been given. A value
+  # of any other length fell through to the supplied branch and failed against
+  # the missing-predictor check, reporting predictors rather than the argument
+  # (FSSgam_package#26).
   fit <- fixture_cs1_gaussian()
 
+  # length one, silently ignored before
+  expect_error(
+    fixture_cs1_model_set(fit = fit, cor.matrix = "oops"),
+    "cor.matrix must be a matrix or data.frame"
+  )
+  expect_error(
+    fixture_cs1_model_set(fit = fit, cor.matrix = list(matrix(1, 1, 1))),
+    "cor.matrix must be a matrix or data.frame"
+  )
+  # other lengths, reported as a missing predictor before
   expect_error(
     fixture_cs1_model_set(fit = fit, cor.matrix = NULL),
     "cor.matrix must be a matrix or data.frame"
   )
   expect_error(
-    fixture_cs1_model_set(fit = fit, cor.matrix = "oops"),
+    fixture_cs1_model_set(fit = fit, cor.matrix = c(NA, NA)),
     "cor.matrix must be a matrix or data.frame"
+  )
+})
+
+test_that("a supplied cor.matrix is validated before the factor interaction screen", {
+  # resolve_factor_interactions() screens factor pairs against the raw supplied
+  # matrix, and runs before build_predictor_correlation_matrix(). Checking only
+  # in the latter left this screen reached with an NA still in the matrix, so
+  # factor.factor.interactions still failed with "missing value where
+  # TRUE/FALSE needed" (FSSgam_package#27).
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
+    pred.vars.fact = c("fa", "fb"), factor.factor.interactions = TRUE,
+    max.predictors = 2
+  )
+  na.cor <- do.call(generate_model_set, args)$predictor.correlations
+  na.cor["fa", "fb"] <- NA
+
+  expect_error(
+    do.call(generate_model_set, c(args, list(cor.matrix = na.cor))),
+    "Supplied cor.matrix has NA between predictors"
+  )
+})
+
+test_that("an NA in a derived column supplied in one dimension only is reported", {
+  # A hard coded interaction name supplied as a row and not as a column is
+  # absent from one set of dimnames, so a check taken over the intersection of
+  # the two missed it and its NA reached enumerate_candidate_models(). The
+  # check runs after augment_supplied_correlation_matrix(), which zero-fills
+  # every derived row and column it adds, so the only NA left is a user's
+  # (FSSgam_package#27).
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
+    pred.vars.fact = c("fa", "fb"), factor.factor.interactions = TRUE,
+    max.predictors = 2
+  )
+  full.cor <- do.call(generate_model_set, args)$predictor.correlations
+  expect_true("fa.I.fb" %in% rownames(full.cor))
+
+  one.dim <- full.cor[, setdiff(colnames(full.cor), "fa.I.fb"), drop = FALSE]
+  one.dim["fa.I.fb", "depth"] <- NA
+
+  expect_error(
+    do.call(generate_model_set, c(args, list(cor.matrix = one.dim))),
+    "Supplied cor.matrix has NA between predictors"
   )
 })
 
