@@ -376,6 +376,97 @@ test_that("a single-level factor predictor is rejected, and the computed matrix 
   expect_true(is.na(check_correlations(use.dat[, c("fa", "const")])["fa", "const"]))
 })
 
+test_that("an NA in a derived column supplied in one dimension only is reported", {
+  # A hard coded interaction name supplied as a row and not as a column is
+  # absent from one set of dimnames, so a check taken over the intersection of
+  # the two missed it and its NA reached enumerate_candidate_models(). The
+  # check runs after augment_supplied_correlation_matrix(), which zero-fills
+  # every derived row and column it adds, so the only NA left is a user's
+  # (FSSgam_package#27).
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
+    pred.vars.fact = c("fa", "fb"), factor.factor.interactions = TRUE,
+    max.predictors = 2
+  )
+  full.cor <- do.call(generate_model_set, args)$predictor.correlations
+  expect_true("fa.I.fb" %in% rownames(full.cor))
+
+  one.dim <- full.cor[, setdiff(colnames(full.cor), "fa.I.fb"), drop = FALSE]
+  one.dim["fa.I.fb", "depth"] <- NA
+
+  expect_error(
+    do.call(generate_model_set, c(args, list(cor.matrix = one.dim))),
+    "The correlation matrix has NA between terms"
+  )
+})
+
+test_that("an NA between two predictors of a supplied cor.matrix is reported by name", {
+  # Reaching combine_uncorrelated() with the NA gives "missing value where
+  # TRUE/FALSE needed", which names neither the matrix, the argument, nor the
+  # pair (FSSgam_package#27).
+  fit <- fixture_cs1_gaussian()
+  na.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
+  na.cor["complexity", "depth"] <- NA
+
+  expect_error(
+    fixture_cs1_model_set(fit = fit, cor.matrix = na.cor),
+    "The correlation matrix has NA between terms.*complexity/depth"
+  )
+})
+
+test_that("an NA is reported only on pairs some screen actually compares", {
+  # A deliberate departure from FSSgam_package#27, which asked for the report
+  # not to depend on max.predictors. Reporting a cell that nothing reads is a
+  # false failure, so the report covers exactly the pairs compared, and which
+  # pairs those are depends on max.predictors and on the interaction arguments.
+  #
+  # Not "at max.predictors = 1 nothing is compared". A .by. term is one term of
+  # a candidate but splits into two for the screen, so a continuous/factor pair
+  # is still compared here. Only complexity/depth is not.
+  fit <- fixture_cs1_gaussian()
+  base.cor <- fixture_cs1_model_set(fit = fit, max.predictors = 1)$predictor.correlations
+
+  reported <- function(pair) {
+    na.cor <- base.cor
+    na.cor[pair[1], pair[2]] <- NA
+    res <- try(
+      fixture_cs1_model_set(fit = fit, cor.matrix = na.cor, max.predictors = 1),
+      silent = TRUE
+    )
+    inherits(res, "try-error")
+  }
+
+  expect_false(reported(c("complexity", "depth")))
+  expect_true(reported(c("depth", "ZONE")))
+  expect_true(reported(c("complexity", "ZONE")))
+})
+
+test_that("an NA on a pair no screen compares is accepted", {
+  # Companion to the block above, reached differently. At max.predictors = 1 no
+  # candidate holds two continuous predictors, so complexity and depth are never
+  # compared and an NA between them is inert. Rejecting it would be a false
+  # failure (FSSgam_package#27).
+  #
+  # This was written against a factor named in factor.factor.interactions but
+  # not in pred.vars.fact, which is now rejected outright
+  # (FSSgam_package#37), so the property is asserted this way instead.
+  fit <- fixture_cs1_gaussian()
+  na.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
+  na.cor["complexity", "depth"] <- NA
+
+  expect_no_error(
+    fixture_cs1_model_set(fit = fit, cor.matrix = na.cor, max.predictors = 1)
+  )
+})
+
 test_that("an S4 Matrix is accepted as a cor.matrix", {
   # cor_matrix_supplied() tests dimensionality rather than a list of accepted
   # classes. A whitelist of matrix and data.frame rejected the S4 matrix

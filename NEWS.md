@@ -9,6 +9,15 @@
   1x1 sub-matrix whose triangles are empty, and `max()` of an empty vector
   returns `-Inf`, which is below any `cov.cutoff` (FSSgam_package#28).
 
+  The warnings had a second cause, which rejecting the repeated name does not
+  address: naming a predictor in both `pred.vars.cont` and `linear.vars`, the
+  documented idiom below, puts the name in the candidate pool twice and reaches
+  the same empty triangle at any `max.predictors` of 2 or more. Both screens now
+  test the sub-matrix through a helper that returns `FALSE` for an empty
+  triangle rather than calling `max()` on it, so no candidate set emits the
+  warning. Which combinations survive is unchanged, `-Inf` having been below
+  every cutoff.
+
   A name appearing in both `pred.vars.fact` and `pred.vars.cont` or
   `linear.vars` is rejected too. A name appearing in both `pred.vars.cont` and
   `linear.vars` is **not**: that is the documented way to fit a continuous

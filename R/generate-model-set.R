@@ -240,7 +240,9 @@ validate_null_terms=function(null.terms){
 # which the test suite caught.
 #
 # Reported here rather than downstream because only here is the repeated name
-# known. This also removes the empty-triangle case rather than papering over it.
+# known. It does not remove the empty-triangle case: the documented idiom of
+# naming a predictor in both pred.vars.cont and linear.vars reaches it too, and
+# is exempt from this check. exceeds_cutoff() is what stops the warning.
 validate_predictor_names=function(pred.vars.cont,pred.vars.fact,linear.vars){
   named=list(pred.vars.cont=pred.vars.cont,pred.vars.fact=pred.vars.fact,
              linear.vars=linear.vars)
@@ -422,8 +424,7 @@ combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff){
           # the pair (FSSgam_package#27).
           stop_on_na_correlations(cor.mat.m)
           out=x
-          if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-          if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){out=NA}
+          if(exceeds_cutoff(cor.mat.m,cov.cutoff)){out=NA}
           return(out)})
   combns[which(is.na(combns))]=NULL
   combns
@@ -747,6 +748,24 @@ resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interac
 # Resolves the predictor correlation matrix used for collinearity-based
 # model exclusion: either computed from use.dat, or validated if the caller
 # supplied their own cor.matrix.
+# TRUE where any off-diagonal cell of the sub-matrix exceeds cov.cutoff.
+#
+# max() of an empty vector warns "no non-missing arguments to max" and returns
+# -Inf. A 1x1 sub-matrix has empty triangles, and one arises whenever a
+# candidate's deduplicated terms number one: from a predictor named twice, which
+# is now rejected, and also from the documented idiom of naming a predictor in
+# both pred.vars.cont and linear.vars, which is not. That idiom put the name in
+# the pool twice and emitted the two warnings at any max.predictors of 2 or
+# more, naming nothing (FSSgam_package#28).
+#
+# Returning FALSE for an empty triangle keeps the previous behaviour -- -Inf is
+# below any cutoff, so the combination survived -- without the warning.
+exceeds_cutoff=function(cor.mat.m,cov.cutoff){
+  vals=c(cor.mat.m[upper.tri(cor.mat.m)],cor.mat.m[lower.tri(cor.mat.m)])
+  if(length(vals)==0){return(FALSE)}
+  max(abs(vals))>cov.cutoff
+}
+
 # Stops where the sub-matrix about to be screened against cov.cutoff has NA
 # between two of its terms, naming the pairs.
 #
@@ -1008,8 +1027,7 @@ enumerate_candidate_models=function(pred.vars.cont,pred.vars.fact,linear.vars,
                           terms.m[terms.m %in% colnames(cor.matrix)],drop=FALSE]
      # see the matching comment in combine_uncorrelated()
      stop_on_na_correlations(cor.mat.m)
-     if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){use.mods[[m]]=NA}
-     if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){use.mods[[m]]=NA}
+     if(exceeds_cutoff(cor.mat.m,cov.cutoff)){use.mods[[m]]=NA}
     }
 
     # remove the model if there are more than the number of terms specified in "max.predictors"

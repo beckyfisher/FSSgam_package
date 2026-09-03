@@ -660,14 +660,21 @@ test_that("a supplied cor.matrix decides which factor interaction columns are bu
 })
 
 test_that("a supplied cor.matrix missing a factor is reported by name", {
+  # Two factors, so factor_correlations() inside resolve_factor_interactions()
+  # is reached: with one, the factor-factor block is skipped entirely and the
+  # error comes from build_predictor_correlation_matrix() instead, duplicating
+  # another test and leaving this branch asserted by nothing.
   fit <- fixture_cs1_gaussian()
+  fit$use.dat$ZONE2 <- factor(
+    ifelse(fit$use.dat$SCORE2 > stats::median(fit$use.dat$SCORE2), "high", "low")
+  )
   cm <- matrix(c(1, 0, 0, 1), 2, 2,
                dimnames = list(c("depth", "complexity"), c("depth", "complexity")))
 
   expect_error(
     fixture_cs1_model_set(
       fit = fit, pred.vars.cont = c("depth", "complexity"),
-      pred.vars.fact = "ZONE", factor.factor.interactions = TRUE,
+      pred.vars.fact = c("ZONE", "ZONE2"), factor.factor.interactions = TRUE,
       max.predictors = 2, cor.matrix = cm
     ),
     "missing required predictors"
@@ -1185,6 +1192,14 @@ test_that("a predictor named in both pred.vars.cont and linear.vars is still acc
     pred.vars.cont = c("complexity", "depth"), pred.vars.fact = NA,
     linear.vars = "depth", max.predictors = 1
   ))
+
+  # max.predictors = 2 as well. At 1 no candidate holds two terms, so the
+  # empty-triangle case this idiom used to reach cannot arise and the test
+  # would pass whatever exceeds_cutoff() did.
+  expect_no_warning(expect_no_error(fixture_cs1_model_set(
+    pred.vars.cont = c("complexity", "depth"), pred.vars.fact = NA,
+    linear.vars = "depth", max.predictors = 2
+  )))
 })
 
 test_that("a predictor named as both a factor and continuous is rejected", {

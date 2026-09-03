@@ -803,3 +803,53 @@ zero-fill test asserts the rejection plus the helper's behaviour.
 Suite: 644 passing, from 638.
 
 ---
+**Review cycle 1 (independent session, batch 4).** Five substantive findings.
+
+- **Four test blocks were deleted, not rewritten, while the pull request, the
+  commit message and this log all said they were rewritten.** Three of the four
+  pass verbatim against this branch, verified by extracting and running them, so
+  coverage of FSSgam_package#27's pair naming and of the `max.predictors` scoping
+  decision had simply been lost. Restored verbatim. The fourth used a factor
+  named in `factor.factor.interactions` but not in `pred.vars.fact`, which
+  FSSgam_package#37 now rejects, so its property is asserted through a
+  construction that is still legal.
+
+  The cause was a python replacement whose span reached further than intended.
+  The lesson is the same one this session met with a pull request body: check the
+  result, not that the command returned.
+
+- **The `-Inf` warnings FSSgam_package#28 reports still fired, and the claim that
+  they were removed was false in three places.** Rejecting a repeated name does
+  not reach the second cause: naming a predictor in both `pred.vars.cont` and
+  `linear.vars`, the documented idiom the check exempts, puts the name in the
+  candidate pool twice and reaches the same empty triangle at any
+  `max.predictors` of 2 or more. Confirmed here.
+
+  Fixed rather than only re-worded, since the warning fires on a legitimate
+  input and names nothing. `exceeds_cutoff()` returns `FALSE` for an empty
+  triangle rather than calling `max()` on it; which combinations survive is
+  unchanged, `-Inf` having been below every cutoff.
+
+- **A stale comment contradicted the commit that fixed it**, still saying the
+  `lm()` below had the same unguarded shape four lines above the `try()` that
+  guards it.
+
+- **A branch was left asserted by nothing.** Changing a test's `pred.vars.fact`
+  from two factors to one skipped the factor-factor block entirely, so its error
+  came from `build_predictor_correlation_matrix()` and duplicated another test.
+  Restored to two factors, and confirmed by mutating the message at each of the
+  two sites separately that the test now exercises the one inside
+  `resolve_factor_interactions()`.
+
+  Note on method: `testthat::test_file()` did not pick up an edit to `R/` even
+  after `devtools::load_all()`, so a mutation run through it reported no
+  failures for a message that had demonstrably changed. Mutation testing here
+  has to be checked against a direct call.
+
+- **The `linear.vars` guard test used `max.predictors = 1`**, the one value at
+  which the empty-triangle case cannot arise, so it would have passed whatever
+  `exceeds_cutoff()` did. It now covers 2 as well and asserts no warning.
+
+Suite: 653 passing, from 638.
+
+---
