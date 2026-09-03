@@ -40,8 +40,8 @@ Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for fu
 Useful links:
 \itemize{
   \item \url{https://github.com/beckyfisher/FSSgam_package}
-  \item \url{https://beckyfisher.github.io/FSSgam_package}
-  \item \url{https://beckyfisher.github.io/FSSgam}
+  \item \url{https://beckyfisher.github.io/FSSgam_package/}
+  \item \url{https://beckyfisher.github.io/FSSgam/}
   \item Report bugs at \url{https://github.com/beckyfisher/FSSgam_package/issues}
 }
 
