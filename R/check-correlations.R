@@ -74,12 +74,18 @@ build_continuous_correlation_matrix=function(dat,cont.vars){
 build_factor_continuous_skeleton=function(dat,fact.vars,cont.vars,cor.mat){
    if(length(cont.vars)>0){
     lm.grid=expand.grid(list(fact.var=fact.vars,cont.var=cont.vars))
-    # The lm() below is not wrapped in try(), unlike the multinom() fits in
-    # fill_factor_factor_correlations(). A single-level factor makes it stop and
-    # the error propagates out of check_correlations(): FSSgam_package#33. The
-    # same shape is present in check_non_linear_correlations().
+    # try(), as the multinom() fits in fill_factor_factor_correlations() have.
+    # A single-level factor makes lm() stop with "contrasts can be applied only
+    # to factors with 2 or more levels", and without the guard that error
+    # propagated out of check_correlations() rather than leaving the cell NA,
+    # which is how every other failed fit here is handled (FSSgam_package#33).
+    #
+    # generate_model_set() now rejects such a factor by name before reaching
+    # this, so the guard is for a direct call and for whatever else lm() may
+    # fail on.
     r.estimates=cbind(lm.grid,apply(lm.grid,MARGIN=1,FUN=function(x){
-        sqrt(summary(stats::lm(dat[,x[2]]~factor(dat[,x[1]])))$r.sq)}))
+        fit=try(summary(stats::lm(dat[,x[2]]~factor(dat[,x[1]])))$r.sq,silent=TRUE)
+        if(inherits(fit,"try-error")){NA_real_}else{sqrt(fit)}}))
 
     fact.cont.upper.right=matrix(NA,ncol=length(fact.vars),nrow=length(cont.vars))
     colnames(fact.cont.upper.right)=fact.vars;rownames(fact.cont.upper.right)=cont.vars
