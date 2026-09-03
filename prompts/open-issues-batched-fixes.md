@@ -534,3 +534,54 @@ The reviewer also mutation-tested the change, confirming each new check is pinne
 by exactly one test. Suite: 629 passing, from 616.
 
 ---
+**Review cycle 3 (independent session, batch 3).** Three substantive findings,
+and together they showed the approach was wrong rather than incomplete.
+
+- **A fifth path.** Enumerating all four expressions that read a cell of
+  `cor.matrix`, the set indexed by `enumerate_candidate_models()` is
+  `all.predictors` union the derived `.I.` columns union the character-form
+  `smooth.smooth.interactions` names. A pair *crossing* the last two is screened
+  and was covered by neither check.
+- **The widened check failed wrongly.** A name given in the character form of
+  `factor.factor.interactions` is screened against the others in that argument
+  and never against `pred.vars.cont`, so a union of names treats the Cartesian
+  product as screened and rejects a cell nothing reads. Measured: an `NA` at
+  `gc/depth` was accepted before and errored after.
+- **An S4 `Matrix` was rejected.** `cor_matrix_supplied()` used a whitelist of
+  `matrix` and `data.frame`, so the objects `Matrix::Matrix()` and
+  `Matrix::nearPD()` return stopped working, having worked before the argument
+  was validated at all.
+
+The first two are one defect: a name union cannot describe which pairs are
+screened. **The check now runs at the two screening sites**, on the sub-matrix
+each is about to take `max(abs(.))` of, so it covers exactly the pairs that are
+compared. No model of which names reach which screen is maintained beside the
+code that screens. `cor_matrix_supplied()` now tests dimensionality rather than
+class, and `Matrix` is declared in `Suggests` for the test.
+
+Six paths verified: an `NA` between two factors under
+`factor.factor.interactions`; between two continuous predictors; in a derived
+column supplied in one dimension only; on a non-predictor named through the
+character `smooth.smooth.interactions`; on a pair crossing a derived column and
+such a name; and, as a control, on a pair no screen reads, which now passes.
+
+**A departure from what FSSgam_package#27 asked for, decided here and flagged for
+the maintainer.** The issue asked that the report not depend on `max.predictors`.
+It now does, and on every other argument deciding which pairs are compared: at
+`max.predictors = 1` each candidate holds one term, so two predictors are never
+compared and an `NA` between them is accepted. Rejecting it would be a false
+failure of exactly the kind found above. The property that makes the check
+complete is the same one that makes it conditional. Recorded in `NEWS.md`, in
+the pull request, and in a test whose comment states the reasoning.
+
+**FSSgam_package#37's evidence did not reproduce as written** and was corrected.
+It used `macro`, whose correlation with `depth` is -0.335 and so exceeds the
+default `cov.cutoff`, meaning no `te()` term was built and the model set equalled
+the control. The corrected block uses an uncorrelated variable and shows
+`zz.te.depth` built and fitted while `included.vars` names only `depth` and
+`complexity`. It also records that the gap is reachable for
+`smooth.smooth.interactions` only when a `cor.matrix` is supplied.
+
+Suite: 633 passing, from 616.
+
+---

@@ -11,7 +11,10 @@
 
   The test is now on the default value rather than on length, in both places it
   was made -- `build_predictor_correlation_matrix()` and the `factor_correlations()`
-  helper inside `resolve_factor_interactions()`, which had its own copy.
+  helper inside `resolve_factor_interactions()`, which had its own copy. It tests
+  dimensionality rather than a list of accepted classes, so the S4 objects
+  `Matrix::Matrix()` and `Matrix::nearPD()` return are accepted, as they were
+  before this argument was validated at all.
 
   **Behaviour change:** `cor.matrix` is now validated, and a value that is
   neither a matrix, a data.frame, nor `NA` is rejected naming its class. What
@@ -23,40 +26,33 @@
   branch and failed against the missing-predictor check, reporting predictors
   rather than the argument. Calls of the first kind used to run and now error.
 
-* **Behaviour change:** an `NA` between two predictors of a supplied
-  `cor.matrix` is now reported by `generate_model_set()`, naming the pairs,
-  where it previously either stopped with `missing value where TRUE/FALSE
-  needed` — naming neither the matrix, the argument, nor the pair — or was
-  accepted silently. Which of the two happened depended on `max.predictors`: at
-  1 the pair is never enumerated, so the same matrix was accepted and the model
-  set built against a matrix with a hole in it. A call of that shape now errors
-  (FSSgam_package#27).
+* **Behaviour change:** an `NA` between two terms of a supplied `cor.matrix` is
+  now reported by `generate_model_set()`, naming the pairs, where it previously
+  stopped the call with `missing value where TRUE/FALSE needed` — naming neither
+  the matrix, the argument, nor the pair (FSSgam_package#27).
 
-  The check is made at two points, and the first covers more than the predictor
-  list, because no single point sees every screen and not every screened name is
-  a predictor.
-  `resolve_factor_interactions()` screens factor pairs against the raw supplied
-  matrix and runs before the resolved matrix can exist, the hard coded
-  interaction columns not being built yet; `enumerate_candidate_models()`
-  screens the candidates against the resolved matrix. So the named predictors
-  are checked before the first, and the full set, including the interaction
-  columns, after the second matrix is assembled. Checking at one point only left
-  `factor.factor.interactions` still failing with the old message.
+  The report is made where each sub-matrix is formed, immediately before the
+  screen takes `max(abs(.))` of it, rather than at a single earlier point. Two
+  earlier placements were tried and both were wrong, in opposite directions.
+  Checking only in `build_predictor_correlation_matrix()` missed every pair
+  screened before it, `resolve_factor_interactions()` running first. Checking a
+  union of every name that might be screened then reported pairs that are not:
+  a name given in the character form of `factor.factor.interactions` is screened
+  against the others in that argument and never against `pred.vars.cont`.
+  Reporting at the screening site covers exactly the pairs that are screened.
 
-  The first check also covers the names given in the character forms of
-  `smooth.smooth.interactions` and `factor.factor.interactions`. Those are
-  validated against `rownames(cor.matrix)` and `colnames(use.dat)` rather than
-  against the predictor lists, so either can name a variable that is screened
-  without being a predictor. That they accept such a name at all is a separate
-  matter, raised as FSSgam_package#37.
+  **A consequence, and a departure from what the issue asked for.** The report
+  depends on `max.predictors`, and on every other argument that decides which
+  pairs are compared. At `max.predictors = 1` each candidate holds one term, so
+  two predictors are never compared and an `NA` between them is accepted. The
+  issue asked for the report not to depend on `max.predictors`; that would mean
+  rejecting a matrix over a cell nothing reads, which is a false failure. An
+  `NA` is reported whenever it is read and not otherwise.
 
-  It is off the diagonal only, the diagonal never being read by any screen, and
-  the second check runs after `augment_supplied_correlation_matrix()`, which
-  fills every derived row and column it adds with zero -- so the only `NA` left
-  by then is one the user wrote. `combine_uncorrelated()` is unchanged: stopping
-  on an `NA` is the right behaviour there, the alternative being to drop the
-  combination silently, and this only moves the report to where the pair can be
-  named.
+  `combine_uncorrelated()` and `enumerate_candidate_models()` are otherwise
+  unchanged: stopping on an `NA` is the right behaviour at both, the alternative
+  being to drop the combination silently, and this only makes the message name
+  the pair.
 
 * **`DESCRIPTION` now declares `Depends: R (>= 4.4.0)`, raised from
   `R (>= 3.5)`.** The old floor was not reachable: `MuMIn` and `mgcv`, both

@@ -236,20 +236,20 @@ test_that("cor.matrix rejects a value that is neither a matrix nor the NA defaul
   # length one, silently ignored before
   expect_error(
     fixture_cs1_model_set(fit = fit, cor.matrix = "oops"),
-    "cor.matrix must be a matrix or data.frame"
+    "cor.matrix must be a two-dimensional matrix or data.frame"
   )
   expect_error(
     fixture_cs1_model_set(fit = fit, cor.matrix = list(matrix(1, 1, 1))),
-    "cor.matrix must be a matrix or data.frame"
+    "cor.matrix must be a two-dimensional matrix or data.frame"
   )
   # other lengths, reported as a missing predictor before
   expect_error(
     fixture_cs1_model_set(fit = fit, cor.matrix = NULL),
-    "cor.matrix must be a matrix or data.frame"
+    "cor.matrix must be a two-dimensional matrix or data.frame"
   )
   expect_error(
     fixture_cs1_model_set(fit = fit, cor.matrix = c(NA, NA)),
-    "cor.matrix must be a matrix or data.frame"
+    "cor.matrix must be a two-dimensional matrix or data.frame"
   )
 })
 
@@ -277,7 +277,7 @@ test_that("a supplied cor.matrix is validated before the factor interaction scre
 
   expect_error(
     do.call(generate_model_set, c(args, list(cor.matrix = na.cor))),
-    "Supplied cor.matrix has NA between predictors"
+    "Supplied cor.matrix has NA between terms"
   )
 })
 
@@ -307,7 +307,7 @@ test_that("an NA is reported for a name screened but not in pred.vars.cont", {
   na.cor["macro", "depth"] <- NA
   expect_error(
     do.call(generate_model_set, c(args, list(cor.matrix = na.cor))),
-    "Supplied cor.matrix has NA between"
+    "Supplied cor.matrix has NA between terms"
   )
 })
 
@@ -339,7 +339,7 @@ test_that("an NA in a derived column supplied in one dimension only is reported"
 
   expect_error(
     do.call(generate_model_set, c(args, list(cor.matrix = one.dim))),
-    "Supplied cor.matrix has NA between predictors"
+    "Supplied cor.matrix has NA between terms"
   )
 })
 
@@ -353,22 +353,100 @@ test_that("an NA between two predictors of a supplied cor.matrix is reported by 
 
   expect_error(
     fixture_cs1_model_set(fit = fit, cor.matrix = na.cor),
-    "Supplied cor.matrix has NA between predictors.*complexity/depth"
+    "Supplied cor.matrix has NA between terms.*complexity/depth"
   )
 })
 
-test_that("the NA report does not depend on max.predictors", {
-  # At max.predictors = 1 the pair is never enumerated, so the same matrix used
-  # to be accepted and the model set built against a matrix with a hole in it
-  # (FSSgam_package#27).
+test_that("an NA is accepted on a pair the model set never screens", {
+  # A deliberate departure from FSSgam_package#27, which asked for the report
+  # not to depend on max.predictors. Reporting a cell that nothing reads is a
+  # false failure: at max.predictors = 1 the candidates hold one term each, so
+  # complexity and depth are never compared and the NA between them is inert.
+  #
+  # The report is made where the sub-matrix is formed, so it covers exactly the
+  # pairs screened against cov.cutoff. That is what makes it complete -- an
+  # earlier check over a union of names both missed pairs and reported pairs
+  # that are not screened -- and the same property is what makes this call
+  # succeed. The dependence on max.predictors is a consequence of which pairs
+  # the model set uses, not of where the check sits.
   fit <- fixture_cs1_gaussian()
   na.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
   na.cor["complexity", "depth"] <- NA
 
-  expect_error(
-    fixture_cs1_model_set(fit = fit, cor.matrix = na.cor, max.predictors = 1),
-    "Supplied cor.matrix has NA between predictors"
+  expect_no_error(
+    fixture_cs1_model_set(fit = fit, cor.matrix = na.cor, max.predictors = 1)
   )
+})
+
+test_that("an NA is accepted on a pair outside every screen", {
+  # The same property, reached differently: a name given in the character form
+  # of factor.factor.interactions is screened against the others in that
+  # argument and never against pred.vars.cont. An earlier check over a union of
+  # every name that might be screened failed on this cell, which nothing reads.
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$gc <- factor(sample(c("m", "n"), nrow(use.dat), TRUE))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  na.cor <- check_correlations(use.dat[, c("fa", "gc", "depth")])
+  na.cor["gc", "depth"] <- NA
+
+  expect_no_error(generate_model_set(
+    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
+    pred.vars.fact = "fa", factor.factor.interactions = c("fa", "gc"),
+    max.predictors = 2, cor.matrix = na.cor
+  ))
+})
+
+test_that("an NA is reported on a pair crossing a derived column and a screened non-predictor", {
+  # enumerate_candidate_models() indexes all.predictors, the hard coded .I.
+  # columns, and the names given in the character form of
+  # smooth.smooth.interactions. A pair crossing the last two is screened and was
+  # covered by neither of two earlier placements of this check
+  # (FSSgam_package#27).
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
+  use.dat$zz <- rnorm(nrow(use.dat))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  cor.mat <- check_correlations(use.dat[, c("fa", "fb", "depth", "zz")])
+  nms <- c(rownames(cor.mat), "fa.I.fb")
+  big <- matrix(0, length(nms), length(nms), dimnames = list(nms, nms))
+  diag(big) <- 1
+  big[rownames(cor.mat), colnames(cor.mat)] <- cor.mat
+  big["fa.I.fb", "zz"] <- NA
+  big["zz", "fa.I.fb"] <- NA
+
+  expect_error(
+    generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
+      pred.vars.fact = c("fa", "fb"), factor.factor.interactions = TRUE,
+      smooth.smooth.interactions = c("zz", "depth"), max.predictors = 3,
+      cor.matrix = big
+    ),
+    "Supplied cor.matrix has NA between terms"
+  )
+})
+
+test_that("an S4 Matrix is accepted as a cor.matrix", {
+  # cor_matrix_supplied() tests dimensionality rather than a list of accepted
+  # classes. A whitelist of matrix and data.frame rejected the S4 objects
+  # Matrix::Matrix() and Matrix::nearPD() return, which worked before this
+  # argument was validated at all.
+  skip_if_not_installed("Matrix")
+  fit <- fixture_cs1_gaussian()
+  base.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
+  s4.cor <- Matrix::Matrix(base.cor, dimnames = dimnames(base.cor))
+
+  expect_true(isS4(s4.cor))
+  expect_no_error(fixture_cs1_model_set(fit = fit, cor.matrix = s4.cor))
 })
 
 test_that("an NA on the diagonal of a supplied cor.matrix is accepted", {
