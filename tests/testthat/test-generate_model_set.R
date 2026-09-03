@@ -281,6 +281,36 @@ test_that("a supplied cor.matrix is validated before the factor interaction scre
   )
 })
 
+test_that("an NA is reported for a name screened but not in pred.vars.cont", {
+  # The character form of smooth.smooth.interactions is validated against
+  # rownames(cor.matrix), not against the predictor lists, so it accepts a
+  # variable that is screened against cov.cutoff without being a predictor of
+  # the model set (FSSgam_package#37). A check scoped to all.predictors alone
+  # missed such a pair and it reached combine_uncorrelated() with the NA still
+  # in it (FSSgam_package#27).
+  use.dat <- fixture_cs1_data()
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  cor.mat <- check_correlations(use.dat[, c("depth", "complexity", "macro")])
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3,
+    pred.vars.cont = c("depth", "complexity"),
+    smooth.smooth.interactions = c("macro", "depth"), max.predictors = 2
+  )
+
+  # macro is not a predictor, so the pair is outside all.predictors
+  expect_no_error(do.call(generate_model_set, c(args, list(cor.matrix = cor.mat))))
+
+  na.cor <- cor.mat
+  na.cor["macro", "depth"] <- NA
+  expect_error(
+    do.call(generate_model_set, c(args, list(cor.matrix = na.cor))),
+    "Supplied cor.matrix has NA between"
+  )
+})
+
 test_that("an NA in a derived column supplied in one dimension only is reported", {
   # A hard coded interaction name supplied as a row and not as a column is
   # absent from one set of dimnames, so a check taken over the intersection of

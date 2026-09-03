@@ -126,8 +126,20 @@ generate_model_set=function(use.dat,
   # Over the named predictors only. The hard coded interaction columns do not
   # exist yet, and their cells are checked after they are resolved.
   if(cor_matrix_supplied(cor.matrix)){
-    stop_on_na_correlations(cor.matrix=cor.matrix,predictors=all.predictors,
-                          where="between named predictors")}
+    # Over more than all.predictors. The character forms of
+    # smooth.smooth.interactions and factor.factor.interactions are validated
+    # against rownames(cor.matrix) and colnames(use.dat) respectively, not
+    # against the predictor lists, so either can name a variable that is
+    # screened against cov.cutoff without being a predictor of this model set.
+    # A check scoped to all.predictors alone missed those pairs and they
+    # reached combine_uncorrelated() with the NA still in them
+    # (FSSgam_package#27). That the two arguments accept such a name at all is
+    # a separate matter, raised as FSSgam_package#37.
+    screened.names=unique(stats::na.omit(c(all.predictors,
+      if(is.character(smooth.smooth.interactions)) smooth.smooth.interactions,
+      if(is.character(factor.factor.interactions)) factor.factor.interactions)))
+    stop_on_na_correlations(cor.matrix=cor.matrix,predictors=screened.names,
+                          where="between names screened before the model set is built")}
 
   null.fit.l=build_null_model(test.fit=test.fit,use.dat=use.dat,null.terms=null.terms)
   null.formula=null.fit.l$null.formula

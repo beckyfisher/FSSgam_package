@@ -32,7 +32,9 @@
   set built against a matrix with a hole in it. A call of that shape now errors
   (FSSgam_package#27).
 
-  The check is made at two points, because no single point sees every screen.
+  The check is made at two points, and the first covers more than the predictor
+  list, because no single point sees every screen and not every screened name is
+  a predictor.
   `resolve_factor_interactions()` screens factor pairs against the raw supplied
   matrix and runs before the resolved matrix can exist, the hard coded
   interaction columns not being built yet; `enumerate_candidate_models()`
@@ -40,6 +42,13 @@
   are checked before the first, and the full set, including the interaction
   columns, after the second matrix is assembled. Checking at one point only left
   `factor.factor.interactions` still failing with the old message.
+
+  The first check also covers the names given in the character forms of
+  `smooth.smooth.interactions` and `factor.factor.interactions`. Those are
+  validated against `rownames(cor.matrix)` and `colnames(use.dat)` rather than
+  against the predictor lists, so either can name a variable that is screened
+  without being a predictor. That they accept such a name at all is a separate
+  matter, raised as FSSgam_package#37.
 
   It is off the diagonal only, the diagonal never being read by any screen, and
   the second check runs after `augment_supplied_correlation_matrix()`, which

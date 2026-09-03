@@ -503,3 +503,34 @@ column was built and the cell was never read. Two independently sampled factors
 were needed. Suite: 627 passing, from 616.
 
 ---
+**Review cycle 2 (independent session, batch 3).** Two substantive findings.
+
+- **A fourth screened name the check did not cover.** Both checks were scoped to
+  `all.predictors`, but the character forms of `smooth.smooth.interactions` and
+  `factor.factor.interactions` are validated against `rownames(cor.matrix)` and
+  `colnames(use.dat)` respectively, not against the predictor lists. So either
+  can name a variable that is screened against `cov.cutoff` without being a
+  predictor of the model set, and a supplied `NA` on such a pair still gave
+  "missing value where TRUE/FALSE needed". Reproduced with `macro`, a column of
+  `case_study1` deliberately not named as a predictor: the control call succeeds
+  at `n.mods = 3` and the same call with the `NA` fails with the old message.
+  The first check now covers the union of `all.predictors` and the names given in
+  either character form.
+
+  That those two arguments accept a non-predictor at all is a separate defect,
+  and the reviewer was right to qualify the finding as an unenforced contract
+  rather than a supported use. Raised as **FSSgam_package#37** and assigned to
+  batch 4, which is the argument-validation batch. The widening here works around
+  it and does not fix it, which the code comment and `NEWS.md` both say.
+
+- **A false claim in the pull request body.** It said the check runs "after the
+  missing-predictor check so that a misspelled name is still reported first". The
+  first check now runs at the top of `generate_model_set()`, before both
+  `check_predictor_missingness()` and the missing-predictor check, so a missing
+  predictor is reported second. The bullet immediately below it contradicted the
+  sentence. Corrected.
+
+The reviewer also mutation-tested the change, confirming each new check is pinned
+by exactly one test. Suite: 629 passing, from 616.
+
+---
