@@ -405,3 +405,52 @@ the constraint population is 818 R constraints, not 1119, which is the
 omitted three exit paths, which cycle 5 verified separately.
 
 ---
+**Claude:** Batch 3 (FSSgam_package#26, #27), branch `batch3-supplied-cor-matrix`,
+stacked on batch 2. Re-triage first: batch 2 raised no new issues, so batch 3 is
+unchanged from the plan.
+
+- **#26.** `build_predictor_correlation_matrix()` branched on
+  `length(cor.matrix)==1` as the sentinel for the `NA` default. A 1x1 matrix has
+  length 1, and a single-predictor model set is the only case in which a supplied
+  matrix is 1x1, so exactly that case had its supplied matrix discarded and
+  recomputed. Replaced with `cor_matrix_supplied()`, which tests the default
+  value: a matrix or data.frame is supplied, a length-one `NA` is not, and
+  anything else is rejected naming its class. That last part is a consequence
+  rather than an addition — something has to happen for the remaining cases, and
+  under the old sentinel a `NULL` or a character value fell through to the
+  supplied branch and failed against the missing-predictor check, reporting
+  predictors rather than the argument.
+
+- **#27.** An `NA` between two predictors of a supplied matrix reached
+  `combine_uncorrelated()` and stopped the call with "missing value where
+  TRUE/FALSE needed". The check is now in the supplied branch, naming the pairs.
+
+  Three decisions on where and what to check, each recorded on the face of the
+  code. It runs *before* `augment_supplied_correlation_matrix()`, so only cells
+  the user actually supplied are examined — that function fills the derived rows
+  and columns it adds with zero and deliberately leaves a user-supplied `NA`
+  alone (FSSgam_package#15). It is *off-diagonal only*, both screens taking
+  `max(abs(.))` over `upper.tri()` and `lower.tri()`, which exclude the diagonal,
+  so a diagonal `NA` is never read and must not be reported. And it covers only
+  predictors present in *both* dimensions of the supplied matrix, a derived name
+  the user did not supply being computed rather than supplied.
+
+  `combine_uncorrelated()` is left alone. The comment there records that stopping
+  on an `NA` is the right behaviour at that point, the alternative being to drop
+  the combination silently; this moves the report to where the pair can be named.
+
+  This is a behaviour change and is recorded as one in `NEWS.md`: at
+  `max.predictors = 1` the pair is never enumerated, so a matrix with an `NA` in
+  it was previously accepted and the model set built against a matrix with a hole
+  in it. Such a call now errors.
+
+Six tests added. Four fail against the pre-fix code, verified by reverting
+`R/generate-model-set.R` to the batch 2 state and running the file: the 1x1 case
+fails, the two validation cases error, and the `max.predictors = 1` case fails.
+The fifth, that a diagonal `NA` is accepted, passes before and after — it guards
+against a false positive the new check could introduce rather than against the
+old defect, which is why it is written as `expect_no_error()`.
+
+Suite: 622 passing, 0 failing, 7 skipped, from 616.
+
+---

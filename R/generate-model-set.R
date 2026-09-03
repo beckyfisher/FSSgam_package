@@ -674,6 +674,41 @@ build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.co
       if(length(named.missing)>0){
             stop(paste("Supplied cor.matrix is missing required predictors: ",
             paste(named.missing,collapse=", "),".",sep=""))}
+
+      # An NA between two predictors is reported here, naming the pairs, rather
+      # than reaching combine_uncorrelated() and enumerate_candidate_models().
+      # There it is compared with cov.cutoff and stops the call with "missing
+      # value where TRUE/FALSE needed", which names neither the matrix, the
+      # argument, nor the pair. Whether it happened at all depended on
+      # max.predictors: at 1 the pair is never enumerated and the same matrix
+      # was accepted (FSSgam_package#27).
+      #
+      # Reported rather than screened out. The comment on combine_uncorrelated()
+      # records that stopping on an NA is the right behaviour there, the
+      # alternative being to drop the combination silently; this check moves the
+      # report to where the pair can be named, and leaves that function alone.
+      #
+      # Checked here, before augment_supplied_correlation_matrix() runs, so that
+      # only cells the user actually supplied are examined. That function fills
+      # the derived rows and columns it adds with zero, and deliberately leaves
+      # a user-supplied NA alone (FSSgam_package#15).
+      #
+      # Off-diagonal only, and only over predictors present in both dimensions
+      # of the supplied matrix. The diagonal is never read: both screens take
+      # max(abs(.)) over upper.tri() and lower.tri(), which exclude it. A
+      # derived name the user did not supply is not examined either, being
+      # computed rather than supplied.
+      supplied.predictors=intersect(intersect(all.predictors,rownames(cor.matrix)),
+                                    colnames(cor.matrix))
+      if(length(supplied.predictors)>1){
+        sub.mat=as.matrix(cor.matrix)[supplied.predictors,supplied.predictors,drop=FALSE]
+        na.cells=which(is.na(sub.mat)&!diag(TRUE,nrow(sub.mat)),arr.ind=TRUE)
+        if(nrow(na.cells)>0){
+          pairs=paste0(rownames(sub.mat)[na.cells[,"row"]],"/",
+                       colnames(sub.mat)[na.cells[,"col"]])
+          stop(paste0("Supplied cor.matrix has NA between predictors that are ",
+               "screened against cov.cutoff: ",paste(pairs,collapse=", "),
+               ". Supply a correlation for each, or remove the predictor."))}}
       if(length(derived.missing.rows)>0|length(derived.missing.cols)>0){
         cor.matrix=augment_supplied_correlation_matrix(use.dat=use.dat,
                           cor.matrix=cor.matrix,

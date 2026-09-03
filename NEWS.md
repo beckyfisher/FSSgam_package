@@ -15,6 +15,21 @@
   fell through to the supplied branch and failed further on, against the
   missing-predictor check, reporting predictors rather than the argument.
 
+* **Behaviour change:** an `NA` between two predictors of a supplied
+  `cor.matrix` is now reported by `generate_model_set()`, naming the pairs,
+  where it previously either stopped with `missing value where TRUE/FALSE
+  needed` — naming neither the matrix, the argument, nor the pair — or was
+  accepted silently. Which of the two happened depended on `max.predictors`: at
+  1 the pair is never enumerated, so the same matrix was accepted and the model
+  set built against a matrix with a hole in it. A call of that shape now errors
+  (FSSgam_package#27).
+
+  The check is on the cells the user supplied, before the derived rows and
+  columns are computed, and off the diagonal only, the diagonal never being read
+  by either screen. `combine_uncorrelated()` is unchanged: stopping on an `NA`
+  is the right behaviour there, the alternative being to drop the combination
+  silently, and this only moves the report to where the pair can be named.
+
 * **`DESCRIPTION` now declares `Depends: R (>= 4.4.0)`, raised from
   `R (>= 3.5)`.** The old floor was not reachable: `MuMIn` and `mgcv`, both
   hard `Imports`, each declare `Depends: R (>= 4.4.0)` at the versions current

@@ -239,6 +239,45 @@ test_that("cor.matrix rejects a value that is neither a matrix nor the NA defaul
   )
 })
 
+test_that("an NA between two predictors of a supplied cor.matrix is reported by name", {
+  # Reaching combine_uncorrelated() with the NA gives "missing value where
+  # TRUE/FALSE needed", which names neither the matrix, the argument, nor the
+  # pair (FSSgam_package#27).
+  fit <- fixture_cs1_gaussian()
+  na.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
+  na.cor["complexity", "depth"] <- NA
+
+  expect_error(
+    fixture_cs1_model_set(fit = fit, cor.matrix = na.cor),
+    "Supplied cor.matrix has NA between predictors.*complexity/depth"
+  )
+})
+
+test_that("the NA report does not depend on max.predictors", {
+  # At max.predictors = 1 the pair is never enumerated, so the same matrix used
+  # to be accepted and the model set built against a matrix with a hole in it
+  # (FSSgam_package#27).
+  fit <- fixture_cs1_gaussian()
+  na.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
+  na.cor["complexity", "depth"] <- NA
+
+  expect_error(
+    fixture_cs1_model_set(fit = fit, cor.matrix = na.cor, max.predictors = 1),
+    "Supplied cor.matrix has NA between predictors"
+  )
+})
+
+test_that("an NA on the diagonal of a supplied cor.matrix is accepted", {
+  # Both screens take max(abs(.)) over upper.tri() and lower.tri(), which
+  # exclude the diagonal, so a diagonal NA is never read and must not be
+  # reported as though it were.
+  fit <- fixture_cs1_gaussian()
+  diag.na.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
+  diag(diag.na.cor) <- NA
+
+  expect_no_error(fixture_cs1_model_set(fit = fit, cor.matrix = diag.na.cor))
+})
+
 # ---- factor.smooth.interactions ---------------------------------------------
 
 test_that("factor.smooth.interactions = NA suppresses all by-terms", {
