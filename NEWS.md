@@ -1,5 +1,32 @@
 # FSSgam (development version)
 
+* `fit_model_set()`'s `r2.vals.unique` column is now documented. It was returned
+  in `mod.data.out` and described nowhere. The documentation states that the
+  column is the model R2 minus the null model's R2, so it is the variance
+  explained beyond whatever was supplied in `null.terms`; that it is a per-model
+  quantity rather than a variance partition among terms, and so is a per-predictor
+  contribution only at `max.predictors = 1`; that it is on whatever scale
+  `r2.type` produced, and so can be negative; and that values are comparable only
+  within a model set sharing the same `null.terms` and `r2.type`
+  (FSSgam_package#24).
+
+* `check_non_linear_correlations()` now guards the intercept-only `multinom()`
+  fit against `try()` failure, as `check_correlations()` already did. Where only
+  the fitted model was tested, a failed null was passed to `round()` as the
+  character vector `try()` returns, raising "non-numeric argument to mathematical
+  function", which propagated out of the function rather than leaving the cell
+  `NA`, which is how a failed fit is already handled. The guard is defensive: both
+  models are fitted on the same rows, so no case reaching it is known, and no test
+  accompanies it (FSSgam_package#19). This does not make the function degrade to
+  `NA` in every failure. The `lm()` branch of the same function, and the
+  equivalent one in `check_correlations()`, are not guarded at all, and a
+  single-level factor predictor still aborts both: FSSgam_package#33.
+
+* The two `github.io` URLs in `DESCRIPTION`, and the one of them also written in
+  `README.md`, are rewritten with a trailing slash. Without it both redirect with
+  a 301 and `R CMD check --as-cran` reports them under checking CRAN incoming
+  feasibility, which `devtools::check()` does not run (FSSgam_package#20).
+
 * `gamm4` moves from `Imports` to `Suggests`. **A fresh install of this package
   no longer installs `gamm4` or `lme4`. If you fit through
   `MuMIn::uGamm(lme4 = TRUE)`, as the companion repository's case study 2 does,
