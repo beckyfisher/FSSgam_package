@@ -42,12 +42,24 @@
   Reporting at the screening site covers exactly the pairs that are screened.
 
   **A consequence, and a departure from what the issue asked for.** The report
-  depends on `max.predictors`, and on every other argument that decides which
-  pairs are compared. At `max.predictors = 1` each candidate holds one term, so
-  two predictors are never compared and an `NA` between them is accepted. The
-  issue asked for the report not to depend on `max.predictors`; that would mean
-  rejecting a matrix over a cell nothing reads, which is a false failure. An
-  `NA` is reported whenever it is read and not otherwise.
+  covers exactly the pairs some screen compares, so it depends on
+  `max.predictors` and on the interaction arguments. The issue asked for the
+  report not to depend on `max.predictors`; that would mean rejecting a matrix
+  over a cell nothing reads, which is a false failure. An `NA` is reported
+  whenever it is read and not otherwise.
+
+  Note that "read" is not the same as "in a candidate together". A `.by.` term
+  is one term of a candidate but splits into two for the screen, so at
+  `max.predictors = 1` a continuous predictor and a factor are still compared;
+  two continuous predictors are not.
+
+* Bug fix: the correlation matrix `resolve_factor_interactions()` computes when
+  no `cor.matrix` is supplied is now zero-filled, as the one
+  `build_predictor_correlation_matrix()` computes already was. Without it a
+  computed matrix reached the factor-factor screen with `NA` in it --
+  `check_correlations()` returns `NA` for a pair involving a single-level factor
+  (FSSgam_package#33) -- and the call stopped with `missing value where
+  TRUE/FALSE needed` (FSSgam_package#27).
 
   `combine_uncorrelated()` and `enumerate_candidate_models()` are otherwise
   unchanged: stopping on an `NA` is the right behaviour at both, the alternative

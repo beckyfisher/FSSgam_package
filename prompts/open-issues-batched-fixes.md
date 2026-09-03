@@ -585,3 +585,45 @@ the control. The corrected block uses an uncorrelated variable and shows
 Suite: 633 passing, from 616.
 
 ---
+**Review cycle 4 (independent session, batch 3).** Three substantive findings.
+
+- **The new error fired on a *computed* matrix and blamed a supplied one.** The
+  zero-fill that makes computed matrices free of `NA` is inside
+  `build_predictor_correlation_matrix()`, but `resolve_factor_interactions()`
+  runs first and its `factor_correlations()` helper calls `check_correlations()`
+  directly with no zero-fill. `check_correlations()` returns `NA` for a pair
+  involving a single-level factor. So with no `cor.matrix` argument at all, a
+  single-level factor and `factor.factor.interactions = TRUE` produced
+  "Supplied cor.matrix has NA between terms ... Supply a correlation for each",
+  when nothing had been supplied and there was nothing the user could supply.
+
+  FSSgam_package#27 asserts the computed branch "can never reach" the `NA`; that
+  assertion was inherited into the code and into `NEWS.md` without being tested,
+  and it is false by this route. `factor_correlations()` now zero-fills, matching
+  the other computed path. With that in place the same call fails later with the
+  `contrasts` error, which is FSSgam_package#33 and is batch 4's work.
+
+  The message was also reworded so that it is true whichever matrix it is
+  describing. Threading a `supplied` flag through four call sites was tried and
+  rejected as disproportionate to a wording nuance.
+
+- **A justification repeated in four places was false as a general rule.** "At
+  `max.predictors = 1` each candidate holds one term, so two predictors are never
+  compared" is wrong: a `.by.` term is one term of a candidate but splits into two
+  for the screen. Measured on the standard fixture at `max.predictors = 1`, an
+  `NA` at `complexity/depth` is accepted while `depth/ZONE` and
+  `complexity/ZONE` are reported. The claim is now stated as what it is -- the
+  report covers the pairs some screen compares -- with the `.by.` case named.
+
+- **A test passed for the wrong reason.** The "unscreened pair" test used
+  `pred.vars.fact` of length one, which skips the factor-factor block entirely,
+  so it asserted nothing about screening. It now uses two factors and asserts
+  that the interaction column was built before testing the cell.
+
+Two stale error-message quotations in the pull request body, and a claim there
+that `combine_uncorrelated()` is unchanged when it is one of the two functions
+the change edits, were corrected.
+
+Suite: 636 passing, from 616.
+
+---

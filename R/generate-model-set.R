@@ -425,7 +425,16 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
     # second copy of the length(cor.matrix)==1 sentinel, so a 1x1 supplied
     # matrix was discarded here as well (FSSgam_package#26).
     if(!cor_matrix_supplied(cor.matrix)){
-      check_correlations(use.dat[,vars])
+      # Zero-filled, as build_predictor_correlation_matrix() does for the
+      # matrix it computes. Without it a computed matrix reaches the screen
+      # with NA in it -- check_correlations() returns NA for a pair involving
+      # a single-level factor (FSSgam_package#33) -- and the report then named
+      # a supplied cor.matrix when none had been supplied. The issue asserts
+      # the computed branch can never reach that point; it can, by this route
+      # (FSSgam_package#27).
+      computed=check_correlations(use.dat[,vars])
+      computed[is.na(computed)]=0
+      computed
     }else{
       missing.vars=vars[which(is.na(match(vars,rownames(cor.matrix))))]
       if(length(missing.vars)>0){
@@ -628,9 +637,15 @@ stop_on_na_correlations=function(cor.mat.m){
   na.cells=which(is.na(m)&!diag(TRUE,nrow(m)),arr.ind=TRUE)
   if(nrow(na.cells)==0){return(invisible(NULL))}
   pairs=paste0(rownames(m)[na.cells[,"row"]],"/",colnames(m)[na.cells[,"col"]])
-  stop(paste0("Supplied cor.matrix has NA between terms screened against ",
+  # Worded so that it is true whichever matrix this is. Both computed paths are
+  # zero-filled, so in practice only a supplied matrix reaches here -- but the
+  # message said "Supplied cor.matrix" before the zero-fill in
+  # factor_correlations() was added, and told users who had supplied nothing to
+  # supply a correlation. An accurate message costs nothing here.
+  stop(paste0("The correlation matrix has NA between terms screened against ",
        "cov.cutoff: ",paste(unique(pairs),collapse=", "),
-       ". Supply a correlation for each, or remove the predictor."))
+       ". If you supplied cor.matrix, supply a correlation for each of these ",
+       "pairs, or remove the predictor."))
 }
 
 

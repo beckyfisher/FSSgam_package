@@ -277,7 +277,7 @@ test_that("a supplied cor.matrix is validated before the factor interaction scre
 
   expect_error(
     do.call(generate_model_set, c(args, list(cor.matrix = na.cor))),
-    "Supplied cor.matrix has NA between terms"
+    "The correlation matrix has NA between terms"
   )
 })
 
@@ -307,7 +307,7 @@ test_that("an NA is reported for a name screened but not in pred.vars.cont", {
   na.cor["macro", "depth"] <- NA
   expect_error(
     do.call(generate_model_set, c(args, list(cor.matrix = na.cor))),
-    "Supplied cor.matrix has NA between terms"
+    "The correlation matrix has NA between terms"
   )
 })
 
@@ -339,7 +339,7 @@ test_that("an NA in a derived column supplied in one dimension only is reported"
 
   expect_error(
     do.call(generate_model_set, c(args, list(cor.matrix = one.dim))),
-    "Supplied cor.matrix has NA between terms"
+    "The correlation matrix has NA between terms"
   )
 })
 
@@ -353,52 +353,66 @@ test_that("an NA between two predictors of a supplied cor.matrix is reported by 
 
   expect_error(
     fixture_cs1_model_set(fit = fit, cor.matrix = na.cor),
-    "Supplied cor.matrix has NA between terms.*complexity/depth"
+    "The correlation matrix has NA between terms.*complexity/depth"
   )
 })
 
-test_that("an NA is accepted on a pair the model set never screens", {
+test_that("an NA is reported only on pairs some screen actually compares", {
   # A deliberate departure from FSSgam_package#27, which asked for the report
   # not to depend on max.predictors. Reporting a cell that nothing reads is a
-  # false failure: at max.predictors = 1 the candidates hold one term each, so
-  # complexity and depth are never compared and the NA between them is inert.
+  # false failure, so the report covers exactly the pairs compared, and which
+  # pairs those are depends on max.predictors and on the interaction arguments.
   #
-  # The report is made where the sub-matrix is formed, so it covers exactly the
-  # pairs screened against cov.cutoff. That is what makes it complete -- an
-  # earlier check over a union of names both missed pairs and reported pairs
-  # that are not screened -- and the same property is what makes this call
-  # succeed. The dependence on max.predictors is a consequence of which pairs
-  # the model set uses, not of where the check sits.
+  # Not "at max.predictors = 1 nothing is compared". A .by. term is one term of
+  # a candidate but splits into two for the screen, so a continuous/factor pair
+  # is still compared here. Only complexity/depth is not.
   fit <- fixture_cs1_gaussian()
-  na.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
-  na.cor["complexity", "depth"] <- NA
+  base.cor <- fixture_cs1_model_set(fit = fit, max.predictors = 1)$predictor.correlations
 
-  expect_no_error(
-    fixture_cs1_model_set(fit = fit, cor.matrix = na.cor, max.predictors = 1)
-  )
+  reported <- function(pair) {
+    na.cor <- base.cor
+    na.cor[pair[1], pair[2]] <- NA
+    res <- try(
+      fixture_cs1_model_set(fit = fit, cor.matrix = na.cor, max.predictors = 1),
+      silent = TRUE
+    )
+    inherits(res, "try-error")
+  }
+
+  expect_false(reported(c("complexity", "depth")))
+  expect_true(reported(c("depth", "ZONE")))
+  expect_true(reported(c("complexity", "ZONE")))
 })
 
 test_that("an NA is accepted on a pair outside every screen", {
-  # The same property, reached differently: a name given in the character form
-  # of factor.factor.interactions is screened against the others in that
-  # argument and never against pred.vars.cont. An earlier check over a union of
-  # every name that might be screened failed on this cell, which nothing reads.
+  # A name given in the character form of factor.factor.interactions is
+  # screened against the others in that argument and never against
+  # pred.vars.cont. An earlier check over a union of every name that might be
+  # screened failed on this cell, which nothing reads.
   set.seed(1)
   use.dat <- fixture_cs1_data()
   use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
   use.dat$gc <- factor(sample(c("m", "n"), nrow(use.dat), TRUE))
   test.fit <- mgcv::gam(
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
     data = use.dat
   )
-  na.cor <- check_correlations(use.dat[, c("fa", "gc", "depth")])
-  na.cor["gc", "depth"] <- NA
-
-  expect_no_error(generate_model_set(
+  args <- list(
     use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
-    pred.vars.fact = "fa", factor.factor.interactions = c("fa", "gc"),
-    max.predictors = 2, cor.matrix = na.cor
-  ))
+    pred.vars.fact = c("fa", "fb"),
+    factor.factor.interactions = c("fa", "gc"), max.predictors = 2
+  )
+  na.cor <- check_correlations(use.dat[, c("fa", "fb", "gc", "depth")])
+
+  # The factor-factor block must actually run, or this passes for the wrong
+  # reason: with a single entry in pred.vars.fact it is skipped entirely.
+  built <- do.call(generate_model_set, c(args, list(cor.matrix = na.cor)))
+  expect_true("fa.I.gc" %in% colnames(built$used.data))
+
+  # gc is screened against fa, and never against depth
+  na.cor["gc", "depth"] <- NA
+  expect_no_error(do.call(generate_model_set, c(args, list(cor.matrix = na.cor))))
 })
 
 test_that("an NA is reported on a pair crossing a derived column and a screened non-predictor", {
@@ -431,7 +445,7 @@ test_that("an NA is reported on a pair crossing a derived column and a screened 
       smooth.smooth.interactions = c("zz", "depth"), max.predictors = 3,
       cor.matrix = big
     ),
-    "Supplied cor.matrix has NA between terms"
+    "The correlation matrix has NA between terms"
   )
 })
 
