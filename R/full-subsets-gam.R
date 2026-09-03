@@ -32,7 +32,7 @@
 #'
 #' @param r2.type The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note gamm4 does not currently return a deviance.
 #'
-#' @param  report.unique.r2 The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.
+#' @param  report.unique.r2 Should the r2.vals.unique column of mod.data.out be populated. Defaults to FALSE, which leaves it NA. When TRUE, the null model R2 is subtracted from each model R2 to give the variance explained beyond the terms supplied in null.terms. See \code{\link[=fit_model_set]{fit_model_set()}} for what the column is and is not.
 #'
 #' @param progress Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.
 #'
@@ -51,6 +51,7 @@
 #' @return A list of the following output files:
 #'
 #' mod.data.out - A data.frame that contains the statistics associated with each model fit. This includes AICc and BIC, delta values (e.g. AICc-(min(AICc)), corresponding weight values (Burnham and Anderson 2003), an estimate of the model R2, and a column for each of the included predictor variables containing either 0 (variable not included in the model) or 1 (variable is present in the model).
+#' A column r2.vals.unique is also present, and is NA unless report.unique.r2 is TRUE. This data.frame is the one fit_model_set() produced, passed through unaltered, so see \code{\link[=fit_model_set]{fit_model_set()}} for what the column is and is not.
 #' Use of BIC in information theoretic approaches has been heavily criticised because of the inherent assumption of BIC that there is a true model that is represented in the candidate set (Anderson & Burnham 2002). Rather than decide a-priori which model selection tool users should adopt, we supply both as part of the function outputs.
 #' To simplify output, only AICc and AICc based model weights, rather than AIC, are included as these are asymptotically equivalent at large sample sizes, and for small sample sizes AICc should be used in any case.
 #' Calculating R2 values is non-trivial for mixed models, especially non-gaussian cases (and some argue should not be done at all). We have supplied a range of methods for estimating R2 (r2.type), as in our experience a single method rarely performs adequately across all scenarios.
