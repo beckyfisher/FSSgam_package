@@ -114,8 +114,7 @@ estimate_non_linear_correlation=function(response.var1,predictor.var2,dat,fact.v
       # how a failed fit is already handled. check_correlations() was given the
       # equivalent guard in FSSgam_package#16 -- not the identical one, since its
       # null.fit can also be NULL by design and so tests !is.null() as well
-      # (FSSgam_package#19, whose body cites the pull request #18 rather than the
-      # issue #16 that it closed).
+      # (FSSgam_package#19).
       #
       # The lm() branch below has the same unguarded shape and is reachable, so
       # this function does not yet degrade to NA in every failure: see

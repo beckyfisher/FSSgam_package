@@ -135,3 +135,36 @@ including that `\link[=fit_model_set]` renders as a hyperlink in both the
 installed help and a pkgdown build.
 
 ---
+**Review cycle 3 (independent session, batch 1).** No substantive defect. The two
+statements corrected in cycle 2 were re-derived from scratch by that session and
+both hold, across all four `test.fit` classes. Five minor points were acted on:
+
+- The `r2.vals.unique` text stated "NA unless `report.unique.r2` is TRUE", which
+  is a necessary and not a sufficient condition. A `gamm` `test.fit` under the
+  default `r2.type` has `r2.vals` `NA` for the whole set, so the column is `NA`
+  with `report.unique.r2` TRUE as well. Stated. That gap is FSSgam_package#6,
+  open and pinned by an expectation, so this is documentation of it, not a fix.
+- Three constructions parent `CLAUDE.md` §12 removes on sight, all of which
+  render into `\value{}` and onto the pkgdown page: "Two qualifications." as an
+  announcement of structure, a sentence opening "And", and "Note that".
+- The `R/check-correlations.R` comment said the `multinom()` fits were "below",
+  which is true of the file and not of the function: they are in
+  `fill_factor_factor_correlations()`. Named. It was also attached to the
+  `expand.grid()` line rather than to the `apply()` containing the `lm()`.
+- Four lines recording which issue number FSSgam_package#19's body cites were
+  removed from `R/`. Accurate, but §14 puts what outlives a thread in a
+  repository document, and the provenance is held by the issue and by `git log`.
+
+**A second pre-existing defect found by that review and raised as
+FSSgam_package#34.** An `mgcv::gamm()` fit cannot be a `test.fit` at all. It
+records no `call`, so `stats::update()` in `build_null_model()` fails with "need
+an object with call component" before any candidate is enumerated. Confirmed here.
+This matters because `generate_model_set()`'s own `null.terms` documentation
+directs the user to `gamm` for a correlation structure, its `@details` contrast
+`gam` against `gamm` at length, `fit_model_set()`'s `r2.type` names `gamm` among
+the classes it reports for, and `extract_mod_dat()` has a `gamm` branch. The error
+message compounds it by advising the user to stop using `uGamm`, which is what
+they would have had to use to succeed. Not fixed here: whether to support it, or
+to document `uGamm` as the only route to a mixed fit, is a decision.
+
+---
