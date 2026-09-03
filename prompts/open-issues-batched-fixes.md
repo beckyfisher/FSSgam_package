@@ -729,3 +729,27 @@ Each was arithmetic or classification over results already computed, not a
 measurement problem. Classify the cells and check they sum to the grid size.
 
 ---
+**Review cycle 8 (independent session, batch 3).** Nothing substantive. That
+session regenerated the 432-cell grid from `git archive` exports of both trees,
+rather than reusing any saved result, and classified it with a script written
+that round: every figure reproduces, 104 / 208 / 40 / 80 / 0 / 0 summing to 432,
+all 40 error-to-built cells having `pred.vars.cont = NA` and all 80
+differing-error cells being single-level-factor scenarios. It also confirmed the
+stated mechanism directly, each of those 80 changing from "missing value where
+TRUE/FALSE needed" to the `contrasts` error, and checked the two superseded
+counts recorded in `NEWS.md` are arithmetically what they are said to be.
+
+It probed for an eighth code defect across `data.frame`, S4 `Matrix`, 1x1 in both
+classes, asymmetric matrices, `NaN`, `NA_character_`, a three-dimensional array,
+`TRUE` and `nearPD`, and found none. One latent assumption is recorded and left
+alone: `stop_on_na_correlations()` assumes a square sub-matrix, which nothing
+currently reaches with a non-square one.
+
+Two ruled verbs were corrected -- "must not carry NA" and "costs nothing", both
+cases parent `CLAUDE.md` §12 names. The blank lines flagged as stray turned out
+to be separators inside newly added functions; the file already had single blank
+lines where the diff suggested otherwise.
+
+Batch 3 converged after eight cycles. Suite: 638 passing, from 616.
+
+---
