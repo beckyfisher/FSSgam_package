@@ -1355,3 +1355,38 @@ function returned `NULL` -- which is now `character(0)`.
 Suite: 768 passing, from 670.
 
 ---
+**Review cycle 8 (independent session, batch 5).** Nothing substantive; batch 5
+converged after eight cycles.
+
+That session compared `build_null_term_correlations()` against an independently
+written expectation over 16 constructed shapes and 2,420 randomised ones -- zero
+value mismatches and zero dimname mismatches -- and confirmed `pmax` cannot
+misalign, the target being subset by the filled block's own dimnames. Of 35
+mutations on the new code, 32 fail the suite.
+
+Two of the three survivors were coverage gaps and are now closed, each verified
+at 2 failures: replacing `pmax()` with a plain assignment, which no test
+distinguished because every earlier one supplied a single direction or the same
+value both ways; and treating a smooth with no `bs` argument as a random effect,
+which no test reached because every `null.terms` smooth in the suite writes one.
+The third is unreachable through the public function.
+
+**One finding raised as FSSgam_package#41 rather than changed here.** An `NA` in
+*both* supplied directions between a forced term and a predictor is read as
+zero, so the pair is not screened and nothing is reported -- while an `NA`
+between two predictors stops the call and names the pair, which is
+FSSgam_package#27. Either reading is defensible; having one screen stop and the
+other silently admit is not. Changing it at cycle 8 would be a behaviour decision
+made without review, so the issue records the three options and the constraint
+that the per-direction fill must stay.
+
+**Eight cycles, and the shape of the work is worth recording.** Cycles 1 and 5 to
+7 found code defects, and every one of those was the same mistake: code written
+for the square, symmetric, fully-supplied case, with the general case assumed to
+follow. Cycles 2 to 4 found no defect and instead found false statements about
+what the tests covered. The two failures are related -- the coverage claims were
+wrong because the untested paths were the asymmetric ones.
+
+Suite: 772 passing, from 670.
+
+---

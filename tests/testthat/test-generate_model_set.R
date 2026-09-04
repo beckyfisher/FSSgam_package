@@ -1679,3 +1679,46 @@ test_that("a bs given as a variable is exempt from the screen", {
     FSSgam:::null_term_variables("s(depth,k=3,bs='cr')", use.dat), "depth"
   )
 })
+
+test_that("the larger of two differing supplied directions is used", {
+  # fill() combines the two directions with pmax(). A plain assignment would
+  # leave whichever direction is filled second, and every earlier test either
+  # supplies one direction or supplies the same value both ways, so none
+  # distinguishes them (FSSgam_package#23).
+  use.dat <- fixture_cs1_data()
+  use.dat$a <- use.dat$depth * 2
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  nms <- c("depth", "a", "complexity")
+  supplied <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  diag(supplied) <- 1
+  supplied["depth", "a"] <- 0.99   # forward
+  supplied["a", "depth"] <- 0.10   # reverse, smaller
+
+  expect_warning(
+    model.set <- generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("a", "complexity"),
+      null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')",
+      max.predictors = 1, cor.matrix = supplied
+    ),
+    "a \\(depth"
+  )
+  expect_identical(unname(model.set$null.term.correlations["depth", "a"]), 0.99)
+})
+
+test_that("a forced term written without an explicit bs is screened", {
+  # The exemption tests the term's bs argument, and a smooth with no bs at all
+  # is a fixed term, not a random effect. No other test uses a null.terms smooth
+  # written without one (FSSgam_package#23).
+  use.dat <- fixture_cs1_data()
+
+  expect_identical(
+    FSSgam:::null_term_variables("s(depth,k=3)", use.dat), "depth"
+  )
+  expect_identical(
+    FSSgam:::null_term_variables("s(depth,k=3)+s(site,bs='re')", use.dat), "depth"
+  )
+})
