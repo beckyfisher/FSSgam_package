@@ -925,3 +925,46 @@ Suite: 652 passing, from 638.
 Suite: 661 passing, from 638.
 
 ---
+**Review cycle 4 (independent session, batch 4).** Three substantive findings,
+two of them losses this branch caused.
+
+- **A fifth route, and this branch made it silent.** `build_model_formulas()`
+  finds `.by.` and `.te.` with `grep(fixed=TRUE)` over every term, not only over
+  names this package generated, so a predictor whose own name contains one is
+  parsed as an interaction. `catch.by.effort` -- an ordinary variable name --
+  produced `~s(catch.by.effort) + s(catch, by = effort)`, which cannot be fitted,
+  so the predictor vanished from the model set. Confirmed here: on `master` four
+  `-Inf` warnings; on this branch, before the fix, none at all.
+
+  Raised as **FSSgam_package#39** and rejected here, naming the predictor and the
+  reserved strings. Rejecting the failure is not fixing the parse; the issue
+  records what a full fix would involve and that a user cannot always avoid the
+  collision, since feeding `used.data` back in presents names containing `.I.`
+  by construction.
+
+- **The stated reason for deleting the `factor_correlations()` zero-fill test
+  was false.** "No public call reaches it with an NA since a single-level factor
+  is rejected" is wrong: two 40-level factors exceed `multinom()`'s `MaxNWts` and
+  `check_correlations()` returns NA with no single-level factor involved.
+  Verified here. The zero-fill is reachable, and removing it turns that call
+  from a model set into an error while the whole suite still passes. Restored
+  with that construction.
+
+  This is the second time a claim that something is unreachable has been made
+  without testing it -- FSSgam_package#27 asserted the same of its computed
+  branch, and cycle 4 of batch 3 disproved that too. **Do not record a path as
+  unreachable without constructing an attempt to reach it.**
+
+- **A second, undisclosed loss.** `augment_supplied_correlation_matrix()`'s
+  zero-fill was pinned on the parent and by nothing here. The block kept its
+  title, so the name comparison could not show it -- that check catches deletion,
+  not weakening. Restored as its own block.
+
+The separator rejection makes the self-collision screen added in cycle 3
+unreachable, since it needs a predictor literally named `a.I.b`. It is kept as a
+guard, and both the code and the test that used to exercise it now say it is
+pinned by nothing rather than implying coverage.
+
+Suite: 664 passing, from 638.
+
+---

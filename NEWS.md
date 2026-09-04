@@ -69,7 +69,25 @@
   Two generated names can also collide with each other, which is the same defect
   reached from inside rather than outside: `(a, b.I.c)` and `(a.I.b, c)` both
   paste to `a.I.b.I.c`, and the two columns are different variables. That is
-  declined and warned about as well.
+  declined and warned about as well, though it is no longer reachable through the
+  public API, the predictor name it requires being rejected by the check below.
+
+* **Behaviour change:** a predictor whose name contains `.by.`, `.te.`, `.t.` or
+  `.I.` is rejected, naming it and them. Those strings separate the parts of a
+  generated term name and are found with `grep(fixed = TRUE)` over every term,
+  so a predictor named `catch.by.effort` -- an ordinary variable name -- was
+  parsed as an interaction. The candidate became
+  `~s(catch.by.effort) + s(catch, by = effort)`, which cannot be fitted, so the
+  predictor vanished from the model set. The only indication was the `-Inf`
+  warnings, which this release removes for unrelated reasons
+  (FSSgam_package#39).
+
+  This rejects the failure rather than fixing the parse. Making a term's
+  structure explicit instead of recovering it from its name is a larger change,
+  and the issue records what it would involve. One consequence is worth knowing:
+  passing the `used.data` of one call as the `use.dat` of the next presents
+  generated names, which contain `.I.` by construction, so those columns must be
+  dropped or renamed before they can be named as predictors.
 
 * Bug fix: a user-supplied `cor.matrix` with exactly one cell was silently
   discarded and recomputed from `use.dat`. A model set with a single predictor

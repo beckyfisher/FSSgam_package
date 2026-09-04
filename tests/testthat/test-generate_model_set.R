@@ -352,9 +352,11 @@ test_that("a single-level factor predictor is rejected", {
   # (FSSgam_package#27). generate_model_set() now rejects such a factor by name
   # before either (FSSgam_package#33).
   #
-  # The zero-fill added for FSSgam_package#27 is retained and is now defensive:
-  # no public call reaches it with an NA, so nothing here asserts it. Do not
-  # read its presence as covered.
+  # The zero-fill added for FSSgam_package#27 is retained and is still
+  # reachable, which an earlier version of this comment denied. A single-level
+  # factor is only one way check_correlations() returns NA; two high-cardinality
+  # factors exceed multinom()'s MaxNWts and do the same. It is asserted in its
+  # own block below.
   set.seed(1)
   use.dat <- fixture_cs1_data()
   use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
@@ -747,4 +749,62 @@ test_that("passing used.data back in declines every generated column", {
     "already has a column of the same name"
   )
   expect_equal(sum(colnames(second$used.data) == "fa.I.fb"), 1L)
+})
+
+test_that("the computed factor-factor matrix is zero-filled", {
+  # factor_correlations() computes its own matrix inside
+  # resolve_factor_interactions() and must zero-fill it, as
+  # build_predictor_correlation_matrix() does, or the factor-factor screen is
+  # reached with NA in it and the call stops (FSSgam_package#27).
+  #
+  # Two high-cardinality factors, not a single-level one: multinom() exceeds its
+  # MaxNWts and check_correlations() returns NA, with nothing a validation
+  # rejects. A single-level factor also produces the NA but is now refused
+  # earlier (FSSgam_package#33), which is why that construction cannot be used
+  # here and why an earlier version of this suite wrongly concluded the zero-fill
+  # was unreachable.
+  set.seed(1)
+  n <- 200
+  use.dat <- data.frame(
+    y = rnorm(n),
+    f1 = factor(sample(paste0("a", 1:40), n, TRUE)),
+    f2 = factor(sample(paste0("b", 1:40), n, TRUE)),
+    x = rnorm(n)
+  )
+  expect_true(is.na(suppressWarnings(check_correlations(use.dat[, c("f1", "f2")]))["f1", "f2"]))
+
+  test.fit <- mgcv::gam(y ~ s(x, k = 3, bs = "cr"), data = use.dat)
+
+  expect_no_error(suppressWarnings(generate_model_set(
+    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "x",
+    pred.vars.fact = c("f1", "f2"), factor.factor.interactions = TRUE,
+    max.predictors = 2
+  )))
+})
+
+test_that("a supplied matrix augmented with derived columns is zero-filled", {
+  # augment_supplied_correlation_matrix() splices computed rows and columns for
+  # the hard coded interaction names a user cannot know to supply
+  # (FSSgam_package#15), and zero-fills what the computation leaves NA. Without
+  # that, those cells reach the candidate screen as NA.
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$fb <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  nms <- c("depth", "fa", "fb")
+  cor.mat <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  diag(cor.mat) <- 1
+
+  model.set <- generate_model_set(
+    use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
+    pred.vars.fact = c("fa", "fb"), factor.factor.interactions = TRUE,
+    max.predictors = 2, cor.matrix = cor.mat
+  )
+
+  expect_true("fa.I.fb" %in% rownames(model.set$predictor.correlations))
+  expect_false(anyNA(model.set$predictor.correlations))
 })

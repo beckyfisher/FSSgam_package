@@ -1291,13 +1291,19 @@ test_that("a variable named twice within an interaction argument is rejected", {
   )
 })
 
-test_that("two combinations generating the same interaction name are declined", {
-  # (a, b.I.c) and (a.I.b, c) both paste to a.I.b.I.c. The columns are different
-  # variables, so building both gives use.dat two columns of that name -- the
-  # same defect as a collision with a user's column, reached from inside rather
-  # than outside. It arises by feeding used.data back in as use.dat, and
-  # announced itself only through the "-Inf" warnings that exceeds_cutoff() now
-  # suppresses (FSSgam_package#22, FSSgam_package#28).
+test_that("a predictor name containing a reserved separator is rejected", {
+  # This began as a test of the self-collision screen in
+  # build_factor_interaction_columns(): (a, b.I.c) and (a.I.b, c) both paste to
+  # a.I.b.I.c, so both columns were built and use.dat gained two columns of that
+  # name holding different variables (FSSgam_package#22, FSSgam_package#28).
+  #
+  # Reaching that requires a predictor literally named a.I.b, which is now
+  # rejected earlier for a different reason: the separators are how this package
+  # recovers a term's parts, so such a name is parsed as an interaction and the
+  # predictor drops out of the model set entirely (FSSgam_package#39).
+  #
+  # The self-collision screen is therefore unreachable through the public API and
+  # is kept as a guard. Nothing asserts it; do not read its presence as covered.
   set.seed(1)
   use.dat <- fixture_cs1_data()
   use.dat$a <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
@@ -1310,15 +1316,35 @@ test_that("two combinations generating the same interaction name are declined", 
     data = use.dat
   )
 
-  expect_warning(
-    model.set <- generate_model_set(
+  expect_error(
+    generate_model_set(
       use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
       pred.vars.fact = c("a", "b.I.c", "a.I.b", "c"),
       factor.factor.interactions = TRUE, max.predictors = 2
     ),
-    "two combinations of the named factors generate the same column name"
+    "containing a reserved separator"
+  )
+})
+
+test_that("a predictor named catch.by.effort is rejected rather than dropped", {
+  # The failure FSSgam_package#39 reports, on an ordinary variable name.
+  # build_model_formulas() finds .by. with grep(fixed = TRUE) over every term,
+  # so the candidate became ~s(catch.by.effort) + s(catch, by = effort), which
+  # cannot be fitted, and the predictor vanished from the model set. On master
+  # it emitted four "-Inf" warnings naming nothing; exceeds_cutoff() removes
+  # those, so without this check the failure would be silent.
+  use.dat <- fixture_cs1_data()
+  use.dat$catch.by.effort <- rnorm(nrow(use.dat))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
   )
 
-  expect_equal(anyDuplicated(colnames(model.set$used.data)), 0L)
-  expect_equal(anyDuplicated(names(model.set$mod.formula)), 0L)
+  expect_error(
+    generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("depth", "catch.by.effort"), max.predictors = 1
+    ),
+    "catch.by.effort"
+  )
 })

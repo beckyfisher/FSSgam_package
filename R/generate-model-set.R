@@ -256,6 +256,29 @@ validate_predictor_names=function(pred.vars.cont,pred.vars.fact,linear.vars){
            paste0(paste(within[[a]],collapse=", ")," (",a,")"),""),
          collapse="; "),"."))}
 
+  # The strings that separate the parts of a generated term name are reserved.
+  # build_model_formulas() and build_factor_smooth_terms() find them with
+  # grep(fixed=TRUE) over every term, not only over names this package
+  # generated, so a predictor whose own name contains one is read as an
+  # interaction: catch.by.effort, an ordinary variable name, produces
+  # ~s(catch.by.effort) + s(catch, by = effort), which fails to fit and drops
+  # out of the model set. It announced itself only through the "-Inf" warnings
+  # that exceeds_cutoff() now suppresses (FSSgam_package#39).
+  #
+  # Rejected rather than escaped. Parsing a term name back into its parts is how
+  # this package identifies interactions throughout, and making that parse
+  # unambiguous is a larger change than this batch.
+  reserved=c(".by.",".te.",".t.",".I.")
+  offending=unique(unlist(lapply(named,function(x)
+    x[vapply(x,function(v) any(vapply(reserved,function(r)
+      grepl(r,v,fixed=TRUE),logical(1))),logical(1))])))
+  if(length(offending)>0){
+    stop(paste0("Predictor name(s) containing a reserved separator: ",
+         paste(offending,collapse=", "),". The strings ",
+         paste(reserved,collapse=", ")," separate the parts of a generated term ",
+         "name, so a predictor whose name contains one is parsed as an ",
+         "interaction. Rename the predictor."))}
+
   # A name cannot be both a factor and a continuous predictor. Unlike the pair
   # above this is not an idiom: the two lists decide how the term is written
   # into the formula, and a name in both is written both ways.
@@ -490,7 +513,13 @@ build_factor_interaction_columns=function(use.dat,fact.combns){
   # (FSSgam_package#22, FSSgam_package#28).
   #
   # Screened before the collision check below, so a name colliding with both an
-  # existing column and another generated name is reported once, as a collision.
+  # existing column and another generated name is reported once.
+  #
+  # Unreachable through the public API as it stands: producing two combinations
+  # that paste to one name requires a predictor literally named a.I.b, and
+  # validate_predictor_names() rejects a name containing a separator
+  # (FSSgam_package#39). Kept as a guard, and pinned by no test -- do not read
+  # its presence as coverage.
   self.colliding=duplicated(factor.interaction.terms)
   if(any(self.colliding)){
     warning(paste0("Factor interaction column(s) not created, because two ",
