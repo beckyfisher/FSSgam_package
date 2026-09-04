@@ -1178,3 +1178,42 @@ twice.** Run the mutation, read the count, and quote it.
 Suite: 728 passing, from 670.
 
 ---
+**Review cycle 3 (independent session, batch 5).** No code defect. Every
+construction built against the merge, the `null_term_variables()` parse across
+fifteen spellings, the drop-everything path and the `gamm` rejection returned the
+correct answer, and the nine claims cycle 2 added all held on independent re-run
+-- the first verification statement on this branch to do so.
+
+One substantive finding, and it is the same class as cycle 2's: **"every claim
+the branch adds is mutation-tested" was false.** Thirteen further mutations were
+devised and six survived. Five were reachable, and one of them matters:
+
+- `apply(over,2,any)` reduced to `all` retains a predictor at r = 1.00 with one
+  of two forced terms, in every candidate, with nothing reported --
+  FSSgam_package#23 reinstated. Every drop test used a single forced term, so
+  none distinguished the two.
+- The drop was unpinned for `pred.vars.fact` and for `linear.interaction.terms`:
+  unfiltered, a dropped factor re-entered three candidates while `included.vars`
+  said it had been dropped, and a `.t.` term re-entered built on a dropped
+  `linear.vars` entry.
+- Both zero-fills of the supplied block were unpinned: a supplied `NA` cell gives
+  `subscript out of bounds` or `missing value where TRUE/FALSE needed`, which is
+  the failure FSSgam_package#27 removed from the predictor screen.
+
+Four assertions added, each verified by running the mutation and reading the
+count: 2, 1, 1 and 2 failures respectively.
+
+**A second false claim, in a commit message.** `8000ca1` says it "corrects a
+NEWS.md paragraph describing an intermediate state of this branch". Its NEWS.md
+hunk does not do that; the paragraph is unchanged. The commit is pushed, so the
+correction is recorded here and in the following commit rather than by rewriting
+it.
+
+Three rounds, three false verification claims -- that five were pinned, that
+every claim was pinned, and that a paragraph was corrected. The code has been
+right since cycle 1; what has repeatedly not been is the account of what the
+tests cover.
+
+Suite: 738 passing, from 670.
+
+---

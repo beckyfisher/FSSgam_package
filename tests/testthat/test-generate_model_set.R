@@ -1300,3 +1300,95 @@ test_that("a failed computation keeps the forced terms the supplied matrix did n
   expect_true("depth" %in% rownames(model.set$null.term.correlations))
   expect_identical(unname(model.set$null.term.correlations["depth", "complexity"]), 0.2)
 })
+
+test_that("a predictor correlated with any one of several forced terms is dropped", {
+  # The screen takes any() across the forced terms, not all(). With all(), a
+  # predictor at r = 1.00 with one forced term and uncorrelated with another is
+  # retained in every candidate and nothing is reported -- FSSgam_package#23
+  # reinstated. Every other drop test here uses a single forced term, so none
+  # distinguishes the two.
+  set.seed(1)
+  n <- 200
+  use.dat <- data.frame(
+    y = rnorm(n), forcedA = rnorm(n), forcedB = rnorm(n), other = rnorm(n)
+  )
+  use.dat$copy <- use.dat$forcedA + rnorm(n, 0, 0.01)
+  test.fit <- mgcv::gam(y ~ s(forcedA, k = 3, bs = "cr"), data = use.dat)
+
+  expect_warning(
+    model.set <- generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("copy", "other"),
+      null.terms = "s(forcedA,k=3,bs='cr')+s(forcedB,k=3,bs='cr')",
+      max.predictors = 1
+    ),
+    "copy \\(forcedA"
+  )
+  expect_false("copy" %in% model.set$included.vars)
+  expect_true("other" %in% model.set$included.vars)
+})
+
+test_that("a factor predictor correlated with a forced term is dropped", {
+  # The drop applies to pred.vars.fact as well as pred.vars.cont. Unfiltered, a
+  # dropped factor re-entered the candidates while included.vars said it had
+  # been dropped (FSSgam_package#23).
+  set.seed(1)
+  n <- 200
+  use.dat <- data.frame(y = rnorm(n), other = rnorm(n))
+  use.dat$forced <- factor(sample(c("a", "b"), n, TRUE))
+  use.dat$echo <- use.dat$forced
+  test.fit <- mgcv::gam(y ~ s(other, k = 3, bs = "cr"), data = use.dat)
+
+  expect_warning(
+    model.set <- suppress_nnet_nans(generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "other",
+      pred.vars.fact = "echo", null.terms = "forced", max.predictors = 1
+    )),
+    "echo \\(forced"
+  )
+  expect_false("echo" %in% model.set$included.vars)
+  expect_false(any(grepl("echo", names(model.set$mod.formula), fixed = TRUE)))
+})
+
+test_that("a linear interaction term built on a dropped predictor is dropped", {
+  # keep.terms() is applied to linear.interaction.terms as well as to
+  # interaction.terms. Unfiltered, a .t. term re-entered built on a dropped
+  # linear.vars entry (FSSgam_package#23).
+  set.seed(1)
+  n <- 200
+  use.dat <- data.frame(y = rnorm(n), other = rnorm(n), forced = rnorm(n))
+  use.dat$lin <- use.dat$forced + rnorm(n, 0, 0.01)
+  use.dat$fac <- factor(sample(c("a", "b"), n, TRUE))
+  test.fit <- mgcv::gam(y ~ s(other, k = 3, bs = "cr"), data = use.dat)
+
+  expect_warning(
+    model.set <- suppress_nnet_nans(generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "other",
+      pred.vars.fact = "fac", linear.vars = "lin",
+      null.terms = "s(forced,k=3,bs='cr')", max.predictors = 2
+    )),
+    "lin \\(forced"
+  )
+  expect_false(any(grepl("lin", names(model.set$mod.formula), fixed = TRUE)))
+})
+
+test_that("an NA in the supplied forced-term block is treated as zero", {
+  # A hand-built matrix may leave a cell NA. Unfilled, it reaches the comparison
+  # against null.cov.cutoff and stops the call with "missing value where
+  # TRUE/FALSE needed", which is the failure FSSgam_package#27 removed from the
+  # predictor screen (FSSgam_package#23).
+  fit <- fixture_cs1_gaussian()
+  nms <- c("depth", "complexity", "ZONE")
+  supplied <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  diag(supplied) <- 1
+  supplied["depth", "complexity"] <- NA
+
+  expect_no_error(
+    model.set <- fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "complexity", pred.vars.fact = "ZONE",
+      null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')",
+      cor.matrix = supplied, max.predictors = 1
+    )
+  )
+  expect_identical(unname(model.set$null.term.correlations["depth", "complexity"]), 0)
+})
