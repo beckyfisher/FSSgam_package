@@ -117,6 +117,7 @@ generate_model_set=function(use.dat,
                           pred.vars.fact=pred.vars.fact,linear.vars=linear.vars)
   validate_interaction_predictors(factor.factor.interactions=factor.factor.interactions,
                           smooth.smooth.interactions=smooth.smooth.interactions,
+                          factor.smooth.interactions=factor.smooth.interactions,
                           pred.vars.cont=pred.vars.cont,pred.vars.fact=pred.vars.fact,
                           linear.vars=linear.vars)
   validate_factor_levels(use.dat=use.dat,pred.vars.fact=pred.vars.fact)
@@ -268,7 +269,10 @@ validate_predictor_names=function(pred.vars.cont,pred.vars.fact,linear.vars){
   # Rejected rather than escaped. Parsing a term name back into its parts is how
   # this package identifies interactions throughout, and making that parse
   # unambiguous is a larger change than this batch.
-  reserved=c(".by.",".te.",".t.",".I.")
+  # "+" joins the terms of a candidate name and "*" writes a linear
+  # interaction, so a predictor containing either is parsed as more than one
+  # term in the same way.
+  reserved=c(".by.",".te.",".t.",".I.","+","*")
   offending=unique(unlist(lapply(named,function(x)
     x[vapply(x,function(v) any(vapply(reserved,function(r)
       grepl(r,v,fixed=TRUE),logical(1))),logical(1))])))
@@ -278,6 +282,15 @@ validate_predictor_names=function(pred.vars.cont,pred.vars.fact,linear.vars){
          paste(reserved,collapse=", ")," separate the parts of a generated term ",
          "name, so a predictor whose name contains one is parsed as an ",
          "interaction. Rename the predictor."))}
+
+  # "null" is the name given to the null model's own candidate, so a predictor
+  # of that name produces two candidates called null. mod.formula[["null"]]
+  # returns the first, build_inclusion_mat() matches the wrong row, and the
+  # variable importance table zeroes (FSSgam_package#39).
+  if("null" %in% unlist(named,use.names=FALSE)){
+    stop(paste0("A predictor may not be named \"null\": that is the name of the ",
+         "null model's candidate, so the model set would hold two candidates of ",
+         "that name. Rename the predictor."))}
 
   # A name cannot be both a factor and a continuous predictor. Unlike the pair
   # above this is not an idiom: the two lists decide how the term is written
@@ -308,8 +321,8 @@ validate_predictor_names=function(pred.vars.cont,pred.vars.fact,linear.vars){
 # the resolved correlation matrix exists, and smooth.smooth.interactions by
 # resolve_smooth_smooth_interactions(), which runs after.
 validate_interaction_predictors=function(factor.factor.interactions,
-                          smooth.smooth.interactions,pred.vars.cont,
-                          pred.vars.fact,linear.vars){
+                          smooth.smooth.interactions,factor.smooth.interactions,
+                          pred.vars.cont,pred.vars.fact,linear.vars){
   report=function(named,allowed,arg,requirement){
     if(!is.character(named)){return(invisible(NULL))}
     missing.vars=setdiff(as.character(stats::na.omit(named)),
@@ -340,6 +353,20 @@ validate_interaction_predictors=function(factor.factor.interactions,
   }
   repeated(factor.factor.interactions,"factor.factor.interactions")
   repeated(smooth.smooth.interactions,"smooth.smooth.interactions")
+
+  # The third interaction argument, in its character form. Its list form is
+  # already validated where it is consumed; the character form was not, and
+  # names factors exactly as factor.factor.interactions does.
+  #
+  # Skipped where it still holds its default, which is pred.vars.fact itself.
+  # Otherwise a name repeated in pred.vars.fact is reported against an argument
+  # the user never set, and validate_predictor_names() already reports it
+  # against the one they did.
+  if(is.character(factor.smooth.interactions)&&
+     !identical(factor.smooth.interactions,pred.vars.fact)){
+    report(factor.smooth.interactions,pred.vars.fact,
+           "factor.smooth.interactions","pred.vars.fact")
+    repeated(factor.smooth.interactions,"factor.smooth.interactions")}
 }
 
 # Rejects a factor predictor with fewer than two levels among the rows used.

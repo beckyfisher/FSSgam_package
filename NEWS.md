@@ -72,8 +72,8 @@
   declined and warned about as well, though it is no longer reachable through the
   public API, the predictor name it requires being rejected by the check below.
 
-* **Behaviour change:** a predictor whose name contains `.by.`, `.te.`, `.t.` or
-  `.I.` is rejected, naming it and them. Those strings separate the parts of a
+* **Behaviour change:** a predictor whose name contains `.by.`, `.te.`, `.t.`,
+  `.I.`, `+` or `*` is rejected, as is one named `null`. Those strings separate the parts of a
   generated term name and are found with `grep(fixed = TRUE)` over every term,
   so a predictor named `catch.by.effort` -- an ordinary variable name -- was
   parsed as an interaction. The candidate became
@@ -81,6 +81,15 @@
   predictor vanished from the model set. The only indication was the `-Inf`
   warnings, which this release removes for unrelated reasons
   (FSSgam_package#39).
+
+  `+` joins the terms of a candidate name and `*` writes a linear interaction, so
+  either is parsed as more than one term in the same way. `null` is the name
+  given to the null model's own candidate, so a predictor of that name produced
+  two candidates called `null`: `mod.formula[["null"]]` returned the first, and
+  the variable importance table matched the wrong row.
+
+  `factor.smooth.interactions` in its character form is validated alongside the
+  other two interaction arguments, which it was not.
 
   This rejects the failure rather than fixing the parse. Making a term's
   structure explicit instead of recovering it from its name is a larger change,

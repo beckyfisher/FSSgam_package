@@ -968,3 +968,52 @@ pinned by nothing rather than implying coverage.
 Suite: 664 passing, from 638.
 
 ---
+**Review cycle 5 (independent session, batch 4).** Four substantive findings, and
+the fifth consecutive round to find a lost assertion.
+
+- **The `augment_supplied_correlation_matrix()` zero-fill was still pinned by
+  nothing.** The block restored in cycle 4 could not fail: with every name in
+  the supplied matrix a predictor, the computed cells are never `NA` and the
+  mutant returns a byte-identical matrix. The parent pinned it with a matrix
+  carrying a name that is *not* a predictor, which the rewrite had dropped on
+  the grounds that FSSgam_package#37 rejects a non-predictor -- but #37 rejects
+  one named in an *interaction argument*, and says nothing about the names a
+  supplied matrix carries. That is exactly the case the zero-fill exists for.
+
+- **A sixth route.** A predictor named `null` produced two candidates called
+  `null`, so `mod.formula[["null"]]` returned the first and the variable
+  importance table matched the wrong row. `+` and `*` were unvalidated
+  separators, and `factor.smooth.interactions` was unvalidated in its character
+  form. All three closed.
+
+- Two figures corrected: the `-Inf` warnings number two at `max.predictors = 1`
+  and four at 2, stated as four in five places; and "all removed titles are
+  renames whose property is still asserted" was false for the by-name indexing,
+  which this branch's own commit records as pinned by nothing.
+
+**Every claim this branch makes is now mutation-tested.** The results, each
+mutation run against the whole suite in a fresh process:
+
+| mutated | failures |
+|---|---|
+| `augment` zero-fill, rows | 1 |
+| `augment` zero-fill, columns | 2 |
+| `factor_correlations()` zero-fill | 1 |
+| duplicate-within-argument check | 1 |
+| `exceeds_cutoff()` empty-triangle guard | 1 |
+| FSSgam_package#22 collision decline | 6 |
+| reserved-separator check | 3 |
+| `null`-name check | 1 |
+| self-collision screen | 0, recorded as unpinned |
+
+The duplicate-within-argument check read 0 at first, which exposed a defect in
+the new `factor.smooth.interactions` validation rather than in the test: that
+argument defaults to `pred.vars.fact`, so a name repeated in `pred.vars.fact`
+was reported against an argument the user never set. It is now skipped while it
+holds its default.
+
+**Comparing `test_that` names catches deletion, not weakening.** Five rounds
+found losses; only mutation found the last two. Any claim added to this
+repository should be mutated before it is described as covered.
+
+---

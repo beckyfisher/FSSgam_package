@@ -787,6 +787,14 @@ test_that("a supplied matrix augmented with derived columns is zero-filled", {
   # the hard coded interaction names a user cannot know to supply
   # (FSSgam_package#15), and zero-fills what the computation leaves NA. Without
   # that, those cells reach the candidate screen as NA.
+  #
+  # The supplied matrix must carry a name that is not a predictor, which is what
+  # leaves an NA cell against the derived column. FSSgam_package#37 rejects a
+  # non-predictor named in an interaction argument; it does not stop a supplied
+  # matrix from carrying extra names, and this is the case the zero-fill exists
+  # for. A version of this block without such a name could not fail: with every
+  # name a predictor, the computed cells are never NA and deleting the zero-fill
+  # returns a byte-identical matrix.
   set.seed(1)
   use.dat <- fixture_cs1_data()
   use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
@@ -795,8 +803,8 @@ test_that("a supplied matrix augmented with derived columns is zero-filled", {
     log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
     data = use.dat
   )
-  nms <- c("depth", "fa", "fb")
-  cor.mat <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  nms <- c("depth", "fa", "fb", "junk")
+  cor.mat <- matrix(0, 4, 4, dimnames = list(nms, nms))
   diag(cor.mat) <- 1
 
   model.set <- generate_model_set(
@@ -806,5 +814,49 @@ test_that("a supplied matrix augmented with derived columns is zero-filled", {
   )
 
   expect_true("fa.I.fb" %in% rownames(model.set$predictor.correlations))
+  expect_true("junk" %in% rownames(model.set$predictor.correlations))
   expect_false(anyNA(model.set$predictor.correlations))
+  expect_identical(unname(model.set$predictor.correlations["junk", "fa.I.fb"]), 0)
+})
+
+test_that("a predictor named null is rejected", {
+  # "null" is the name given to the null model's candidate, so a predictor of
+  # that name produced two candidates called null: mod.formula[["null"]]
+  # returned the first, and build_inclusion_mat() matched the wrong row, zeroing
+  # the variable importance table (FSSgam_package#39).
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$null <- rnorm(nrow(fit$use.dat))
+
+  expect_error(
+    fixture_cs1_model_set(fit = fit, pred.vars.cont = c("depth", "null")),
+    "may not be named"
+  )
+})
+
+test_that("a predictor name containing + or * is rejected", {
+  # "+" joins the terms of a candidate name and "*" writes a linear interaction,
+  # so either is parsed as more than one term (FSSgam_package#39).
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat[["a+b"]] <- rnorm(nrow(fit$use.dat))
+
+  expect_error(
+    fixture_cs1_model_set(fit = fit, pred.vars.cont = c("depth", "a+b")),
+    "reserved separator"
+  )
+})
+
+test_that("factor.smooth.interactions in its character form must name factors", {
+  # The third interaction argument. Its list form was validated where it is
+  # consumed; the character form was not, and names factors exactly as
+  # factor.factor.interactions does (FSSgam_package#37).
+  fit <- fixture_cs1_gaussian()
+
+  expect_error(
+    fixture_cs1_model_set(fit = fit, factor.smooth.interactions = c("ZONE", "site")),
+    "site named in factor.smooth.interactions are not predictors"
+  )
+  expect_error(
+    fixture_cs1_model_set(fit = fit, factor.smooth.interactions = c("ZONE", "ZONE")),
+    "Each variable may be named once in factor.smooth.interactions"
+  )
 })
