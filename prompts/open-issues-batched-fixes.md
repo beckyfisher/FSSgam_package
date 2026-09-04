@@ -1137,3 +1137,44 @@ mutated.
 Suite: 712 passing, from 670.
 
 ---
+**Review cycle 2 (independent session, batch 5).** Two substantive findings, both
+in the verification rather than the code, and both the same class of error as
+earlier rounds: a claim about coverage that was not true.
+
+- **Two of the five claims cycle 1 said were "now pinned by mutation" were not.**
+  Removing `full_subsets_gam()`'s forwarding of `null.cov.cutoff` left the suite
+  green, and `null.cov.cutoff` appeared nowhere in that file's tests. Reducing
+  `keep.terms()` to the `.by.` separator also left it green, and that mutation is
+  not cosmetic: two `te()` terms built on a dropped predictor re-entered the
+  model set.
+
+- **The mechanism the previous commit exists to introduce had no test.** Nothing
+  pinned that a supplied `cor.matrix` *overrides* the computed estimate: the
+  committed test set its supplied cell above the cutoff, so it passed whether or
+  not the supplied value was read. And the `try()` fallback and its warning --
+  the whole FSSgam_package#13 argument for computing the block at all -- were
+  untested.
+
+Four assertions added, each verified by mutation. The fourth needed a
+construction the first attempt missed: returning `NULL` from the fallback rather
+than the supplied rows is only detectable when the supplied matrix names one
+forced term and the computation fails for another, so the test uses two forced
+terms and a `Date` predictor.
+
+The reviewer attacked the merge logic directly -- different column sets and
+orders, a forced term in both blocks, permuted dimnames, asymmetric, duplicated
+and `NA` cells -- and found no defect, and confirmed the screen is correct for
+`te()` forced terms, `by=` terms, `non.linear.correlations = TRUE` and
+`full_subsets_gam()`.
+
+Text corrections: the `@return` said the element is "Absent" where it is present
+and `NULL`; the `bs='re'` exemption was described in `NEWS.md` and in the code
+but not on the manual page a user reads; and `NEWS.md` described an intermediate
+state of the branch.
+
+**Stating that something is mutation-tested is itself a claim, and it was wrong
+twice.** Run the mutation, read the count, and quote it.
+
+Suite: 728 passing, from 670.
+
+---

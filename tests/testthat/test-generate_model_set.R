@@ -1176,3 +1176,127 @@ test_that("null_term_variables keeps only names that are columns of use.dat", {
     "depth"
   )
 })
+
+test_that("a supplied cor.matrix overrides the computed estimate for a forced term", {
+  # The point of reading a supplied matrix at all. A test whose supplied cell is
+  # above the cutoff passes whether or not the supplied value is used, since the
+  # computed one is above it too; this one supplies a value BELOW the cutoff
+  # where the computed estimate is above, so it fails if the supplied value is
+  # ignored (FSSgam_package#23).
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$depth.copy <- use.dat$depth + rnorm(nrow(use.dat), 0, 0.01)
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3,
+    pred.vars.cont = c("complexity", "depth.copy"), pred.vars.fact = "ZONE",
+    null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')", max.predictors = 1
+  )
+
+  # computed, depth against depth.copy is 1.00 and the predictor is dropped
+  expect_warning(do.call(generate_model_set, args), "depth.copy \\(depth")
+
+  # supplied as 0.1, it is not
+  nms <- c("depth", "complexity", "depth.copy", "ZONE")
+  supplied <- matrix(0, 4, 4, dimnames = list(nms, nms))
+  diag(supplied) <- 1
+  supplied["depth", "depth.copy"] <- 0.1
+  supplied["depth.copy", "depth"] <- 0.1
+
+  expect_no_warning(
+    kept <- do.call(generate_model_set, c(args, list(cor.matrix = supplied)))
+  )
+  expect_true("depth.copy" %in% kept$included.vars)
+  expect_identical(unname(kept$null.term.correlations["depth", "depth.copy"]), 0.1)
+})
+
+test_that("a forced term whose correlations cannot be computed is skipped, not fatal", {
+  # The FSSgam_package#13 argument, asserted rather than only stated. A
+  # predictor of a class check_correlations() cannot classify makes the
+  # null-term computation fail; the screen is skipped with a warning and the
+  # model set is still built, so that caller keeps working and is told their
+  # forced terms were not screened.
+  use.dat <- fixture_cs1_data()
+  use.dat$when <- as.Date("2020-01-01") + seq_len(nrow(use.dat))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  nms <- c("complexity", "when")
+  supplied <- matrix(0, 2, 2, dimnames = list(nms, nms))
+  diag(supplied) <- 1
+
+  expect_warning(
+    model.set <- generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("complexity", "when"),
+      null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')",
+      max.predictors = 1, cor.matrix = supplied
+    ),
+    "could not be computed, so those terms were not screened"
+  )
+  expect_true(model.set$n.mods > 0)
+  expect_true(all(c("complexity", "when") %in% model.set$included.vars))
+})
+
+test_that("an interaction term is dropped when any of its parts is", {
+  # keep.terms() splits on every separator, not only .by. -- a te() term built
+  # on a dropped predictor must not re-enter the model set
+  # (FSSgam_package#23).
+  set.seed(1)
+  n <- 200
+  use.dat <- data.frame(
+    y = rnorm(n), forced = rnorm(n), cB = rnorm(n), cC = rnorm(n)
+  )
+  use.dat$cA <- use.dat$forced + rnorm(n, 0, 0.01)
+  test.fit <- mgcv::gam(y ~ s(forced, k = 3, bs = "cr"), data = use.dat)
+
+  expect_warning(
+    model.set <- generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("cA", "cB", "cC"),
+      smooth.smooth.interactions = TRUE,
+      null.terms = "s(forced,k=3,bs='cr')", max.predictors = 2
+    ),
+    "cA \\(forced"
+  )
+  expect_false(any(grepl("cA", names(model.set$mod.formula), fixed = TRUE)))
+})
+
+test_that("a failed computation keeps the forced terms the supplied matrix did name", {
+  # Two forced terms, one named in the supplied matrix and one not, with a
+  # predictor of a class check_correlations() cannot classify so the computation
+  # for the unnamed one fails. The supplied row must survive: discarding it
+  # would lose a screen the user asked for by supplying it
+  # (FSSgam_package#23).
+  use.dat <- fixture_cs1_data()
+  use.dat$when <- as.Date("2020-01-01") + seq_len(nrow(use.dat))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  nms <- c("complexity", "when", "depth")
+  supplied <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  diag(supplied) <- 1
+  supplied["depth", "complexity"] <- 0.2
+  supplied["complexity", "depth"] <- 0.2
+
+  expect_warning(
+    model.set <- generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("complexity", "when"),
+      # SCORE1 is a second fixed forced term, absent from the supplied matrix,
+      # so its row must be computed -- which fails on the Date predictor
+      null.terms = "s(depth,k=3,bs='cr')+s(SCORE1,k=3,bs='cr')+s(site,bs='re')",
+      max.predictors = 1, cor.matrix = supplied
+    ),
+    "SCORE1 and the predictors could not be computed"
+  )
+
+  expect_false(is.null(model.set$null.term.correlations))
+  expect_true("depth" %in% rownames(model.set$null.term.correlations))
+  expect_identical(unname(model.set$null.term.correlations["depth", "complexity"]), 0.2)
+})

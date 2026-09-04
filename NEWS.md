@@ -33,8 +33,10 @@
   one is what must not happen.
 
   `null.term.correlations` is returned whether or not anything is dropped, so
-  the correlations can be inspected where no warning is raised. A supplied
-  `cor.matrix` is used for any forced term it names; the rest of the block is
+  the correlations can be inspected where no warning is raised; it is `NULL`
+  where there is nothing to report. A supplied `cor.matrix` is used for any
+  forced term it names, overriding the computed estimate for that term; the rest
+  of the block is
   computed from `use.dat`, which is the ordinary case, a supplied matrix being
   indexed by predictor and a forced term not being one. Requiring the matrix to
   name the term would disable this screen for every caller who supplies one.

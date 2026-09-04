@@ -526,3 +526,30 @@ test_that("max.models has the same default in the wrapper and in fit_model_set",
   )
   expect_equal(eval(formals(full_subsets_gam)$max.models), 200)
 })
+
+test_that("full_subsets_gam forwards null.cov.cutoff", {
+  # It forwards every generate_model_set() argument, and a new one is easy to
+  # add to the signature and forget in the call (FSSgam_package#23).
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$depth.copy <- use.dat$depth + rnorm(nrow(use.dat), 0, 0.01)
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3,
+    pred.vars.cont = c("complexity", "depth.copy"),
+    null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')", max.predictors = 1
+  )
+
+  expect_warning(
+    dropped <- do.call(full_subsets_quietly, args),
+    "depth.copy \\(depth"
+  )
+  expect_false(any(grepl("depth.copy", dropped$mod.data.out$modname, fixed = TRUE)))
+
+  # raising the cutoff through full_subsets_gam keeps it
+  kept <- do.call(full_subsets_quietly, c(args, list(null.cov.cutoff = 1)))
+  expect_true(any(grepl("depth.copy", kept$mod.data.out$modname, fixed = TRUE)))
+})
