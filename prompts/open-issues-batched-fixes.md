@@ -892,3 +892,36 @@ across 179 scenarios, so "which combinations survive is unchanged" holds.
 Suite: 652 passing, from 638.
 
 ---
+**Review cycle 3 (independent session, batch 4).** Four substantive findings.
+
+- **The same three test blocks were deleted a second time**, by the very commit
+  written to restore them two commits earlier. The cause was again a span-based
+  text replacement reaching further than intended: the span ran from one block's
+  title to another's, and the three restored blocks sat between. Restored, and a
+  script now compares the list of `test_that` names against any earlier ref after
+  every edit to a test file. **Any further edit to a test file in this project
+  should run it.** Two rounds lost the same coverage; nothing but a mechanical
+  check will stop a third.
+
+- **A fourth route to FSSgam_package#28 and #22.** Generated names were compared
+  against `colnames(use.dat)` but never against each other, and two distinct
+  combinations can paste to one name: `(a, b.I.c)` and `(a.I.b, c)` both give
+  `a.I.b.I.c`, the shape produced by feeding `used.data` back in. Both columns
+  were built, so `use.dat` gained two columns of that name holding different
+  variables, with no warning on this branch and only the `-Inf` warnings on the
+  parent. Declined and warned about, screened before the existing collision check
+  so a name colliding both ways is reported once.
+
+- **The by-name-indexing test did not discriminate.** Reverting
+  `combine_uncorrelated()` to positional indexing fails nothing: every caller
+  pre-subsets the matrix by name, so the reordering the test constructs is
+  normalised away before that function runs. The test is renamed to the property
+  it does assert, and both it and the code now record that the mechanism is
+  defensive given its callers and is pinned by nothing. Propping it up with a
+  contrived test would have been worse than saying so.
+
+- The pull request's test accounting was wrong a second time.
+
+Suite: 661 passing, from 638.
+
+---

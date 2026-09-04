@@ -427,6 +427,12 @@ combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff){
   for(i in sizes){
     combns=c(combns,utils::combn(vars,i,simplify=FALSE))}
   combns=lapply(combns,FUN=function(x){
+          # Defensive given the callers this function has: each pre-subsets
+          # the matrix by name, so nothing reachable through the public API
+          # distinguishes this from positional indexing, and no test pins it.
+          # Reverting it fails nothing. Kept because a future caller passing an
+          # unsubsetted matrix would need it.
+          #
           # Indexed by name, both dimensions in the order of x, so that the
           # sub-matrix holds the pairs it is meant to. which(match(rownames, x))
           # returns positions in rowname order and which(match(colnames, x)) in
@@ -475,6 +481,25 @@ build_factor_interaction_columns=function(use.dat,fact.combns){
   # The shape arises without contrivance: running generate_model_set() twice and
   # passing the used.data of the first call as the use.dat of the second
   # presents every generated name as an existing column.
+  # Two distinct combinations can paste to one name: (a, b.I.c) and (a.I.b, c)
+  # both give a.I.b.I.c. The columns are different variables, so building both
+  # gives use.dat two columns of that name -- the same defect as a collision
+  # with a user's column, reached from inside rather than outside. It arises the
+  # same way, by feeding used.data back in as use.dat, and announced itself only
+  # through the "-Inf" warnings that exceeds_cutoff() now suppresses
+  # (FSSgam_package#22, FSSgam_package#28).
+  #
+  # Screened before the collision check below, so a name colliding with both an
+  # existing column and another generated name is reported once, as a collision.
+  self.colliding=duplicated(factor.interaction.terms)
+  if(any(self.colliding)){
+    warning(paste0("Factor interaction column(s) not created, because two ",
+            "combinations of the named factors generate the same column name: ",
+            paste(unique(factor.interaction.terms[self.colliding]),collapse=", "),
+            ". Rename a factor if both interactions are wanted."))
+    fact.combns=fact.combns[!self.colliding]
+    factor.interaction.terms=factor.interaction.terms[!self.colliding]}
+
   colliding=factor.interaction.terms %in% colnames(use.dat)
   if(any(colliding)){
     warning(paste0("Factor interaction column(s) not created, because use.dat ",

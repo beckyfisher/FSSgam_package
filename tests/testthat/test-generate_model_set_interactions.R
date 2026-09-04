@@ -1217,17 +1217,17 @@ test_that("a predictor named as both a factor and continuous is rejected", {
   )
 })
 
-test_that("the factor-factor screen indexes the supplied matrix by name", {
-  # combine_uncorrelated() indexes its sub-matrix by name, both dimensions in
-  # the order of the combination. Selecting by position instead returns, for a
-  # matrix whose two dimensions carry the same names in different orders, a
-  # sub-matrix whose diagonal holds cross correlations and whose triangles hold
-  # the 1s of the original diagonal -- dropping the combination whatever its
-  # correlation.
+test_that("the factor-factor screen is unaffected by the order of a supplied matrix", {
+  # What this asserts is the property, not the mechanism. Reverting
+  # combine_uncorrelated() to positional indexing does not fail it: every caller
+  # pre-subsets the matrix by name, so the reordering is normalised away before
+  # that function runs, and its own by-name indexing is defensive given the
+  # callers it has. A comment there records the same, so this is not read as
+  # covering it.
   #
-  # The block that used to cover this named a factor twice, which is now
-  # rejected (FSSgam_package#28), so it is asserted here through a supplied
-  # matrix whose dimensions are ordered differently.
+  # The block that did cover the mechanism named a factor twice, which is now
+  # rejected (FSSgam_package#28). Nothing reachable through the public API
+  # distinguishes the two indexings.
   set.seed(1)
   use.dat <- fixture_cs1_data()
   use.dat$fa <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
@@ -1289,4 +1289,36 @@ test_that("a variable named twice within an interaction argument is rejected", {
     ),
     "Each variable may be named once in smooth.smooth.interactions"
   )
+})
+
+test_that("two combinations generating the same interaction name are declined", {
+  # (a, b.I.c) and (a.I.b, c) both paste to a.I.b.I.c. The columns are different
+  # variables, so building both gives use.dat two columns of that name -- the
+  # same defect as a collision with a user's column, reached from inside rather
+  # than outside. It arises by feeding used.data back in as use.dat, and
+  # announced itself only through the "-Inf" warnings that exceeds_cutoff() now
+  # suppresses (FSSgam_package#22, FSSgam_package#28).
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$a <- factor(sample(c("p", "q"), nrow(use.dat), TRUE))
+  use.dat$b <- factor(sample(c("x", "y"), nrow(use.dat), TRUE))
+  use.dat$c <- factor(sample(c("m", "n"), nrow(use.dat), TRUE))
+  use.dat$a.I.b <- factor(paste(use.dat$a, use.dat$b))
+  use.dat$b.I.c <- factor(paste(use.dat$b, use.dat$c))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+
+  expect_warning(
+    model.set <- generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3, pred.vars.cont = "depth",
+      pred.vars.fact = c("a", "b.I.c", "a.I.b", "c"),
+      factor.factor.interactions = TRUE, max.predictors = 2
+    ),
+    "two combinations of the named factors generate the same column name"
+  )
+
+  expect_equal(anyDuplicated(colnames(model.set$used.data)), 0L)
+  expect_equal(anyDuplicated(names(model.set$mod.formula)), 0L)
 })

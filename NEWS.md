@@ -66,6 +66,11 @@
   This is reached without contrivance: passing the `used.data` of one call as the
   `use.dat` of the next presents every generated name as an existing column.
 
+  Two generated names can also collide with each other, which is the same defect
+  reached from inside rather than outside: `(a, b.I.c)` and `(a.I.b, c)` both
+  paste to `a.I.b.I.c`, and the two columns are different variables. That is
+  declined and warned about as well.
+
 * Bug fix: a user-supplied `cor.matrix` with exactly one cell was silently
   discarded and recomputed from `use.dat`. A model set with a single predictor
   is the only case in which a supplied matrix is 1x1, and
