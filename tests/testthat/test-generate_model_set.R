@@ -1531,3 +1531,94 @@ test_that("the drop warning names only the forced terms actually exceeded", {
   expect_match(w, "copy (forcedA,", fixed = TRUE)
   expect_false(grepl("forcedB", w, fixed = TRUE))
 })
+
+test_that("the supplied forced-term block reads both directions", {
+  # The supplied half of the both-directions fix. No test reached it: every
+  # earlier block exercising asymmetry supplies no cor.matrix, so both
+  # single-direction reductions of this path left the suite green
+  # (FSSgam_package#23).
+  use.dat <- fixture_cs1_data()
+  use.dat$dep2 <- use.dat$depth * 2
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  nms <- c("depth", "dep2", "complexity")
+  supplied <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  diag(supplied) <- 1
+  # only the [predictor, forced] direction is large
+  supplied["depth", "dep2"] <- 0.1
+  supplied["dep2", "depth"] <- 0.99
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3,
+    pred.vars.cont = c("dep2", "complexity"),
+    null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')", max.predictors = 1
+  )
+
+  expect_warning(
+    model.set <- do.call(generate_model_set, c(args, list(cor.matrix = supplied))),
+    "dep2 \\(depth"
+  )
+  expect_identical(unname(model.set$null.term.correlations["depth", "dep2"]), 0.99)
+  expect_false("dep2" %in% model.set$included.vars)
+})
+
+test_that("an NA in one supplied direction does not discard the other", {
+  # pmax() defaults to na.rm = FALSE, and the supplied block was filled after
+  # the two directions were combined rather than before. So an NA in one
+  # direction discarded a real value in the other: the cell reported 0, the
+  # predictor stayed in every candidate, and nothing was reported
+  # (FSSgam_package#23).
+  use.dat <- fixture_cs1_data()
+  use.dat$dep2 <- use.dat$depth * 2
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  nms <- c("depth", "dep2", "complexity")
+  supplied <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  diag(supplied) <- 1
+  supplied["depth", "dep2"] <- NA
+  supplied["dep2", "depth"] <- 0.99
+
+  expect_warning(
+    model.set <- generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("dep2", "complexity"),
+      null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')",
+      max.predictors = 1, cor.matrix = supplied
+    ),
+    "dep2 \\(depth"
+  )
+  expect_identical(unname(model.set$null.term.correlations["depth", "dep2"]), 0.99)
+})
+
+test_that("a supplied matrix naming a forced term in one dimension only is accepted", {
+  # have comes from rownames() and cols from colnames(), so reading the reverse
+  # direction as supplied[cols, have] assumed every such name appears in both.
+  # A matrix naming a forced term in one dimension only -- a shape
+  # build_predictor_correlation_matrix() documents itself as accepting --
+  # aborted with a bare "subscript out of bounds" (FSSgam_package#23).
+  use.dat <- fixture_cs1_data()
+  use.dat$dep2 <- use.dat$depth * 2
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  nms <- c("depth", "dep2", "complexity")
+  square <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  diag(square) <- 1
+  square["depth", "dep2"] <- 0.99
+  rows.only <- square[, setdiff(colnames(square), "depth"), drop = FALSE]
+
+  expect_warning(
+    model.set <- generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("dep2", "complexity"),
+      null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')",
+      max.predictors = 1, cor.matrix = rows.only
+    ),
+    "dep2 \\(depth"
+  )
+  expect_identical(unname(model.set$null.term.correlations["depth", "dep2"]), 0.99)
+})

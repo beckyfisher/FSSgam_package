@@ -1282,3 +1282,38 @@ All three verified by mutation: 3, 2 and 1 failures.
 Suite: 753 passing, from 670.
 
 ---
+**Review cycle 6 (independent session, batch 5).** Two code defects, both in the
+*supplied* half of the both-directions fix added in cycle 5, and both in the half
+no test reached. The lesson from cycle 5 repeated at once, one level down.
+
+- **An `NA` in one supplied direction discarded a real value in the other.**
+  `pmax()` defaults to `na.rm = FALSE`, and the supplied block was filled after
+  the two directions were combined rather than before, as the computed block is.
+  A supplied `[forced, predictor]` of `NA` against a `[predictor, forced]` of
+  0.99 reported 0, kept the predictor in every candidate and warned about
+  nothing -- the silence FSSgam_package#23 exists to end, reached through the
+  argument a user supplies to control the screen.
+
+- **A regression: a matrix naming a forced term in one dimension only aborted.**
+  `have` comes from `rownames()` and `cols` from `colnames()`, so reading the
+  reverse direction as `supplied[cols, have]` assumed every such name appears in
+  both. That shape is one `build_predictor_correlation_matrix()` documents itself
+  as accepting, and the parent branch completed on it. Now guarded by
+  intersecting against the opposite dimension.
+
+Three assertions added and verified by mutation: 5, 3 and 1 failures. Before
+them, both single-direction reductions of the supplied path left the suite green.
+
+Two figures corrected. `[forced, curve]` is 0.280 in the committed test, not the
+0.152 an ad-hoc run gave; the difference is the random draw, and the test asserts
+only that it is below the cutoff, which is the property that matters. And the
+pull request described a six-commit branch as one commit.
+
+**Six rounds, and the count of false coverage claims stopped mattering: what
+matters is that each was made the same way.** The pull request no longer claims
+that all reachable mutations are pinned, only that every mutation it names was
+run and its count recorded.
+
+Suite: 760 passing, from 670.
+
+---

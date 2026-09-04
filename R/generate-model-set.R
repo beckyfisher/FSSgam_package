@@ -539,10 +539,28 @@ build_null_term_correlations=function(use.dat,null.vars,all.predictors,
     cols=intersect(screened,colnames(cor.matrix))
     if(length(have)>0&&length(cols)>0){
       supplied.m=as.matrix(cor.matrix)
-      # see the comment on the computed block below
-      from.supplied=pmax(abs(supplied.m[have,cols,drop=FALSE]),
-                         abs(t(supplied.m[cols,have,drop=FALSE])))
-      from.supplied[is.na(from.supplied)]=0}}
+      # Each direction is filled before they are combined, not after. pmax()
+      # defaults to na.rm=FALSE, so combining first makes an NA in one direction
+      # discard a real value in the other: a supplied [forced, pred] of NA
+      # against a [pred, forced] of 0.99 reported 0 and kept the predictor in
+      # every candidate, which is the silence FSSgam_package#23 exists to end,
+      # reached through the argument a user supplies to control the screen.
+      from.supplied=abs(supplied.m[have,cols,drop=FALSE])
+      from.supplied[is.na(from.supplied)]=0
+
+      # The reverse direction is read only over names the matrix has in the
+      # opposite dimension. have comes from rownames and cols from colnames, so
+      # indexing supplied.m[cols, have] assumes every such name appears in both
+      # -- and a matrix naming a forced term in one dimension only is a shape
+      # build_predictor_correlation_matrix() documents itself as accepting. It
+      # aborted with a bare "subscript out of bounds".
+      rev.rows=intersect(cols,rownames(supplied.m))
+      rev.cols=intersect(have,colnames(supplied.m))
+      if(length(rev.rows)>0&&length(rev.cols)>0){
+        back=abs(t(supplied.m[rev.rows,rev.cols,drop=FALSE]))
+        back[is.na(back)]=0
+        from.supplied[rownames(back),colnames(back)]=
+          pmax(from.supplied[rownames(back),colnames(back),drop=FALSE],back)}}}
 
   to.compute=setdiff(null.vars,rownames(from.supplied))
   if(length(to.compute)==0){return(from.supplied)}
@@ -563,12 +581,16 @@ build_null_term_correlations=function(use.dat,null.vars,all.predictors,
   # predictor -- so [forced, predictor] and [predictor, forced] answer different
   # questions and only the second is large when a candidate is a deterministic
   # function of a forced term. Reading one direction admitted such a candidate
-  # silently, which is the condition FSSgam_package#23 exists to end: measured,
-  # a squared forced term gave [forced, curve] 0.152 and [curve, forced] 0.991.
+  # silently, which is the condition FSSgam_package#23 exists to end: measured
+  # in the committed test, a squared forced term gives [forced, curve] 0.280,
+  # below the default cutoff, and [curve, forced] 0.991.
   #
   # This is what the cov.cutoff screen already does: exceeds_cutoff() takes
   # max(abs()) over both triangles. On the symmetric default path the two
   # directions are equal and this changes nothing.
+  # The computed matrix is square over these names and was zero-filled above,
+  # so both directions exist and neither is NA; the supplied path above cannot
+  # assume either.
   computed=pmax(abs(full[to.compute,screened,drop=FALSE]),
                 abs(t(full[screened,to.compute,drop=FALSE])))
   if(is.null(from.supplied)){return(computed)}
