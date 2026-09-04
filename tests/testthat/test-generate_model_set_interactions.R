@@ -1331,8 +1331,9 @@ test_that("a predictor named catch.by.effort is rejected rather than dropped", {
   # build_model_formulas() finds .by. with grep(fixed = TRUE) over every term,
   # so the candidate became ~s(catch.by.effort) + s(catch, by = effort), which
   # cannot be fitted, and the predictor vanished from the model set. On master
-  # it emitted four "-Inf" warnings naming nothing; exceeds_cutoff() removes
-  # those, so without this check the failure would be silent.
+  # it emitted two "-Inf" warnings naming nothing at this max.predictors, four
+  # at 2; exceeds_cutoff() removes those, so without this check the failure
+  # would be silent.
   use.dat <- fixture_cs1_data()
   use.dat$catch.by.effort <- rnorm(nrow(use.dat))
   test.fit <- mgcv::gam(

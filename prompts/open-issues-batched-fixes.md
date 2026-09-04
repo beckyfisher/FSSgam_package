@@ -1017,3 +1017,34 @@ found losses; only mutation found the last two. Any claim added to this
 repository should be mutated before it is described as covered.
 
 ---
+**Review cycle 6 (independent session, batch 4).** Nothing substantive; batch 4
+converged after six cycles.
+
+That session re-ran the whole mutation table independently on a clean
+`git archive` copy, one fresh process per mutation, and all nine rows reproduce.
+It mutated eight further things the table did not cover -- the factor/continuous
+check, the membership check, `droplevels()`, `repeated()`, both `try()` guards,
+and dropping `+`/`*` from the reserved list -- all pinned. Two are not pinned and
+neither changes behaviour: the guard skipping `factor.smooth.interactions` while
+it holds its default, which is unreachable because `validate_predictor_names()`
+stops on that input first, and `validate_factor_levels()`'s `colnames(use.dat)`
+filter.
+
+**No false rejection.** Zero reserved-string hits across all four bundled
+datasets, 133 columns, and every predictor vector in the companion repository's
+vignettes.
+
+**A seventh route exists and was recorded on FSSgam_package#39 rather than fixed
+here.** `-` and `:` mis-parse as `+` and `*` do: `catch-effort` gives
+`~s(catch - effort, k = 3, bs = "cr")`. Confirmed here. It differs in being less
+silent -- the candidate is retained and a failed fit appears in `failed.models`
+-- and the reserved list this batch adds covers the set that was demonstrably
+silent. Extending it belongs to the issue, together with the note that a full fix
+would have to quote term names, since a name containing `-` is not a syntactic R
+name.
+
+Two figures corrected: a test comment still said four `-Inf` warnings above a
+`max.predictors = 1` call, where the count is two; and the pull request still
+described the branch as two commits, where it is seven.
+
+---
