@@ -60,7 +60,7 @@
 #' see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.
 #' To fit a correlation structure, pass MuMIn::uGamm(..., correlation = ...) as the test.fit. A fit produced by mgcv::gamm() directly cannot be used: it records no call, so the candidate models cannot be refitted from it, and generate_model_set stops saying so.
 #'
-#' @param null.cov.cutoff The correlation above which a predictor is dropped for being correlated with a variable named in null.terms. Defaults to 0.8. Terms supplied through null.terms are forced into every candidate model and are outside the cov.cutoff screen, which covers pred.vars.cont, pred.vars.fact and linear.vars only, so without this a candidate could be arbitrarily strongly correlated with a forced term and still appear in every model in the set. That inflates the variance of the forced term's estimate, which is frequently the term the analysis exists to estimate, and nothing in the output would indicate it. A separate cutoff, with a much looser default than cov.cutoff, because the two screens answer different questions: cov.cutoff decides which predictors may appear together, and this decides which predictor is so nearly a restatement of a forced term that fitting both is not informative. Set it to 1 to admit every predictor whatever its correlation with a forced term. A variable inside a bs='re' smooth is exempt from this screen, whichever way the argument is spelled. A random-effect grouping factor is correlated with the predictors measured within it by construction -- with null.terms = "s(Location,Site,bs='re')" and Status nested in Location their correlation is 1 -- and that is the design of the study rather than collinearity to screen out. The screen applies to fixed forced terms, which compete with a candidate for the same variation. Correlations among the null.terms variables themselves are neither computed nor screened: those terms are forced in by your decision, and dropping one is what must not happen. Where the correlation estimate is asymmetric, as check_non_linear_correlations returns it, both directions are read and the larger is used, which is what the cov.cutoff screen already does. The correlations this screens on are returned by generate_model_set as null.term.correlations, each cell being the value screened on rather than one direction of it, whether or not anything is dropped, so they can be inspected even where no warning is raised; full_subsets_gam does not return them, its output being that of fit_model_set. A supplied cor.matrix is used for any forced term it names, and the rest of the block is computed from use.dat, which is the ordinary case since a supplied matrix is indexed by predictor and a forced term is not one. Where that computation fails, which is what a predictor of a class check_correlations cannot classify causes, the screen is skipped with a warning rather than the call stopping. A variable named in null.terms that is not a column of use.dat, such as a function or a term written over several columns, is skipped, a correlation not being defined for it.
+#' @param null.cov.cutoff The correlation above which a predictor is dropped for being correlated with a variable named in null.terms. Defaults to 0.8. Terms supplied through null.terms are forced into every candidate model and are outside the cov.cutoff screen, which covers pred.vars.cont, pred.vars.fact and linear.vars only, so without this a candidate could be arbitrarily strongly correlated with a forced term and still appear in every model in the set. That inflates the variance of the forced term's estimate, which is frequently the term the analysis exists to estimate, and nothing in the output would indicate it. A separate cutoff, with a much looser default than cov.cutoff, because the two screens answer different questions: cov.cutoff decides which predictors may appear together, and this decides which predictor is so nearly a restatement of a forced term that fitting both is not informative. Set it to 1 to admit every predictor whatever its correlation with a forced term. A variable inside a bs='re' smooth is exempt from this screen, however the argument is written -- quoted either way, or wrapped in c(). A bs given as a variable rather than a literal is exempt too, since it cannot be read here and screening a grouping factor in error drops a legitimate predictor, while not screening a fixed term in error leaves the behaviour of earlier versions. A random-effect grouping factor is correlated with the predictors measured within it by construction -- with null.terms = "s(Location,Site,bs='re')" and Status nested in Location their correlation is 1 -- and that is the design of the study rather than collinearity to screen out. The screen applies to fixed forced terms, which compete with a candidate for the same variation. Correlations among the null.terms variables themselves are neither computed nor screened: those terms are forced in by your decision, and dropping one is what must not happen. Where the correlation estimate is asymmetric, as check_non_linear_correlations returns it, both directions are read and the larger is used, which is what the cov.cutoff screen already does. The correlations this screens on are returned by generate_model_set as null.term.correlations, each cell being the value screened on rather than one direction of it, whether or not anything is dropped, so they can be inspected even where no warning is raised; full_subsets_gam does not return them, its output being that of fit_model_set. A supplied cor.matrix is used for any forced term it names in either dimension, and the rest of the block is computed from use.dat, which is the ordinary case since a supplied matrix is indexed by predictor and a forced term is not one. Where that computation fails, which is what a predictor of a class check_correlations cannot classify causes, the screen is skipped with a warning rather than the call stopping. A variable named in null.terms that is not a column of use.dat, such as a function or a term written over several columns, is skipped, a correlation not being defined for it.
 #'
 #' @details The function constructs a complete model set based on the supplied arguments.
 #' for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
@@ -500,12 +500,21 @@ null_term_variables=function(null.terms,use.dat){
     bs=try(call.t[["bs"]],silent=TRUE)
     if(inherits(bs,"try-error")||is.null(bs)){return(FALSE)}
     val=try(eval(bs,envir=baseenv()),silent=TRUE)
-    if(inherits(val,"try-error")){return(FALSE)}
+    # A bs that cannot be evaluated here -- bs=mybs, a variable in the caller's
+    # scope, which mgcv accepts -- is treated as a random effect rather than as
+    # a fixed term. The two errors are not symmetric: screening a grouping
+    # factor drops a legitimate predictor, and not screening a fixed term leaves
+    # the previous behaviour. The safe direction is to exempt it.
+    if(inherits(val,"try-error")){return(TRUE)}
     "re" %in% as.character(val)},logical(1))
 
   fixed.vars=unique(unlist(lapply(terms.chr[!is.re],function(t)
     all.vars(stats::as.formula(paste("~",t))))))
-  intersect(fixed.vars,colnames(use.dat))
+  # as.character() so the empty case returns character(0) rather than NULL:
+  # unlist() of an empty list gives NULL, and every caller tests length() or
+  # calls setdiff(), which cope either way, but a return type that varies is
+  # worth not leaving.
+  intersect(as.character(fixed.vars),colnames(use.dat))
 }
 
 
@@ -535,32 +544,39 @@ build_null_term_correlations=function(use.dat,null.vars,all.predictors,
 
   from.supplied=NULL
   if(isTRUE(cor.matrix.supplied)){
-    have=intersect(null.vars,rownames(cor.matrix))
-    cols=intersect(screened,colnames(cor.matrix))
+    supplied.m=as.matrix(cor.matrix)
+    both.names=unique(c(rownames(supplied.m),colnames(supplied.m)))
+    # A forced term named in EITHER dimension is used. Taking have from
+    # rownames() alone discarded, in full, a matrix naming a forced term only as
+    # a column, and substituted a computed estimate -- so a value the user
+    # supplied to control the screen was ignored, and on the FSSgam_package#13
+    # path the screen was skipped altogether. That is the third orientation of
+    # the same asymmetry: the value read, the row shape, and now the column
+    # shape.
+    have=intersect(null.vars,both.names)
+    cols=intersect(screened,both.names)
     if(length(have)>0&&length(cols)>0){
-      supplied.m=as.matrix(cor.matrix)
-      # Each direction is filled before they are combined, not after. pmax()
-      # defaults to na.rm=FALSE, so combining first makes an NA in one direction
-      # discard a real value in the other: a supplied [forced, pred] of NA
-      # against a [pred, forced] of 0.99 reported 0 and kept the predictor in
-      # every candidate, which is the silence FSSgam_package#23 exists to end,
-      # reached through the argument a user supplies to control the screen.
-      from.supplied=abs(supplied.m[have,cols,drop=FALSE])
-      from.supplied[is.na(from.supplied)]=0
+      # Allocated rather than subset, since neither dimension is guaranteed to
+      # name every term. A cell no supplied direction covers stays zero, which
+      # is what the previous shape did for the same case.
+      from.supplied=matrix(0,length(have),length(cols),dimnames=list(have,cols))
 
-      # The reverse direction is read only over names the matrix has in the
-      # opposite dimension. have comes from rownames and cols from colnames, so
-      # indexing supplied.m[cols, have] assumes every such name appears in both
-      # -- and a matrix naming a forced term in one dimension only is a shape
-      # build_predictor_correlation_matrix() documents itself as accepting. It
-      # aborted with a bare "subscript out of bounds".
-      rev.rows=intersect(cols,rownames(supplied.m))
-      rev.cols=intersect(have,colnames(supplied.m))
-      if(length(rev.rows)>0&&length(rev.cols)>0){
-        back=abs(t(supplied.m[rev.rows,rev.cols,drop=FALSE]))
-        back[is.na(back)]=0
-        from.supplied[rownames(back),colnames(back)]=
-          pmax(from.supplied[rownames(back),colnames(back),drop=FALSE],back)}}}
+      fill=function(target,rows,cols.in,transpose){
+        r=intersect(rows,rownames(supplied.m))
+        c.=intersect(cols.in,colnames(supplied.m))
+        if(length(r)==0||length(c.)==0){return(target)}
+        blk=abs(supplied.m[r,c.,drop=FALSE])
+        if(transpose){blk=t(blk)}
+        # Each direction is filled before the two are combined, not after.
+        # pmax() defaults to na.rm=FALSE, so combining first makes an NA in one
+        # direction discard a real value in the other.
+        blk[is.na(blk)]=0
+        target[rownames(blk),colnames(blk)]=
+          pmax(target[rownames(blk),colnames(blk),drop=FALSE],blk)
+        target}
+
+      from.supplied=fill(from.supplied,have,cols,transpose=FALSE)
+      from.supplied=fill(from.supplied,cols,have,transpose=TRUE)}}
 
   to.compute=setdiff(null.vars,rownames(from.supplied))
   if(length(to.compute)==0){return(from.supplied)}

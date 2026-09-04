@@ -1317,3 +1317,41 @@ run and its count recorded.
 Suite: 760 passing, from 670.
 
 ---
+**Review cycle 7 (independent session, batch 5).** One substantive finding: a
+third orientation of the asymmetry cycles 5 and 6 fixed.
+
+`have` was taken from `rownames(cor.matrix)` alone, so a supplied matrix naming
+a forced term only as a *column* was discarded in full and a computed estimate
+substituted. The value the user supplied to control the screen was ignored, and
+on the FSSgam_package#13 path -- where the computation fails -- the screen was
+skipped altogether. Cycle 6 fixed the mirror shape and tested it; the
+column-only shape had no test.
+
+Evidence: the same value in the same cell, only the matrix shape differing. A
+square matrix and a rows-only matrix both drop the predictor at 0.99; the
+column-only matrix reported the computed 0.274, raised no warning and retained
+it in all seven candidates.
+
+`from.supplied` is now allocated over the union of both dimnames and filled from
+whichever directions the matrix has, rather than subset from the rows.
+
+**The three orientations are worth naming together, because they are one
+mistake made three times:** the value read (one direction of an asymmetric
+estimate), the row shape, and the column shape. Each time the code was written
+for the square, symmetric case and the general one was assumed to follow.
+
+A secondary over-claim was also corrected. "Exempt whichever way the argument is
+spelled" was false for `bs=mybs`, a variable, which mgcv accepts and which does
+not resolve in `baseenv()`. Such a term is now treated as a random effect: the
+two errors are not symmetric, since screening a grouping factor drops a
+legitimate predictor while not screening a fixed term leaves the behaviour of
+earlier versions.
+
+Both fixes verified by mutation, 1 failure each. Two test fixtures of mine were
+wrong rather than the code, and were corrected: one placed the value in the cell
+the subsetting removes, the other compared against `character(0)` where the
+function returned `NULL` -- which is now `character(0)`.
+
+Suite: 768 passing, from 670.
+
+---

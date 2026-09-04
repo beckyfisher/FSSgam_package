@@ -1622,3 +1622,60 @@ test_that("a supplied matrix naming a forced term in one dimension only is accep
   )
   expect_identical(unname(model.set$null.term.correlations["depth", "dep2"]), 0.99)
 })
+
+test_that("a supplied cor.matrix naming a forced term in either dimension is used", {
+  # have was taken from rownames() alone, so a matrix naming a forced term only
+  # as a column was discarded in full and a computed estimate substituted -- the
+  # value the user supplied to control the screen ignored. The third
+  # orientation of the same asymmetry: the value read, the row shape, and the
+  # column shape (FSSgam_package#23).
+  use.dat <- fixture_cs1_data()
+  use.dat$a <- use.dat$depth * 2
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3,
+    pred.vars.cont = c("a", "complexity"),
+    null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')", max.predictors = 1
+  )
+  nms <- c("depth", "a", "complexity")
+  square <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  diag(square) <- 1
+  # both directions, so that each shape below retains the value in whichever
+  # orientation survives the subsetting
+  square["a", "depth"] <- 0.99
+  square["depth", "a"] <- 0.99
+
+  # the same value, only the shape of the matrix differing
+  shapes <- list(
+    square = square,
+    rows.only = square[, setdiff(colnames(square), "depth"), drop = FALSE],
+    cols.only = square[setdiff(rownames(square), "depth"), , drop = FALSE]
+  )
+  for (nm in names(shapes)) {
+    expect_warning(
+      model.set <- do.call(generate_model_set, c(args, list(cor.matrix = shapes[[nm]]))),
+      "a \\(depth", info = nm
+    )
+    expect_identical(
+      unname(model.set$null.term.correlations["depth", "a"]), 0.99, info = nm
+    )
+  }
+})
+
+test_that("a bs given as a variable is exempt from the screen", {
+  # mgcv accepts bs = mybs, and the exemption reads bs from the parsed call in
+  # baseenv(), where such a name does not resolve. Screening a grouping factor
+  # in error drops a legitimate predictor; not screening a fixed term in error
+  # leaves the behaviour of earlier versions, so the unreadable case is exempt
+  # (FSSgam_package#23).
+  use.dat <- fixture_cs1_data()
+
+  expect_length(FSSgam:::null_term_variables("s(site,bs=mybs)", use.dat), 0)
+  # and a readable non-re bs is still screened
+  expect_identical(
+    FSSgam:::null_term_variables("s(depth,k=3,bs='cr')", use.dat), "depth"
+  )
+})
