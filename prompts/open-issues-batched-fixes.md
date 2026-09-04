@@ -1095,3 +1095,45 @@ FSSgam_package#25, which the maintainer asked to split out and address later.
 Suite: 693 passing, from 670.
 
 ---
+**Review cycle 1 (independent session, batch 5).** Three substantive findings,
+one of them a design defect that undid the point of the change.
+
+- **A supplied `cor.matrix` silently disabled the whole screen.** The first
+  implementation used only what such a matrix names, and a supplied matrix is
+  indexed by predictor while a forced term is not one -- so in the ordinary case
+  nothing was screened, `null.term.correlations` was `NULL`, and no warning was
+  raised. That reinstated, for every `cor.matrix` caller, exactly the silence
+  FSSgam_package#23 exists to end. Confirmed here: a predictor at r = 1.00 with
+  the forced term retained in every candidate.
+
+  FSSgam_package#13 did not force that reading. Its guarantee is that a supplied
+  matrix replaces the automatic estimate *for the predictors*, so a predictor of
+  a class `check_correlations()` cannot classify can be used. Only the
+  `null.vars` block is computed now, and where that computation fails -- which is
+  what such a predictor causes -- the screen is skipped with a warning rather
+  than the call aborting. The FSSgam_package#13 caller keeps their model set and
+  is told their forced terms were not screened.
+
+- **`bs=c('re')` defeated the random-effect exemption and then errored.** The
+  test was a regex over the term text. mgcv accepts `bs=c('re')` and fits the
+  identical null model, so a nested factor was dropped and the call stopped with
+  a message naming `max.predictors`, `null.cov.cutoff` and `null.terms`, none of
+  them the cause. The exemption is now read from the parsed call: the term's `bs`
+  argument is evaluated and tested for `"re"`, which covers every spelling.
+
+- **The `@param` text stated the opposite of the code**, saying the correlations
+  are "not taken from a supplied cor.matrix". Every other description was right;
+  only the user-facing one was wrong.
+
+`null.cov.cutoff` was also unvalidated: an `NA` gave an internal error and a
+length-2 value was accepted, recycling into two concatenated messages.
+
+**Five mutations left the suite green**, so five claims were pinned by nothing:
+the `setdiff` exempting forced terms from the screened set, the `colnames`
+filter, `abs()`, three of four separators in the interaction-term drop, and
+`full_subsets_gam()`'s forwarding. Assertions added for each; all now fail when
+mutated.
+
+Suite: 712 passing, from 670.
+
+---

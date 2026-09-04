@@ -60,7 +60,7 @@
 #' see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.
 #' To fit a correlation structure, pass MuMIn::uGamm(..., correlation = ...) as the test.fit. A fit produced by mgcv::gamm() directly cannot be used: it records no call, so the candidate models cannot be refitted from it, and generate_model_set stops saying so.
 #'
-#' @param null.cov.cutoff The correlation above which a predictor is dropped for being correlated with a variable named in null.terms. Defaults to 0.8. Terms supplied through null.terms are forced into every candidate model and are outside the cov.cutoff screen, which covers pred.vars.cont, pred.vars.fact and linear.vars only, so without this a candidate could be arbitrarily strongly correlated with a forced term and still appear in every model in the set. That inflates the variance of the forced term's estimate, which is frequently the term the analysis exists to estimate, and nothing in the output would indicate it. A separate cutoff, with a much looser default than cov.cutoff, because the two screens answer different questions: cov.cutoff decides which predictors may appear together, and this decides which predictor is so nearly a restatement of a forced term that fitting both is not informative. Set it to 1 to admit every predictor whatever its correlation with a forced term. Correlations among the null.terms variables themselves are neither computed nor screened: those terms are forced in by your decision, and dropping one is what must not happen. The correlations this screens on are returned as null.term.correlations, whether or not anything is dropped, so they can be inspected even where no warning is raised. They are computed from use.dat and not taken from a supplied cor.matrix, which is indexed by predictor and has no reason to include a forced term. A variable named in null.terms that is not a column of use.dat, such as a function or a term written over several columns, is skipped, a correlation not being defined for it.
+#' @param null.cov.cutoff The correlation above which a predictor is dropped for being correlated with a variable named in null.terms. Defaults to 0.8. Terms supplied through null.terms are forced into every candidate model and are outside the cov.cutoff screen, which covers pred.vars.cont, pred.vars.fact and linear.vars only, so without this a candidate could be arbitrarily strongly correlated with a forced term and still appear in every model in the set. That inflates the variance of the forced term's estimate, which is frequently the term the analysis exists to estimate, and nothing in the output would indicate it. A separate cutoff, with a much looser default than cov.cutoff, because the two screens answer different questions: cov.cutoff decides which predictors may appear together, and this decides which predictor is so nearly a restatement of a forced term that fitting both is not informative. Set it to 1 to admit every predictor whatever its correlation with a forced term. Correlations among the null.terms variables themselves are neither computed nor screened: those terms are forced in by your decision, and dropping one is what must not happen. The correlations this screens on are returned as null.term.correlations, whether or not anything is dropped, so they can be inspected even where no warning is raised. A supplied cor.matrix is used for any forced term it names, and the rest of the block is computed from use.dat, which is the ordinary case since a supplied matrix is indexed by predictor and a forced term is not one. Where that computation fails, which is what a predictor of a class check_correlations cannot classify causes, the screen is skipped with a warning rather than the call stopping. A variable named in null.terms that is not a column of use.dat, such as a function or a term written over several columns, is skipped, a correlation not being defined for it.
 #'
 #' @details The function constructs a complete model set based on the supplied arguments.
 #' for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
@@ -117,6 +117,12 @@ generate_model_set=function(use.dat,
 
   validate_use_dat(use.dat)
   validate_null_terms(null.terms)
+  # Unvalidated, an NA gave an internal "missing value where TRUE/FALSE needed",
+  # and a character or length-2 value was accepted silently -- the latter
+  # recycling into two concatenated messages.
+  if(!is.numeric(null.cov.cutoff)||length(null.cov.cutoff)!=1||
+     is.na(null.cov.cutoff)||null.cov.cutoff<0){
+    stop("null.cov.cutoff must be a single non-negative number, or 1 to admit every predictor whatever its correlation with a forced term.")}
   # Recorded before build_predictor_correlation_matrix() reassigns cor.matrix to
   # the resolved matrix. After that point the variable no longer says whether
   # the caller supplied anything, and the null-term screen needs to know.
@@ -483,9 +489,20 @@ null_term_variables=function(null.terms,use.dat){
   parsed=try(stats::as.formula(paste("~",null.terms)),silent=TRUE)
   if(inherits(parsed,"try-error")){return(character(0))}
   terms.chr=attr(stats::terms(parsed),"term.labels")
-  # A term is a random effect where it sets bs to "re", written with either
-  # kind of quote and with or without spaces around the "=".
-  is.re=grepl("bs[[:space:]]*=[[:space:]]*['\"]re['\"]",terms.chr)
+  # Whether a term sets bs to "re", read from the parsed call rather than by
+  # matching the text. A regex over the text missed bs=c('re'), which mgcv
+  # accepts and which fits the identical null model, so a nested factor was
+  # dropped and the call stopped with a message naming max.predictors -- none of
+  # them the cause.
+  is.re=vapply(terms.chr,function(t){
+    call.t=try(str2lang(t),silent=TRUE)
+    if(inherits(call.t,"try-error")||!is.call(call.t)){return(FALSE)}
+    bs=try(call.t[["bs"]],silent=TRUE)
+    if(inherits(bs,"try-error")||is.null(bs)){return(FALSE)}
+    val=try(eval(bs,envir=baseenv()),silent=TRUE)
+    if(inherits(val,"try-error")){return(FALSE)}
+    "re" %in% as.character(val)},logical(1))
+
   fixed.vars=unique(unlist(lapply(terms.chr[!is.re],function(t)
     all.vars(stats::as.formula(paste("~",t))))))
   intersect(fixed.vars,colnames(use.dat))
@@ -494,15 +511,20 @@ null_term_variables=function(null.terms,use.dat){
 
 # Correlations between each null.terms variable and each candidate predictor.
 #
-# Where the caller supplied a cor.matrix, only what that matrix names is used.
-# check_correlations() is not called: a supplied matrix replaces the automatic
-# estimate outright, which is what lets a predictor of a class it cannot
-# classify be used at all (FSSgam_package#13), and calling it here would undo
-# that for every model set with a null term. A user who wants a forced term
-# screened while supplying a matrix adds a row and column for it.
+# A supplied cor.matrix is used for any forced term it names, so a user who
+# wants a particular value screened on can give one. For the rest the block is
+# computed from use.dat, which is the ordinary case: a supplied matrix is
+# indexed by predictor and a forced term is not one, so requiring it to be named
+# there would disable this screen for every caller who supplies a matrix --
+# reinstating exactly the silence FSSgam_package#23 exists to end.
 #
-# Where nothing was supplied, the block is computed, since check_correlations()
-# was going to run in any case.
+# Computing it does not undo FSSgam_package#13. That guarantee is that a
+# supplied matrix replaces the automatic estimate for the predictors, so a
+# predictor of a class check_correlations() cannot classify can be used. Only
+# the null.vars block is computed here, and where that computation fails -- which
+# is what such a predictor causes -- the screen is skipped with a warning rather
+# than the call aborting. The FSSgam_package#13 caller still gets their model
+# set, and is told their forced terms were not screened.
 #
 # Returns NULL where there is nothing to report, so the returned element is
 # absent rather than an empty matrix, and calling code can test for it.
@@ -511,25 +533,31 @@ build_null_term_correlations=function(use.dat,null.vars,all.predictors,
   screened=setdiff(all.predictors,null.vars)
   if(length(null.vars)==0||length(screened)==0){return(NULL)}
 
+  from.supplied=NULL
   if(isTRUE(cor.matrix.supplied)){
     have=intersect(null.vars,rownames(cor.matrix))
     cols=intersect(screened,colnames(cor.matrix))
-    if(length(have)==0||length(cols)==0){return(NULL)}
-    out=as.matrix(cor.matrix)[have,cols,drop=FALSE]
-    out[is.na(out)]=0
-    return(out)}
+    if(length(have)>0&&length(cols)>0){
+      from.supplied=as.matrix(cor.matrix)[have,cols,drop=FALSE]
+      from.supplied[is.na(from.supplied)]=0}}
+
+  to.compute=setdiff(null.vars,rownames(from.supplied))
+  if(length(to.compute)==0){return(from.supplied)}
 
   full=try(if(non.linear.correlations==TRUE){
-      check_non_linear_correlations(use.dat[,unique(c(null.vars,screened)),drop=FALSE])
+      check_non_linear_correlations(use.dat[,unique(c(to.compute,screened)),drop=FALSE])
     }else{
-      check_correlations(use.dat[,unique(c(null.vars,screened)),drop=FALSE])},silent=TRUE)
+      check_correlations(use.dat[,unique(c(to.compute,screened)),drop=FALSE])},silent=TRUE)
   if(inherits(full,"try-error")){
-    warning(paste0("Correlations between the null.terms variable(s) and the ",
-            "predictors could not be computed, so they were not screened: ",
-            trimws(attr(full,"condition")$message)))
-    return(NULL)}
+    warning(paste0("Correlations between the null.terms variable(s) ",
+            paste(to.compute,collapse=", ")," and the predictors could not be ",
+            "computed, so those terms were not screened against ",
+            "null.cov.cutoff: ",trimws(attr(full,"condition")$message)))
+    return(from.supplied)}
   full[is.na(full)]=0
-  full[null.vars,screened,drop=FALSE]
+  computed=full[to.compute,screened,drop=FALSE]
+  if(is.null(from.supplied)){return(computed)}
+  rbind(from.supplied[,screened,drop=FALSE],computed)
 }
 
 

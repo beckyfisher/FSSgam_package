@@ -33,11 +33,20 @@
   one is what must not happen.
 
   `null.term.correlations` is returned whether or not anything is dropped, so
-  the correlations can be inspected where no warning is raised. It is computed
-  from `use.dat` only where no `cor.matrix` was supplied; where one was, only
-  what that matrix names is used, since a supplied matrix replaces the automatic
-  estimate outright and calling `check_correlations()` here would undo that for
-  every model set with a null term (FSSgam_package#13).
+  the correlations can be inspected where no warning is raised. A supplied
+  `cor.matrix` is used for any forced term it names; the rest of the block is
+  computed from `use.dat`, which is the ordinary case, a supplied matrix being
+  indexed by predictor and a forced term not being one. Requiring the matrix to
+  name the term would disable this screen for every caller who supplies one.
+  Where the computation fails -- which is what a predictor of a class
+  `check_correlations()` cannot classify causes -- the screen is skipped with a
+  warning rather than the call stopping, so a caller relying on
+  FSSgam_package#13 still gets their model set and is told their forced terms
+  were not screened.
+
+  `null.cov.cutoff` is validated: it must be a single non-negative number.
+  Unvalidated, an `NA` gave an internal "missing value where TRUE/FALSE needed"
+  and a length-2 value was accepted silently.
 
   Where dropping predictors leaves fewer than `max.predictors`, the error says
   so and names them, rather than reporting only that `max.predictors` exceeds
