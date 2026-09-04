@@ -21,6 +21,7 @@ full_subsets_gam(
   k = 5,
   bs.arg = "'cr'",
   null.terms = "",
+  null.cov.cutoff = 0.8,
   max.models = 200,
   save.model.fits = TRUE,
   parallel = FALSE,
@@ -41,7 +42,7 @@ full_subsets_gam(
 The test fit must contain the appropriate random effects and call to family (if not gaussian) and if gamm4 should be used, or gamm in the case of a uGamm call (see ?uGamm).
 Both gamm from mgcv and gamm4 have slightly different features, as well as advantages and disadvantages, thus it is important that the full subsets function is able to deal with test.fit models based on either package.
 For example gamm4 is based on the lme4 package [Bates, D.M. (2010) lme4: Mixed-Effects Modeling with R. Springer, New York] which allows crossed random effects and avoids issues with PQL for non-gaussian model fits.
-On the other hand gamm (mgcv) is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day],
+On the other hand gamm (mgcv), reached through MuMIn::uGamm since a bare mgcv::gamm fit cannot be refitted, is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day],
 variance structures [Pinheiro, J.C. and Bates., D.M. (1996) "Unconstrained Parametrizations for Variance-Covariance Matrices", Statistics and Computing, 6, 289-296],
 and a broader range of families that are not yet available in lmer (see ?family.mgcv).
 Models that have no random effects and are based only on gam (mgcv) are best fit via a direct call to gam, rather than using the uGamm wrapper.}
@@ -78,8 +79,9 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 the null model. Use of bs=re is an alternative way of fitting simple random structures that
 avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used.
 see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.
-to fit a correlation structure only (but no random effects) this must be achieved through a call the gamm
-via , with no random effects, fitted}
+To fit a correlation structure, pass MuMIn::uGamm(..., correlation = ...) as the test.fit. A fit produced by mgcv::gamm() directly cannot be used: it records no call, so the candidate models cannot be refitted from it, and generate_model_set stops saying so.}
+
+\item{null.cov.cutoff}{The correlation above which a predictor is dropped for being correlated with a variable named in null.terms. Defaults to 0.8. Terms supplied through null.terms are forced into every candidate model and are outside the cov.cutoff screen, which covers pred.vars.cont, pred.vars.fact and linear.vars only, so without this a candidate could be arbitrarily strongly correlated with a forced term and still appear in every model in the set. That inflates the variance of the forced term's estimate, which is frequently the term the analysis exists to estimate, and nothing in the output would indicate it. A separate cutoff, with a much looser default than cov.cutoff, because the two screens answer different questions: cov.cutoff decides which predictors may appear together, and this decides which predictor is so nearly a restatement of a forced term that fitting both is not informative. Set it to 1 to admit every predictor whatever its correlation with a forced term. Correlations among the null.terms variables themselves are neither computed nor screened: those terms are forced in by your decision, and dropping one is what must not happen. The correlations this screens on are returned as null.term.correlations, whether or not anything is dropped, so they can be inspected even where no warning is raised. They are computed from use.dat and not taken from a supplied cor.matrix, which is indexed by predictor and has no reason to include a forced term. A variable named in null.terms that is not a column of use.dat, such as a function or a term written over several columns, is skipped, a correlation not being defined for it.}
 
 \item{max.models}{The total number of models allowed to be fit and still save the model fits. Defaults to 200. If the candidate set is bigger than this value, a warning will be returned indicating that model fits will not be saved.}
 

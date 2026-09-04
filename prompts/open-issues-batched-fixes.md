@@ -1048,3 +1048,50 @@ Two figures corrected: a test comment still said four `-Inf` warnings above a
 described the branch as two commits, where it is seven.
 
 ---
+**Claude:** Batch 5 (FSSgam_package#23, #34), branch `batch5-null-terms-and-gamm`,
+stacked on batch 4. Re-triage: batch 4 raised FSSgam_package#39, whose reported
+failure batch 4 closes; the design question it leaves is deferred alongside
+FSSgam_package#25, which the maintainer asked to split out and address later.
+
+- **#23.** `null.cov.cutoff`, defaulting to 0.8, and a returned
+  `null.term.correlations`. The decisions, in the order they were forced:
+
+  *Screening, not only reporting.* The maintainer asked for a cutoff to apply,
+  so a predictor over it is dropped from every list a term can reach the
+  candidate set through, and an interaction term is dropped when any of its
+  parts is.
+
+  *Random-effect grouping factors are excluded from the screen.* This was not
+  planned; the existing suite forced it. Two tests failed on the first
+  implementation, and both were right to: the companion repository's case study
+  2 uses `null.terms = "s(Location,Site,bs='re')"` with `Status` nested in
+  `Location`, correlation 1, and a fixture builds a factor from `site` while
+  `site` is the random effect. A grouping factor is correlated with the
+  predictors measured within it by construction. Screening those dropped
+  legitimate predictors, so a variable inside a `bs='re'` smooth is now excluded
+  and the screen applies to fixed forced terms, which is the case the issue
+  actually describes.
+
+  *A supplied `cor.matrix` is used, never recomputed.* The first implementation
+  called `check_correlations()` for the null-term block, which broke the
+  guarantee that a supplied matrix replaces the automatic estimate outright --
+  the guarantee that lets a predictor of a class it cannot classify be used at
+  all (FSSgam_package#13). A committed test caught it. Only what the supplied
+  matrix names is used now.
+
+  *A defect found in the process:* `cor.matrix` is reassigned to the resolved
+  matrix before the screen runs, so testing it for "did the caller supply one"
+  was always true. Recorded once at the top instead.
+
+  *Dropping can exhaust the predictors.* `enumerate_candidate_models()` then
+  stopped with a message naming `max.predictors`, which a user has no reason to
+  connect to the drop they were just warned about. Reported together.
+
+- **#34.** A bare `mgcv::gamm()` fit is rejected before `update()` is attempted,
+  naming `MuMIn::uGamm` as the remedy, and a test asserts that remedy works
+  rather than only that the message appears. Three documentation passages that
+  directed the user to `gamm` are corrected.
+
+Suite: 693 passing, from 670.
+
+---

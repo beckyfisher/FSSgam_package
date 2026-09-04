@@ -99,6 +99,7 @@ full_subsets_gam=function(use.dat,
                           k=5,
                           bs.arg="'cr'",
                           null.terms="",
+                          null.cov.cutoff=0.8,
                           max.models=200,
                           save.model.fits=TRUE,
                           parallel=FALSE,
@@ -165,7 +166,8 @@ full_subsets_gam=function(use.dat,
                           max.predictors=max.predictors,
                           k=k,
                           bs.arg=bs.arg,
-                          null.terms=null.terms)
+                          null.terms=null.terms,
+                          null.cov.cutoff=null.cov.cutoff)
 
   out.dat=fit_model_set(model.set.list=model.set,
                           max.models=max.models,

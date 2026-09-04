@@ -1,5 +1,63 @@
 # FSSgam (development version)
 
+* `generate_model_set()` gains `null.cov.cutoff`, defaulting to 0.8, and returns
+  `null.term.correlations`. **Behaviour change:** a predictor correlated with a
+  variable named in `null.terms` above that cutoff is now dropped from the model
+  set, and a warning names it, what it correlates with, and how strongly
+  (FSSgam_package#23).
+
+  `null.terms` forces a term into every candidate, and those terms were outside
+  the `cov.cutoff` screen, which covers `pred.vars.cont`, `pred.vars.fact` and
+  `linear.vars` only. So a candidate could be arbitrarily strongly correlated
+  with a forced term and appear in every model in the set. That inflates the
+  variance of the forced term's estimate, which is frequently the term the
+  analysis exists to estimate, and nothing in the output indicated it.
+
+  A separate cutoff, with a much looser default than `cov.cutoff`'s 0.28,
+  because the two screens answer different questions. `cov.cutoff` decides which
+  predictors may appear together; this decides which predictor is so nearly a
+  restatement of a forced term that fitting both is not informative. Set it to 1
+  to admit every predictor whatever its correlation with a forced term.
+
+  **A variable inside a `bs='re'` smooth is excluded from the screen.** A
+  random-effect grouping factor is correlated with the predictors measured
+  within it by construction: in the companion repository's case study 2,
+  `null.terms` is `s(Location,Site,bs='re')` and `Status` is nested in
+  `Location`, so their correlation is 1. That is the design of the study rather
+  than collinearity to screen out, and dropping `Status` there would be wrong.
+  The screen is for a forced term that competes with a candidate for the same
+  variation.
+
+  Correlations among the `null.terms` variables themselves are neither computed
+  nor screened. Those terms are forced in by the user's decision, and dropping
+  one is what must not happen.
+
+  `null.term.correlations` is returned whether or not anything is dropped, so
+  the correlations can be inspected where no warning is raised. It is computed
+  from `use.dat` only where no `cor.matrix` was supplied; where one was, only
+  what that matrix names is used, since a supplied matrix replaces the automatic
+  estimate outright and calling `check_correlations()` here would undo that for
+  every model set with a null term (FSSgam_package#13).
+
+  Where dropping predictors leaves fewer than `max.predictors`, the error says
+  so and names them, rather than reporting only that `max.predictors` exceeds
+  the number of predictors.
+
+* **Behaviour change:** a `test.fit` produced by `mgcv::gamm()` directly is
+  rejected, with a message naming the remedy. Such a fit records no call, so
+  `stats::update()` has nothing to re-evaluate and every candidate refit fails.
+  The error it produced instead -- "need an object with call component" -- named
+  neither the argument nor the remedy, and the message that followed advised the
+  user to stop using `uGamm`, which is what they would have had to use to
+  succeed (FSSgam_package#34).
+
+  The documentation is corrected with it. `generate_model_set()`'s `null.terms`
+  text directed the user to `gamm` for a correlation structure, its `@details`
+  contrasts `gam` and `gamm` at length, and `fit_model_set()`'s `r2.type` names
+  `gamm` among the classes it reports for. All three now say that a `gamm` fit
+  reaches this package only through `MuMIn::uGamm`, which supplies the call that
+  a bare `mgcv::gamm()` fit lacks.
+
 * **Behaviour change:** `generate_model_set()` rejects a predictor named twice
   within `pred.vars.cont`, `pred.vars.fact` or `linear.vars`, naming it. Such a
   name produced a candidate holding it twice, `ZONE+ZONE`, together with two

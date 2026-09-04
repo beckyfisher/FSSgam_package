@@ -3,7 +3,8 @@ test_that("generate_model_set builds a model set for a Gaussian response", {
 
   expect_named(
     model.set,
-    c("n.mods", "predictor.correlations", "mod.formula", "used.data", "test.fit", "included.vars")
+    c("n.mods", "predictor.correlations", "null.term.correlations", "mod.formula",
+      "used.data", "test.fit", "included.vars")
   )
   expect_equal(model.set$n.mods, length(model.set$mod.formula))
   expect_true(model.set$n.mods > 0)
@@ -859,4 +860,209 @@ test_that("factor.smooth.interactions in its character form must name factors", 
     fixture_cs1_model_set(fit = fit, factor.smooth.interactions = c("ZONE", "ZONE")),
     "Each variable may be named once in factor.smooth.interactions"
   )
+})
+
+# ---- null.terms screening -----------------------------------------------------
+
+test_that("a predictor correlated with a null.terms variable is dropped and named", {
+  # null.terms forces a term into every candidate, and those terms are outside
+  # cov.cutoff's matrix, which covers pred.vars.cont, pred.vars.fact and
+  # linear.vars only. So a candidate could be arbitrarily strongly correlated
+  # with a forced term and still appear in every model in the set, inflating the
+  # variance of that term's estimate with nothing in the output to indicate it
+  # (FSSgam_package#23).
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$depth.copy <- use.dat$depth + rnorm(nrow(use.dat), 0, 0.01)
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3,
+    pred.vars.cont = c("complexity", "depth.copy"), pred.vars.fact = "ZONE",
+    null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')", max.predictors = 2
+  )
+
+  expect_warning(
+    model.set <- do.call(generate_model_set, args),
+    "depth.copy \\(depth, max 1\\)"
+  )
+  expect_false("depth.copy" %in% model.set$included.vars)
+  expect_false(any(grepl("depth.copy", names(model.set$mod.formula), fixed = TRUE)))
+
+  # and raising the cutoff keeps it
+  kept <- do.call(generate_model_set, c(args, list(null.cov.cutoff = 1)))
+  expect_true("depth.copy" %in% kept$included.vars)
+})
+
+test_that("null.term.correlations is returned whether or not anything is dropped", {
+  # The point of returning them: the screen is silent when nothing exceeds the
+  # cutoff, and a user comparing a forced term against candidates needs the
+  # numbers either way (FSSgam_package#23).
+  #
+  # A fixed forced term, not the fixture's s(site,bs='re'): a random-effect
+  # grouping factor is excluded from the screen entirely, so it contributes no
+  # row.
+  model.set <- fixture_cs1_model_set(
+    pred.vars.cont = "complexity", pred.vars.fact = "ZONE",
+    null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')"
+  )
+
+  expect_true(is.matrix(model.set$null.term.correlations))
+  expect_identical(rownames(model.set$null.term.correlations), "depth")
+  expect_true(all(c("complexity", "ZONE") %in%
+                    colnames(model.set$null.term.correlations)))
+  expect_false(anyNA(model.set$null.term.correlations))
+})
+
+test_that("a random-effect grouping factor is excluded from the screen", {
+  # A grouping factor is correlated with the predictors measured within it by
+  # construction. In the companion repository's case study 2, null.terms is
+  # s(Location,Site,bs='re') and Status is nested in Location, so their
+  # correlation is 1 -- the design of the study, not collinearity to screen out.
+  # Screening it dropped Status, which is wrong (FSSgam_package#23).
+  fit <- fixture_cs1_gaussian()
+  fit$use.dat$fine <- factor(paste(fit$use.dat$ZONE, fit$use.dat$site))
+
+  model.set <- suppress_nnet_nans(fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = "fine",
+    null.terms = "s(site,bs='re')", max.predictors = 2
+  ))
+
+  # fine is built from site and so is perfectly correlated with it
+  expect_true("fine" %in% model.set$included.vars)
+  expect_null(model.set$null.term.correlations)
+})
+
+test_that("correlations among the null.terms variables are neither computed nor screened", {
+  # Those terms are forced in by the user's decision, and dropping one is what
+  # must not happen. Two perfectly correlated forced terms are both retained.
+  set.seed(1)
+  use.dat <- fixture_cs1_data()
+  use.dat$depth.copy <- use.dat$depth + rnorm(nrow(use.dat), 0, 0.01)
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+
+  expect_no_warning(model.set <- generate_model_set(
+    use.dat = use.dat, test.fit = test.fit, k = 3,
+    pred.vars.cont = "complexity", pred.vars.fact = "ZONE",
+    null.terms = "s(depth,k=3,bs='cr')+s(depth.copy,k=3,bs='cr')+s(site,bs='re')",
+    max.predictors = 2
+  ))
+
+  # both forced terms appear in every candidate, correlated 1.0 with each other
+  expect_true(all(grepl("depth.copy", vapply(model.set$mod.formula, deparse1, ""),
+                        fixed = TRUE)))
+  # and neither appears as a row against the other
+  expect_false("depth.copy" %in% colnames(model.set$null.term.correlations))
+})
+
+test_that("a supplied cor.matrix is used for the null.terms screen, not recomputed", {
+  # A supplied matrix replaces the automatic estimate outright, which is what
+  # lets a predictor of a class check_correlations() cannot classify be used
+  # (FSSgam_package#13). Computing the null-term block would undo that for every
+  # model set with a null term, so only what the supplied matrix names is used.
+  fit <- fixture_cs1_gaussian()
+  base.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
+  args <- list(
+    fit = fit, pred.vars.cont = "complexity", pred.vars.fact = "ZONE",
+    null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')"
+  )
+
+  # the supplied matrix names depth, so it is used verbatim rather than computed
+  supplied <- base.cor
+  supplied["depth", "complexity"] <- 0.95
+  supplied["complexity", "depth"] <- 0.95
+
+  # max.predictors = 1: dropping complexity leaves ZONE alone, and the fixture's
+  # default of 2 would then stop with a message about max.predictors instead.
+  # That interaction is asserted in its own block below.
+  expect_warning(
+    screened <- do.call(fixture_cs1_model_set,
+                        c(args, list(cor.matrix = supplied, max.predictors = 1))),
+    "complexity \\(depth, max 0.95\\)"
+  )
+  expect_false("complexity" %in% screened$included.vars)
+
+  # and a matrix naming no forced term screens nothing
+  no.forced <- base.cor[c("complexity", "ZONE"), c("complexity", "ZONE")]
+  quiet <- do.call(fixture_cs1_model_set, c(args, list(cor.matrix = no.forced)))
+  expect_null(quiet$null.term.correlations)
+})
+
+test_that("a null.terms variable that is not a column of use.dat is skipped", {
+  # null.terms accepts any formula fragment, so it may name a function or a term
+  # written over several columns. A correlation is not defined for those.
+  fit <- fixture_cs1_gaussian()
+
+  expect_no_warning(model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "complexity", pred.vars.fact = "ZONE",
+    null.terms = "s(log(depth+1),k=3,bs='cr')+s(depth,k=3,bs='cr')+s(site,bs='re')"
+  ))
+  expect_identical(rownames(model.set$null.term.correlations), "depth")
+})
+
+test_that("an empty null.terms leaves null.term.correlations absent", {
+  model.set <- fixture_cs1_model_set(null.terms = "")
+  expect_null(model.set$null.term.correlations)
+})
+
+test_that("dropping predictors below max.predictors is reported as such", {
+  # enumerate_candidate_models() stops with "max.predictors is greater than the
+  # number of predictors", which a user has no reason to connect to the drop
+  # they were just warned about (FSSgam_package#23).
+  fit <- fixture_cs1_gaussian()
+  base.cor <- fixture_cs1_model_set(fit = fit)$predictor.correlations
+  supplied <- base.cor
+  supplied["depth", "complexity"] <- 0.95
+  supplied["complexity", "depth"] <- 0.95
+
+  expect_error(
+    suppressWarnings(fixture_cs1_model_set(
+      fit = fit, pred.vars.cont = "complexity", pred.vars.fact = "ZONE",
+      null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')",
+      cor.matrix = supplied, max.predictors = 2
+    )),
+    "After dropping complexity for correlation with a null.terms variable"
+  )
+})
+
+test_that("a bare mgcv::gamm() test.fit is rejected with a usable message", {
+  # It records no call, so stats::update() has nothing to re-evaluate and every
+  # candidate refit fails. The error update() gives -- "need an object with call
+  # component" -- names neither the argument nor the remedy, and the message
+  # that followed advised the user to stop using uGamm, which is what they would
+  # have had to use to succeed (FSSgam_package#34).
+  use.dat <- fixture_cs1_data()
+  test.fit <- mgcv::gamm(
+    Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
+    random = list(site = ~1), data = use.dat
+  )
+  expect_true(is.null(test.fit$call))
+
+  expect_error(
+    generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("complexity", "depth"), max.predictors = 2
+    ),
+    "mgcv::gamm\\(\\) cannot be used"
+  )
+})
+
+test_that("a uGamm test.fit of the same shape is accepted", {
+  # The remedy the message gives has to work, or it is not a remedy.
+  skip_if_not_installed("MuMIn")
+  use.dat <- fixture_cs1_data()
+  test.fit <- MuMIn::uGamm(
+    Herbivore.abundance ~ s(depth, k = 4, bs = "cr"),
+    random = list(site = ~1), data = use.dat
+  )
+
+  expect_no_error(generate_model_set(
+    use.dat = use.dat, test.fit = test.fit, k = 4,
+    pred.vars.cont = c("complexity", "depth"), max.predictors = 2
+  ))
 })

@@ -21,7 +21,7 @@
 #' The test fit must contain the appropriate random effects and call to family (if not gaussian) and if gamm4 should be used, or gamm in the case of a uGamm call (see ?uGamm).
 #' Both gamm from mgcv and gamm4 have slightly different features, as well as advantages and disadvantages, thus it is important that the full subsets function is able to deal with test.fit models based on either package.
 #' For example gamm4 is based on the lme4 package [Bates, D.M. (2010) lme4: Mixed-Effects Modeling with R. Springer, New York] which allows crossed random effects and avoids issues with PQL for non-gaussian model fits.
-#' On the other hand gamm (mgcv) is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day],
+#' On the other hand gamm (mgcv), reached through MuMIn::uGamm since a bare mgcv::gamm fit cannot be refitted, is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day],
 #' variance structures [Pinheiro, J.C. and Bates., D.M. (1996) "Unconstrained Parametrizations for Variance-Covariance Matrices", Statistics and Computing, 6, 289-296],
 #' and a broader range of families that are not yet available in lmer (see ?family.mgcv).
 #' Models that have no random effects and are based only on gam (mgcv) are best fit via a direct call to gam, rather than using the uGamm wrapper.
@@ -58,8 +58,9 @@
 #' the null model. Use of bs=re is an alternative way of fitting simple random structures that
 #' avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used.
 #' see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.
-#' to fit a correlation structure only (but no random effects) this must be achieved through a call the gamm
-#' via , with no random effects, fitted
+#' To fit a correlation structure, pass MuMIn::uGamm(..., correlation = ...) as the test.fit. A fit produced by mgcv::gamm() directly cannot be used: it records no call, so the candidate models cannot be refitted from it, and generate_model_set stops saying so.
+#'
+#' @param null.cov.cutoff The correlation above which a predictor is dropped for being correlated with a variable named in null.terms. Defaults to 0.8. Terms supplied through null.terms are forced into every candidate model and are outside the cov.cutoff screen, which covers pred.vars.cont, pred.vars.fact and linear.vars only, so without this a candidate could be arbitrarily strongly correlated with a forced term and still appear in every model in the set. That inflates the variance of the forced term's estimate, which is frequently the term the analysis exists to estimate, and nothing in the output would indicate it. A separate cutoff, with a much looser default than cov.cutoff, because the two screens answer different questions: cov.cutoff decides which predictors may appear together, and this decides which predictor is so nearly a restatement of a forced term that fitting both is not informative. Set it to 1 to admit every predictor whatever its correlation with a forced term. Correlations among the null.terms variables themselves are neither computed nor screened: those terms are forced in by your decision, and dropping one is what must not happen. The correlations this screens on are returned as null.term.correlations, whether or not anything is dropped, so they can be inspected even where no warning is raised. They are computed from use.dat and not taken from a supplied cor.matrix, which is indexed by predictor and has no reason to include a forced term. A variable named in null.terms that is not a column of use.dat, such as a function or a term written over several columns, is skipped, a correlation not being defined for it.
 #'
 #' @details The function constructs a complete model set based on the supplied arguments.
 #' for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
@@ -70,6 +71,8 @@
 #' n.mods - The number of candidate models generated, equal to length(mod.formula).
 #'
 #' predictor.correlations - The matrix of estimated predictor correlations returned by the function check_correlations and used for model exclusion based on cov.cutoff
+#'
+#' null.term.correlations - A matrix of the correlations between each variable named in null.terms and each candidate predictor, used for model exclusion based on null.cov.cutoff. Rows are the null.terms variables and columns the predictors. Absent where null.terms is empty, where it names no column of use.dat, or where every predictor is itself a null.terms variable. Correlations among the null.terms variables are not included, being neither computed nor screened.
 #'
 #' mod.formula - A named list containing the model formula that were generated (and will be fitted by fit_model_set). The names are the candidate model names used in the modname column of fit_model_set's output.
 #'
@@ -109,10 +112,15 @@ generate_model_set=function(use.dat,
                           max.predictors=3,
                           k=5,
                           bs.arg="'cr'",
-                          null.terms=""){
+                          null.terms="",
+                          null.cov.cutoff=0.8){
 
   validate_use_dat(use.dat)
   validate_null_terms(null.terms)
+  # Recorded before build_predictor_correlation_matrix() reassigns cor.matrix to
+  # the resolved matrix. After that point the variable no longer says whether
+  # the caller supplied anything, and the null-term screen needs to know.
+  cor.matrix.supplied=cor_matrix_supplied(cor.matrix)
   validate_predictor_names(pred.vars.cont=pred.vars.cont,
                           pred.vars.fact=pred.vars.fact,linear.vars=linear.vars)
   validate_interaction_predictors(factor.factor.interactions=factor.factor.interactions,
@@ -170,6 +178,56 @@ generate_model_set=function(use.dat,
                           max.predictors=max.predictors,
                           cor.matrix=cor.matrix)
 
+  # Screened against the terms null.terms forces into every candidate. Those
+  # terms are outside cov.cutoff's matrix, which covers pred.vars.cont,
+  # pred.vars.fact and linear.vars only, so a candidate could be arbitrarily
+  # strongly correlated with a forced term and still be admitted to every model
+  # in the set. The consequence is silent: it inflates the variance of the
+  # forced term's estimate, which is frequently the term the analysis exists to
+  # estimate (FSSgam_package#23).
+  #
+  # A separate cutoff, and a much looser default, because the two screens answer
+  # different questions. cov.cutoff decides which predictors may appear
+  # together; this decides which predictor is so nearly a restatement of a
+  # forced term that fitting both is not informative.
+  #
+  # Correlations among the null.terms variables themselves are neither computed
+  # nor screened. Those terms are forced in by the user's decision, and dropping
+  # one is exactly what must not happen.
+  null.vars=null_term_variables(null.terms=null.terms,use.dat=use.dat)
+  null.term.correlations=build_null_term_correlations(use.dat=use.dat,
+                          null.vars=null.vars,all.predictors=all.predictors,
+                          non.linear.correlations=non.linear.correlations,
+                          cor.matrix=cor.matrix,
+                          cor.matrix.supplied=cor.matrix.supplied)
+  screen.l=screen_against_null_terms(pred.vars.cont=pred.vars.cont,
+                          pred.vars.fact=pred.vars.fact,linear.vars=linear.vars,
+                          interaction.terms=interaction.terms,
+                          linear.interaction.terms=linear.interaction.terms,
+                          smooth.smooth.interaction.terms=smooth.smooth.interaction.terms,
+                          null.term.correlations=null.term.correlations,
+                          null.cov.cutoff=null.cov.cutoff)
+  pred.vars.cont=screen.l$pred.vars.cont
+  pred.vars.fact=screen.l$pred.vars.fact
+  linear.vars=screen.l$linear.vars
+  interaction.terms=screen.l$interaction.terms
+  linear.interaction.terms=screen.l$linear.interaction.terms
+  smooth.smooth.interaction.terms=screen.l$smooth.smooth.interaction.terms
+  included.vars=setdiff(included.vars,screen.l$dropped)
+
+  # Dropping predictors can leave fewer than max.predictors, and
+  # enumerate_candidate_models() then stops with a message naming
+  # max.predictors, which a user has no reason to connect to the drop they were
+  # just warned about.
+  if(length(screen.l$dropped)>0){
+    remaining=length(stats::na.omit(unique(c(pred.vars.cont,pred.vars.fact,linear.vars))))
+    if(remaining<max.predictors){
+      stop(paste0("After dropping ",paste(screen.l$dropped,collapse=", "),
+           " for correlation with a null.terms variable, ",remaining,
+           " predictor(s) remain and max.predictors is ",max.predictors,
+           ". Lower max.predictors, raise null.cov.cutoff, or remove the term ",
+           "from null.terms."))}}
+
   use.mods=enumerate_candidate_models(pred.vars.cont=pred.vars.cont,
                           pred.vars.fact=pred.vars.fact,
                           linear.vars=linear.vars,
@@ -196,6 +254,7 @@ generate_model_set=function(use.dat,
   n.mods=length(mod.formula)
   return(list(n.mods=n.mods,
               predictor.correlations=cor.matrix,
+              null.term.correlations=null.term.correlations,
               mod.formula=mod.formula,
               used.data=use.dat,
               test.fit=test.fit,
@@ -399,9 +458,153 @@ validate_factor_levels=function(use.dat,pred.vars.fact){
        "for collinearity; remove it from pred.vars.fact."))
 }
 
+# The variables named in null.terms that are columns of use.dat and are not
+# random-effect grouping factors.
+#
+# null.terms is a formula fragment, not a variable list, so the variables are
+# recovered by parsing it. A name that is not a column -- a function, or a term
+# written over several columns -- is dropped rather than reported: a correlation
+# is not defined for it, and null.terms accepts anything the formula accepts.
+#
+# A variable inside a bs='re' smooth is excluded, and this is the difference
+# between screening something worth screening and breaking an ordinary
+# specification. A random-effect grouping factor is correlated with the
+# predictors measured within it by construction: in the companion repository's
+# case study 2, null.terms is s(Location,Site,bs='re') and Status is nested in
+# Location, so their correlation is 1. That is the design of the study, not
+# collinearity to screen out, and dropping Status there would be wrong.
+#
+# The screen is for a forced term that competes with a candidate for the same
+# variation -- a fixed effect the analysis must adjust for -- which is the case
+# FSSgam_package#23 describes.
+null_term_variables=function(null.terms,use.dat){
+  if(!is.character(null.terms)||length(null.terms)!=1||nchar(null.terms)==0){
+    return(character(0))}
+  parsed=try(stats::as.formula(paste("~",null.terms)),silent=TRUE)
+  if(inherits(parsed,"try-error")){return(character(0))}
+  terms.chr=attr(stats::terms(parsed),"term.labels")
+  # A term is a random effect where it sets bs to "re", written with either
+  # kind of quote and with or without spaces around the "=".
+  is.re=grepl("bs[[:space:]]*=[[:space:]]*['\"]re['\"]",terms.chr)
+  fixed.vars=unique(unlist(lapply(terms.chr[!is.re],function(t)
+    all.vars(stats::as.formula(paste("~",t))))))
+  intersect(fixed.vars,colnames(use.dat))
+}
+
+
+# Correlations between each null.terms variable and each candidate predictor.
+#
+# Where the caller supplied a cor.matrix, only what that matrix names is used.
+# check_correlations() is not called: a supplied matrix replaces the automatic
+# estimate outright, which is what lets a predictor of a class it cannot
+# classify be used at all (FSSgam_package#13), and calling it here would undo
+# that for every model set with a null term. A user who wants a forced term
+# screened while supplying a matrix adds a row and column for it.
+#
+# Where nothing was supplied, the block is computed, since check_correlations()
+# was going to run in any case.
+#
+# Returns NULL where there is nothing to report, so the returned element is
+# absent rather than an empty matrix, and calling code can test for it.
+build_null_term_correlations=function(use.dat,null.vars,all.predictors,
+                          non.linear.correlations,cor.matrix,cor.matrix.supplied){
+  screened=setdiff(all.predictors,null.vars)
+  if(length(null.vars)==0||length(screened)==0){return(NULL)}
+
+  if(isTRUE(cor.matrix.supplied)){
+    have=intersect(null.vars,rownames(cor.matrix))
+    cols=intersect(screened,colnames(cor.matrix))
+    if(length(have)==0||length(cols)==0){return(NULL)}
+    out=as.matrix(cor.matrix)[have,cols,drop=FALSE]
+    out[is.na(out)]=0
+    return(out)}
+
+  full=try(if(non.linear.correlations==TRUE){
+      check_non_linear_correlations(use.dat[,unique(c(null.vars,screened)),drop=FALSE])
+    }else{
+      check_correlations(use.dat[,unique(c(null.vars,screened)),drop=FALSE])},silent=TRUE)
+  if(inherits(full,"try-error")){
+    warning(paste0("Correlations between the null.terms variable(s) and the ",
+            "predictors could not be computed, so they were not screened: ",
+            trimws(attr(full,"condition")$message)))
+    return(NULL)}
+  full[is.na(full)]=0
+  full[null.vars,screened,drop=FALSE]
+}
+
+
+# Drops any predictor whose correlation with a null.terms variable exceeds
+# null.cov.cutoff, from every list a term can reach the candidate set through,
+# and reports which and against what.
+#
+# A term that is not a bare predictor -- an interaction name -- is dropped when
+# any of its parts is, since the term cannot be built without them.
+screen_against_null_terms=function(pred.vars.cont,pred.vars.fact,linear.vars,
+                          interaction.terms,linear.interaction.terms,
+                          smooth.smooth.interaction.terms,null.term.correlations,
+                          null.cov.cutoff){
+  out=list(pred.vars.cont=pred.vars.cont,pred.vars.fact=pred.vars.fact,
+           linear.vars=linear.vars,interaction.terms=interaction.terms,
+           linear.interaction.terms=linear.interaction.terms,
+           smooth.smooth.interaction.terms=smooth.smooth.interaction.terms,
+           dropped=character(0))
+  if(is.null(null.term.correlations)||nrow(null.term.correlations)==0){return(out)}
+
+  over=abs(null.term.correlations)>null.cov.cutoff
+  if(!any(over)){return(out)}
+  dropped=colnames(null.term.correlations)[apply(over,2,any)]
+
+  pairs=vapply(dropped,function(v){
+    against=rownames(null.term.correlations)[over[,v]]
+    worst=max(abs(null.term.correlations[against,v,drop=FALSE]))
+    paste0(v," (",paste(against,collapse=", "),", max ",round(worst,3),")")},"")
+  warning(paste0("Predictor(s) dropped, correlated with a null.terms variable ",
+          "above null.cov.cutoff (",null.cov.cutoff,"): ",
+          paste(pairs,collapse="; "),
+          ". Raise null.cov.cutoff to keep them, or remove the term from ",
+          "null.terms if it is not required in every model."))
+
+  keep=function(x){
+    if(length(stats::na.omit(x))==0){return(x)}
+    kept=setdiff(stats::na.omit(x),dropped)
+    if(length(kept)==0){NA}else{kept}}
+  # An interaction name is split on every separator, so a term is dropped when
+  # any part of it is.
+  keep.terms=function(x){
+    if(length(stats::na.omit(x))==0){return(x)}
+    parts=strsplit(stats::na.omit(x),"\\.by\\.|\\.t\\.|\\.te\\.|\\.I\\.")
+    kept=stats::na.omit(x)[!vapply(parts,function(p) any(p %in% dropped),logical(1))]
+    if(length(kept)==0){NA}else{kept}}
+
+  out$pred.vars.cont=keep(pred.vars.cont)
+  out$pred.vars.fact=keep(pred.vars.fact)
+  out$linear.vars=keep(linear.vars)
+  out$interaction.terms=keep.terms(interaction.terms)
+  out$linear.interaction.terms=keep.terms(linear.interaction.terms)
+  out$smooth.smooth.interaction.terms=keep.terms(smooth.smooth.interaction.terms)
+  out$dropped=dropped
+  out
+}
+
 # Builds the null model formula and confirms test.fit can be updated to it.
 # Returns list(null.formula=, null.fit=).
 build_null_model=function(test.fit,use.dat,null.terms){
+  # A bare mgcv::gamm() fit records no call, so stats::update() has nothing to
+  # re-evaluate and every candidate refit fails. Reported here, before the
+  # attempt, because the error update() gives -- "need an object with call
+  # component" -- names neither the argument nor the remedy, and the message
+  # below then advises the user to stop using uGamm, which is what they would
+  # have had to use to succeed (FSSgam_package#34).
+  #
+  # gamm4 fits are a different class and are not affected; MuMIn::uGamm()
+  # supplies the call that bare gamm() lacks, which is why it works.
+  if(inherits(test.fit,"gamm")&&!inherits(test.fit,"gamm4")&&is.null(test.fit$call)){
+    stop(paste0("A test.fit produced by mgcv::gamm() cannot be used: it records ",
+         "no call, so the candidate models cannot be refitted from it. Fit the ",
+         "same model through MuMIn::uGamm(), which supplies the call -- for a ",
+         "correlation structure, uGamm(..., correlation = ...) -- or use gam() ",
+         "with a bs='re' smooth if random effects are all that is required."))}
+
   if(nchar(null.terms)>0){
     null.formula=stats::as.formula(paste("~ ",null.terms,sep=""))}else{
     null.formula=stats::as.formula("~ 1")}
