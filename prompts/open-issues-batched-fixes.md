@@ -1248,3 +1248,37 @@ than from having run the mutation.
 Suite: 743 passing, from 670.
 
 ---
+**Review cycle 5 (independent session, batch 5).** A code defect, the first since
+cycle 1, and it is the one this branch existed to prevent.
+
+`check_non_linear_correlations()` returns a deliberately asymmetric matrix -- row
+is the response, column the predictor -- and the two directions answer different
+questions. The screen read only `[forced term, predictor]`, which is the small
+one when a candidate is a deterministic function of a forced term. Measured on
+`curve = forcedA^2 + N(0, 0.02)` over 300 rows with
+`non.linear.correlations = TRUE`: `[forcedA, curve]` is 0.152 and
+`[curve, forcedA]` is 0.991, so `curve` entered every candidate with nothing
+reported. That is exactly the condition FSSgam_package#23 exists to end, under
+the argument that turns the estimate asymmetric.
+
+`exceeds_cutoff()` has read both triangles for `cov.cutoff` all along. The
+null-term screen now does the same, taking the larger of the two directions, and
+each cell of the returned matrix is the value screened on rather than one
+direction of it. On the symmetric default path the two are equal and nothing
+changes.
+
+It survived four rounds because nothing exercised the branch: replacing
+`if(non.linear.correlations==TRUE)` with `if(FALSE)` left the suite green. **An
+argument with no test is not covered by the tests of the argument beside it.**
+
+Two further unpinned mutations were closed with it: `>` against `>=` in the
+cutoff, where the documented "set to 1 to admit every predictor" fails for an
+exact duplicate under `>=`; and the subscript that names only the forced terms
+actually exceeded, where the assertion added in cycle 4 used a single forced
+term and so could not distinguish it.
+
+All three verified by mutation: 3, 2 and 1 failures.
+
+Suite: 753 passing, from 670.
+
+---

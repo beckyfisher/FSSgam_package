@@ -46,6 +46,15 @@
   FSSgam_package#13 still gets their model set and is told their forced terms
   were not screened.
 
+  Where the correlation estimate is asymmetric, as
+  `check_non_linear_correlations()` returns it, both directions are read and the
+  larger is used -- what the `cov.cutoff` screen already does. Reading one
+  direction admitted a candidate that is a deterministic function of a forced
+  term: measured on a squared forced term, `[forced, candidate]` is 0.152 and
+  `[candidate, forced]` is 0.991. Each cell of `null.term.correlations` is the
+  value screened on rather than one direction of it; on the symmetric default
+  path the two are equal.
+
   `null.cov.cutoff` is validated: it must be a single non-negative number.
   Unvalidated, an `NA` gave an internal "missing value where TRUE/FALSE needed"
   and a length-2 value was accepted silently.

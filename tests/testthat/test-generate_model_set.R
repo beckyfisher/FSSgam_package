@@ -1450,3 +1450,84 @@ test_that("the drop warning names the forced terms a predictor correlates with",
     "copy \\(forcedA, max 1\\)"
   )
 })
+
+test_that("the forced-term screen reads both directions of an asymmetric matrix", {
+  # check_non_linear_correlations() returns a deliberately asymmetric matrix --
+  # row is the response, column the predictor -- so the two directions answer
+  # different questions, and only [predictor, forced] is large when a candidate
+  # is a deterministic function of a forced term. Reading one direction admitted
+  # such a candidate silently, which is the condition FSSgam_package#23 exists
+  # to end. exceeds_cutoff() already reads both triangles for cov.cutoff.
+  set.seed(1)
+  n <- 300
+  use.dat <- data.frame(y = rnorm(n), forcedA = rnorm(n), other = rnorm(n))
+  use.dat$curve <- use.dat$forcedA^2 + rnorm(n, 0, 0.02)
+
+  # the fixture must be asymmetric across the cutoff, or this pins nothing
+  asym <- check_non_linear_correlations(use.dat[, c("forcedA", "curve")])
+  expect_lt(asym["forcedA", "curve"], 0.8)
+  expect_gt(asym["curve", "forcedA"], 0.8)
+
+  test.fit <- mgcv::gam(y ~ s(other, k = 3, bs = "cr"), data = use.dat)
+
+  expect_warning(
+    model.set <- generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("curve", "other"),
+      null.terms = "s(forcedA,k=3,bs='cr')", non.linear.correlations = TRUE,
+      max.predictors = 1
+    ),
+    "curve \\(forcedA"
+  )
+  expect_false("curve" %in% model.set$included.vars)
+  expect_gt(model.set$null.term.correlations["forcedA", "curve"], 0.8)
+})
+
+test_that("null.cov.cutoff = 1 admits an exact duplicate of a forced term", {
+  # The documented way to turn the screen off. The comparison is strictly
+  # greater than, so a correlation of exactly 1 does not exceed a cutoff of 1;
+  # with >= it would, and the documented behaviour would fail on the one case a
+  # user would test it with (FSSgam_package#23).
+  set.seed(1)
+  n <- 200
+  use.dat <- data.frame(y = rnorm(n), forced = rnorm(n), other = rnorm(n))
+  use.dat$exact <- use.dat$forced
+  test.fit <- mgcv::gam(y ~ s(other, k = 3, bs = "cr"), data = use.dat)
+  args <- list(
+    use.dat = use.dat, test.fit = test.fit, k = 3,
+    pred.vars.cont = c("exact", "other"),
+    null.terms = "s(forced,k=3,bs='cr')", max.predictors = 1
+  )
+
+  expect_identical(
+    unname(suppressWarnings(do.call(generate_model_set, args))$null.term.correlations["forced", "exact"]),
+    1
+  )
+  expect_no_warning(kept <- do.call(generate_model_set, c(args, list(null.cov.cutoff = 1))))
+  expect_true("exact" %in% kept$included.vars)
+})
+
+test_that("the drop warning names only the forced terms actually exceeded", {
+  # The message subsets the forced terms by which of them exceeded the cutoff.
+  # Without that subscript it names every forced term, sending the user to one
+  # they need not reconsider (FSSgam_package#23).
+  set.seed(1)
+  n <- 200
+  use.dat <- data.frame(
+    y = rnorm(n), forcedA = rnorm(n), forcedB = rnorm(n), other = rnorm(n)
+  )
+  use.dat$copy <- use.dat$forcedA + rnorm(n, 0, 0.01)
+  test.fit <- mgcv::gam(y ~ s(forcedA, k = 3, bs = "cr"), data = use.dat)
+
+  w <- tryCatch(
+    generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("copy", "other"),
+      null.terms = "s(forcedA,k=3,bs='cr')+s(forcedB,k=3,bs='cr')",
+      max.predictors = 1
+    ),
+    warning = function(x) conditionMessage(x)
+  )
+  expect_match(w, "copy (forcedA,", fixed = TRUE)
+  expect_false(grepl("forcedB", w, fixed = TRUE))
+})
