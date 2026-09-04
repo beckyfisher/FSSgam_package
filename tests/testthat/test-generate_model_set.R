@@ -1392,3 +1392,61 @@ test_that("an NA in the supplied forced-term block is treated as zero", {
   )
   expect_identical(unname(model.set$null.term.correlations["depth", "complexity"]), 0)
 })
+
+test_that("an NA in the computed forced-term block is treated as zero", {
+  # The computed block's own zero-fill, distinct from the supplied block's.
+  # check_correlations() returns NA for a zero-variance predictor, and without
+  # the fill that NA reaches the comparison against null.cov.cutoff and stops
+  # the call with "missing value where TRUE/FALSE needed" -- the failure the
+  # fill exists to prevent (FSSgam_package#23).
+  set.seed(1)
+  n <- 100
+  use.dat <- data.frame(
+    y = rnorm(n), forced = rnorm(n), flat = rep(1, n), other = rnorm(n)
+  )
+  expect_true(is.na(suppressWarnings(
+    check_correlations(use.dat[, c("forced", "flat")])
+  )["forced", "flat"]))
+
+  test.fit <- mgcv::gam(y ~ s(other, k = 3, bs = "cr"), data = use.dat)
+
+  expect_no_error(model.set <- suppressWarnings(generate_model_set(
+    use.dat = use.dat, test.fit = test.fit, k = 3,
+    pred.vars.cont = c("flat", "other"),
+    null.terms = "s(forced,k=3,bs='cr')", max.predictors = 1
+  )))
+  expect_identical(unname(model.set$null.term.correlations["forced", "flat"]), 0)
+})
+
+test_that("null.term.correlations is NULL where every predictor is a forced term", {
+  # One of the three documented cases for the element being NULL, and the only
+  # one with no other test (FSSgam_package#23).
+  fit <- fixture_cs1_gaussian()
+
+  model.set <- fixture_cs1_model_set(
+    fit = fit, pred.vars.cont = "depth", pred.vars.fact = NA,
+    null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')", max.predictors = 1
+  )
+
+  expect_null(model.set$null.term.correlations)
+})
+
+test_that("the drop warning names the forced terms a predictor correlates with", {
+  # The message is what a user acts on: which predictor was dropped, against
+  # what, and how strongly. Naming the predictor alone would not say which
+  # forced term to reconsider (FSSgam_package#23).
+  set.seed(1)
+  n <- 200
+  use.dat <- data.frame(y = rnorm(n), forcedA = rnorm(n), other = rnorm(n))
+  use.dat$copy <- use.dat$forcedA + rnorm(n, 0, 0.01)
+  test.fit <- mgcv::gam(y ~ s(forcedA, k = 3, bs = "cr"), data = use.dat)
+
+  expect_warning(
+    generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("copy", "other"),
+      null.terms = "s(forcedA,k=3,bs='cr')", max.predictors = 1
+    ),
+    "copy \\(forcedA, max 1\\)"
+  )
+})

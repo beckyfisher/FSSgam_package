@@ -1217,3 +1217,34 @@ tests cover.
 Suite: 738 passing, from 670.
 
 ---
+**Review cycle 4 (independent session, batch 5).** No code defect. Four rounds
+have now attacked this branch and none has found one.
+
+One substantive finding, and for the third consecutive round it is a false
+statement of mine about coverage rather than a defect in the code. The claim
+that "both zero-fills" were pinned was true of one. `full[is.na(full)]=0`, which
+fills the *computed* block, survived its mutation and is reachable: a
+zero-variance predictor makes `check_correlations()` return `NA`, and without the
+fill the call stops with "missing value where TRUE/FALSE needed" -- the failure
+the fill exists to prevent. The commit also mislocated the two lines, describing
+`:557` as the supplied block when it is the computed one.
+
+Assertions added for it and for three minor gaps the same round found: the
+documented `NULL` return where every predictor is itself a forced term, which
+had no test; the forced terms named in the drop warning, which is what a user
+acts on; and `full_subsets_gam()`'s manual page, which through the inherited
+`@param` stated that `null.term.correlations` is returned when that function
+does not return it.
+
+Both structural assertions verified by mutation, 2 and 1 failures.
+
+**Four rounds, four false verification claims.** That five assertions were
+pinned; that every claim was pinned; that a `NEWS.md` paragraph was corrected;
+that both zero-fills were pinned. The code has been correct since cycle 1. What
+was repeatedly wrong was the account of what the tests cover, and in each case
+the error was the same: asserting coverage from having written a test rather
+than from having run the mutation.
+
+Suite: 743 passing, from 670.
+
+---
