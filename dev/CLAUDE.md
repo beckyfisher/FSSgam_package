@@ -271,7 +271,28 @@ ask before installing it, but it genuinely is needed for
 - **The publication repo (`beckyfisher/FSSgam`) is strictly read-only**
   for the purposes of this work. Do not commit to it or suggest changes
   to it. Its URLs are permanent references in the published paper
-  (Fisher et al. 2018).
+  (Fisher et al. 2018). Filing an issue there is not a change to it, and
+  is required by the rule below.
+
+- **Enhancements are lodged in `beckyfisher/FSSgam`. Issues in this
+  repository are genuine bugs or defects.** Ruled by RF on 2026-09-05,
+  when `FSSgam_package#25`, a request for a per-model precision summary
+  of a `null.terms` term, was transferred to `beckyfisher/FSSgam#18`.
+  The purpose is that this repository’s open issue count reads as
+  outstanding defects rather than a mixed backlog.
+
+  Before filing here, establish whether the item reports something
+  behaving wrongly or asks for something new; anything new goes to the
+  publication repository. Use `gh issue transfer` to move one, which
+  preserves the body and comments and leaves a redirect from the old
+  number.
+
+  **A transfer breaks every unqualified issue reference in the body**,
+  which then resolves to the destination repository — the reason the
+  qualification rule at the end of this section exists. Requalify them
+  after transferring, and check whether the body’s motivation still
+  holds: `FSSgam_package#25` argued from a screen that
+  `FSSgam_package#23` had removed in the meantime.
 
 - **Vignettes live in the publication repo, not here.** Do not create a
   `vignettes/` folder in this package repo. Full worked examples and
@@ -310,6 +331,34 @@ ask before installing it, but it genuinely is needed for
   landed. Both workflows already trigger on `dev`, and pkgdown builds
   `dev` in devel mode to `docs/dev/` while `master` keeps the release
   site at the root (Phase 11).
+
+- **A stack of dependent branches reaches `dev` only through its tip,
+  and merging the lowest one first strands the rest.** Batches 1 to 6
+  were each branched from the one before, and PR \#32 merged batch 1
+  into `dev` before PRs \#35, \#36, \#38, \#40 and \#43 merged each
+  later batch into its predecessor. Those five merges travelled up the
+  stack and never reached `dev`, so for three days `dev` held batch 1
+  alone while all six branches read as merged on GitHub and eleven
+  issues were fixed on none of them. PR \#45 propagated the tip on
+  2026-09-05.
+
+  Two things made this hard to see. Every branch reported itself ahead
+  of `dev`, so none looked like the tip; and after the collapse each of
+  batches 1 to 4 was ahead by exactly one commit, its own merge commit,
+  whose parents were already on `dev` and which therefore held no
+  content. The tip was batch 5, the branch that was ahead by the most.
+
+  Establish the tip by content rather than by what is ahead.
+  `git diff --name-only <candidate> <branch>` against every other branch
+  identifies the one nothing is missing from, and
+  `git log <branch> --not <candidate> -- R/ tests/ DESCRIPTION NAMESPACE man/`
+  confirms no package content is stranded. Where a branch is ahead only
+  by merge commits whose parents are all reachable from `dev`, it is
+  fully merged whatever `git branch --merged` reports.
+
+  The remedy for the arrangement is to merge the stack tip into `dev` in
+  one PR, not to merge each branch in turn — the intermediate branches
+  carry older trees and merging them adds nothing.
 
 - **`master` and `dev` share the same `DESCRIPTION` `Version`.** This
   was not always true. Originally `dev` ran `1.0.0.9000` so pkgdown’s
