@@ -923,23 +923,47 @@ evidence that it works. Both were concluded during the pre-CRAN refactor
 from one observation each, and both were wrong. Measure a rate across fresh
 processes.
 
-**A rate measured in one session is not comparable with one measured in
-another, and the same host gives different rates on different days.**
-Measured 2026-09-05, the identical script and arms: a baseline rate of 13
-stalls in 30 before a WSL crash, and 6 in 60 after the restart. Nothing
-about the code changed. Only arms alternated trial by trial within one run
-can be compared with each other; a figure quoted from a single block is a
-within-run comparison and not a rate that reproduces. That includes the
-figures in the `NEWS.md` entry for the `gamm4` change.
+**These arms have been measured and the measurements settle nothing. The
+sample sizes used are far too small, which was not noticed until it was
+pointed out.**
 
-Both directions this issue listed as uninvestigated have now been measured
-and neither is a fix. Over two blocks of 30 trials per arm, alternating:
-`parallel::makePSOCKcluster(setup_strategy = "sequential")` gave 12 stalls
-in 60 against a baseline 6 in 60, and `clusterEvalQ()` pre-loading gave 6 in
-60. An earlier block had suggested `sequential` helped, at 5 in 30 against
-13 in 30; it did not replicate, and the direction reversed. Do not re-try
-either without new evidence. The `ubuntu-latest` comparison remains the
-measurement that would say whether users are affected at all.
+`setup_strategy = "sequential"` and `clusterEvalQ()` pre-loading were both
+tried on 2026-09-05, two blocks of 30 trials per arm, alternating trial by
+trial: 12 stalls in 60 for `sequential` against a baseline 6 in 60, and 6
+in 60 for pre-loading. That was reported as "neither is a fix". **It does
+not support that.** Simulated power at 60 per arm to detect a halving of a
+0.10 rate is 0.09, so a direction that halved the stall rate would have
+been missed nine times in ten. An independent replication of the same
+design, 212 trials, put `sequential` at parity and pre-loading at an odds
+ratio of 0.23 (p = 0.10) -- the opposite direction for pre-loading. The
+position is undetermined, not settled.
+
+The same applies to the block before it, which measured 13 in 30 against 5
+in 30 for `sequential` and gave p = 0.047. Power for that comparison is
+0.51, so it was a coin flip whether the effect it "found" would appear at
+all. It did not replicate.
+
+**Do not conclude from a stall measurement without computing the power
+first.** Three of these comparisons have now been reported as findings and
+none had the power to support one.
+
+An earlier version of this entry attributed the failure to replicate to
+comparing across sessions, and told future sessions that only arms
+alternated within one run are comparable. Both blocks were alternated
+within one run, so that explanation is refuted by its own data; the sample
+size is the explanation. It also asserted the `NEWS.md` figures for the
+`gamm4` change are within-run comparisons rather than rates. That criticism
+is withdrawn: that entry alternated in blocks of ten across 140 runs and
+already states its figures are one session's measurement on one host. The
+unqualified "1 stall in 50 runs against 21 in 50" earlier in this section
+is the figure that was not alternated.
+
+**`ubuntu-latest` has already been measured and does not reproduce the
+stall.** That is stated in FSSgam_package#14's own comments of 2026-09-01,
+and `.github/workflows/parallel-tests.yaml` runs the opt-in parallel tests
+there on every pull request. Three documents written on 2026-09-05 called
+it the remaining untried direction, which is what comes of writing about an
+issue without reading its comments.
 
 ### Phase 14 — Pre-CRAN refactor: defects, argument validation, interaction
 restructure; release 1.1.0 (PR #17) — Completed
