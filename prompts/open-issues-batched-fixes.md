@@ -1390,3 +1390,62 @@ wrong because the untested paths were the asymmetric ones.
 Suite: 772 passing, from 670.
 
 ---
+## Session: fix an NA in both directions between a forced term and a predictor
+Date: 2026-09-05
+Model: Claude Opus 5 (1M context)
+
+### Prompts and Responses
+
+**User:** can you fix this issue https://github.com/beckyfisher/FSSgam_package/issues/41. I posted the desired solution in the comment
+
+**Claude:** The comment ruled for the second of the three options the issue
+recorded: compute the pair rather than report it or document it. Implemented in
+`build_null_term_correlations()` (`R/generate-model-set.R`).
+
+The previous shape decided by row. `from.supplied` was allocated over the forced
+terms the supplied matrix named in either dimension, every cell not covered by a
+supplied direction left at zero, and `to.compute` was the forced terms the
+matrix did not name at all. So a forced term the matrix named was never
+computed, whatever the matrix left empty within its row.
+
+It now decides by cell. Two matrices are allocated over every forced term and
+every screened predictor: the values, and a logical `given` recording which
+cells a supplied direction actually gave a value for. `fill()` sets `given` from
+`!is.na(blk)` before it zero-fills `blk`, which is the ordering constraint the
+issue named -- after the two directions are combined, an unsupplied cell and a
+supplied zero are the same number. `to.compute` is then every forced term with
+any unsupplied cell, and the computed block is merged into the result at those
+cells only, so a forced term can be part supplied and part computed.
+
+```r
+to.compute=null.vars[apply(!given,1,any)]
+...
+block=out[to.compute,screened,drop=FALSE]
+need=!given[to.compute,screened,drop=FALSE]
+block[need]=computed[need]
+out[to.compute,screened]=block
+```
+
+Two consequences worth recording. Where one direction holds a value the cell is
+supplied and the value is used, unchanged, which is what the issue asked for.
+And the computation an unsupplied cell now triggers can fail on a predictor of a
+class `check_correlations()` cannot classify, so the existing skip-with-warning
+path is reached by a new route; the warning distinguishes the two cases, naming
+the pairs where part of the row was supplied and the terms where none of it was.
+
+The row order of `null.term.correlations` is now `null.vars` order rather than
+supplied rows followed by computed rows. No test asserted the old order.
+
+Verified on the issue's own reproduction: the call now warns
+`a (depth, max 1)`, drops `a`, and reports `null.term.correlations["depth","a"]`
+as 1 while keeping the supplied zero at `["depth","complexity"]`, where the
+computed estimate is 0.334 -- so the assertion distinguishes a cell-wise merge
+from recomputing the whole row. Two tests added, both confirmed to fail against
+the unmodified function (5 failing expectations) and to pass with it.
+
+Measured on this host (Debian WSL2, R 4.6.1, testthat 3.3.2) with
+`testthat::test_local()` and `sum(as.data.frame(res)$passed)`: 782 passing, 0
+failing, 7 skipped, against 772 passing on the branch point.
+`devtools::check()` reports 0 errors, 0 warnings, 0 notes.
+
+---

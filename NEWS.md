@@ -46,6 +46,16 @@
   FSSgam_package#13 still gets their model set and is told their forced terms
   were not screened.
 
+  **An `NA` in both directions of a supplied `cor.matrix` is treated as no value
+  supplied, and that pair is computed from `use.dat`.** Read as a correlation of
+  zero, it admitted the predictor to every candidate alongside the forced term
+  -- the outcome this screen exists to prevent -- decided by a cell the user
+  left empty rather than by a correlation, while the same `NA` between two
+  predictors stops the call (FSSgam_package#27). Where one direction holds a
+  value, that value is used, unchanged. A forced term can be part supplied and
+  part computed, the two being merged cell by cell rather than row by row
+  (FSSgam_package#41).
+
   Where the correlation estimate is asymmetric, as
   `check_non_linear_correlations()` returns it, both directions are read and the
   larger is used -- what the `cov.cutoff` screen already does. Reading one
