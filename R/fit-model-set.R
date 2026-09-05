@@ -31,7 +31,7 @@
 #'
 #' @param progress Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.
 #'
-#' @param logLik.fn A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). AICc and BIC are ordinarily read from MuMIn::AICc and stats::BIC, which both resolve to the fitted family's own aic slot. Where that slot does not give a log-likelihood the whole ranking is unusable, so this argument allows one to be supplied. When it is, AICc and BIC are built from the value it returns, at the degrees of freedom and sample size the default route uses, so only the log-likelihood changes and every model in the set is scored the same way. Two cases are handled without it. A test.fit fitted with one of mgcv's censored families, cnorm or clog, is given a censored log-likelihood computed by the package, with a message saying so, because the value mgcv reports for those families is not built from one. A test.fit whose criterion is not defined at all, which is what a quasi-likelihood such as quasipoisson or quasibinomial gives, stops the call before any model is fitted, naming the family; supplying this argument is what allows such a set to be fitted and ranked.
+#' @param logLik.fn A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). AICc and BIC are ordinarily read from MuMIn::AICc and stats::BIC, which both resolve to the fitted family's own aic slot. Where that slot does not give a log-likelihood the whole ranking is unusable, so this argument allows one to be supplied. When it is, AICc and BIC are built from the value it returns, at the degrees of freedom and sample size the default route uses, so only the log-likelihood changes and every model in the set is scored the same way. Two cases are handled without it. A test.fit fitted with one of mgcv's censored families, cnorm or clog, is given a censored log-likelihood computed by the package, with a message saying so, because the value mgcv reports for those families is not built from one. A test.fit whose criterion is not defined at all, which is what a quasi-likelihood such as quasipoisson or quasibinomial gives, stops the call before any candidate is fitted, naming the family; supplying this argument is what allows such a set to be fitted and ranked. Note that generate_model_set fits the null model, so on the full_subsets_gam route that one fit precedes the refusal. Passing function(fit) as.numeric(stats::logLik(fit)) reproduces the criterion of FSSgam 1.1.0 and earlier for any family.
 #'
 #' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.
 #'
@@ -139,6 +139,20 @@ fit_model_set=function(model.set.list,
   failed.models=summary.l$failed.models
   success.models=summary.l$success.models
   var.inclusions=summary.l$var.inclusions
+
+  # Every fitted candidate recorded with an NA criterion leaves delta.AICc and
+  # both weight columns undefined and variable importance with nothing to
+  # weight, which is the unusable output FSSgam_package#44 reports.
+  # resolve_criterion() refuses a test.fit whose criterion is undefined before
+  # anything is fitted, and checks a supplied logLik.fn on it; this covers the
+  # case nothing earlier can detect, a logLik.fn that succeeds on the test.fit
+  # and fails on every candidate. Reachable on the saved path only: the unsaved
+  # path defines a failed model by an NA criterion, so it stops above with the
+  # message it has always given.
+  if(all(is.na(mod.data.out$AICc))){
+    stop(paste0("Every candidate fitted, and every one was recorded with an NA ",
+         "criterion, so the model set cannot be ranked. Check the value ",
+         "logLik.fn returns for these fits."))}
 
   mod.data.out=compute_model_weights(mod.data.out=mod.data.out,report.unique.r2=report.unique.r2)
 

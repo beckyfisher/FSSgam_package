@@ -446,8 +446,9 @@
   defects, so the smoothing parameters, the coefficients and the scale are as
   before, and only the reported criterion changes.
 
-  Measured on the simulated set the issue reports, `n = 300` with the lowest 20
-  per cent left censored, four candidate predictors of which two are noise, and
+  Measured on Debian WSL2, R 4.6.1, `mgcv` 1.9-4 and `MuMIn` 1.48.19, on the
+  simulated set the issue reports: `n = 300` with the lowest 20 per cent left
+  censored, four candidate predictors of which two are noise, and
   eleven candidates: the previous criterion selected `x`, and the censored
   log-likelihood selects `x+z`, which is the generating model. The spread of
   `delta.AICc` across the set was 35.8 against 310.8, so a nominal
@@ -458,17 +459,18 @@
   The log-likelihood is computed from the fitted mean, the scale and the
   response's censoring coding rather than from the family's `aic` slot, so it is
   independent of the defects and stays correct if they are repaired. Left, right
-  and interval censoring and non-unit prior weights are all covered. It is
-  checked in the test suite against a second computation built from `mgcv`'s own
+  and interval censoring, either column order, and non-unit prior weights are
+  all covered, and every quantity is computed in logs so that an observation far
+  into a tail does not underflow. It is checked in the test suite against a second computation built from `mgcv`'s own
   saturated log-likelihood and deviance residuals, which shares no code with it.
 
-* **Behaviour change:** `fit_model_set()` stops, before any model is fitted, on
-  a `test.fit` whose criterion is not defined, naming the family. A
+* **Behaviour change:** `fit_model_set()` stops, before any candidate is fitted,
+  on a `test.fit` whose criterion is not defined, naming the family. A
   quasi-likelihood such as `quasipoisson()` or `quasibinomial()` has no
   log-likelihood and so no AIC, and `MuMIn::AICc()` returns `NA` for every
-  candidate of such a set. The whole of `mod.data.out` was then unusable ---
+  candidate of such a set. The whole of `mod.data.out` was then unusable --
   `delta.AICc`, `delta.BIC` and both weight columns `NA`, and variable
-  importance with nothing to weight --- and nothing reported it: the fits
+  importance with nothing to weight -- and nothing reported it: the fits
   succeeded and the failure was visible only on reading the returned table
   (FSSgam_package#44).
 
@@ -476,7 +478,16 @@
   list of family names, so any other family whose criterion is undefined is
   covered by it. Supplying `logLik.fn` is what allows such a set to be fitted
   and ranked; the message says so, and names `nb()`, `tw()` and `betar()` as
-  families that have a likelihood.
+  families that have a likelihood. `generate_model_set()` fits the null model,
+  so on the `full_subsets_gam()` route that one fit precedes the refusal.
+
+  `fit_model_set()` also stops where every candidate fitted and every one was
+  recorded with an `NA` criterion, which a supplied `logLik.fn` that succeeds on
+  the `test.fit` and fails on the candidates would otherwise produce.
+
+* The declared `testthat` floor is raised from 3.1.5 to 3.2.0, for
+  `local_mocked_bindings()`. It is a `Suggests`, so nothing a user installs
+  changes.
 
 # FSSgam 1.1.0
 

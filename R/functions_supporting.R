@@ -47,7 +47,11 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
 #' changes. fit_model_set passes this through, and supplies it itself for a test.fit fitted
 #' with one of mgcv's censored families.
 #'
-#' @details Extracts model fit parameters from a dsm, gam or uGamm fitted model object
+#' @details Extracts model fit parameters from a dsm, gam or uGamm fitted model object.
+#' Called directly, this function reads AICc and BIC from MuMIn::AICc and stats::BIC
+#' whatever the fitted family is, so a censored fit gives the value mgcv reports rather
+#' than one built from a censored log-likelihood. It is fit_model_set that resolves which
+#' log-likelihood a model set is ranked on and passes it here as logLik.fn.
 #'
 #' @export
 #' @return A list of model fit parameters

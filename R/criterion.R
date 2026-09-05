@@ -34,9 +34,11 @@ usable_scalar=function(x){
 
 # The family name of a fitted model, or NA_character_ where it cannot be read.
 #
-# stats::family() fails on a MuMIn::uGamm() fit -- it re-evaluates the recorded
-# call and the first element of that call is not a function symbol -- so the
-# gam component of a gamm/gamm4 fit is read directly instead. A dsm fit
+# stats::family() fails on a MuMIn::uGamm(lme4 = FALSE) fit, of class "gamm" --
+# it re-evaluates the recorded call and the first element of that call is not a
+# function symbol -- so the gam component of a gamm/gamm4 fit is read directly
+# instead. Measured on MuMIn 1.48.19: it succeeds on uGamm(lme4 = TRUE), of
+# class c("gamm4", "gamm"), and the branch below covers both. A dsm fit
 # inherits from gam and is covered by the first branch.
 fit_family_name=function(fit){
   fam=NULL
@@ -60,6 +62,16 @@ is_censored_family=function(fam.name){
   !is.na(fam.name)&&grepl("^(cnorm|clog)($|\\()",fam.name)
 }
 
+# log(1 - exp(x)) for x <= 0, accurate at both ends.
+#
+# Two forms are needed. log1p(-exp(x)) loses precision as x approaches 0, where
+# exp(x) approaches 1 and the subtraction cancels; log(-expm1(x)) loses it as x
+# becomes very negative. The switch is at -log(2), which is where the two
+# errors are equal (Machler 2012, "Accurately computing log(1-exp(-|a|))").
+log1mexp=function(x){
+  ifelse(x> -log(2),log(-expm1(x)),log1p(-exp(x)))
+}
+
 # The censored log-likelihood of a fit from mgcv's cnorm() or clog().
 #
 # Computed from the fitted mean, the scale and the response's censoring
@@ -69,38 +81,55 @@ is_censored_family=function(fam.name){
 #
 # mgcv codes a censored response as two columns. fit$y holds the first, and
 # attr(fit$y, "censor") the second: equal to the first where the observation is
-# uncensored, -Inf where it is left censored at the first, +Inf where it is
-# right censored at it, and the upper bound where it is interval censored. A
-# fit with no censored observation at all carries no censor attribute.
+# uncensored, an infinity where it is censored beyond the finite one, and the
+# other bound where it is interval censored. A fit with no censored observation
+# at all has no censor attribute.
+#
+# The two columns are ordered here with pmin/pmax rather than read as lower and
+# upper as given, because that is what mgcv does: cnorm's and clog's dev.resids
+# slots take y0 <- pmin(yat, y) and y1 <- pmax(yat, y) for a finite interval,
+# so a pair written in either order fits identically and must be read the same
+# way. Reading the first column as the lower bound returned NaN for a reversed
+# interval and, with it, an NA criterion for every candidate in the set.
 censored_loglik=function(fit){
   y=fit$y
-  hi=attr(y,"censor")
-  if(is.null(hi)){hi=y}
+  censor=attr(y,"censor")
+  if(is.null(censor)){censor=y}
+  lower=pmin(y,censor)
+  upper=pmax(y,censor)
   mu=as.numeric(fit$fitted.values)
   # getTheta(TRUE) returns the scale itself, not its logarithm, despite theta
   # being documented as a log scale parameter -- exponentiating it inflates the
   # spread. A prior weight rescales the family's log scale by -log(wt)/2, so it
-  # divides the scale by its square root.
+  # divides the scale by its square root, which is what mgcv's own
+  # th <- theta - log(wt)/2 does.
   s=fit$family$getTheta(TRUE)/sqrt(fit$prior.weights)
   logistic=grepl("^clog($|\\()",fit$family$family)
-  # log.p on the two tails rather than log() of the probability: a far
-  # left-censored observation underflows pnorm() to zero and would contribute
-  # -Inf to a sum that is finite.
-  d.log=if(logistic){stats::dlogis(y,mu,s,log=TRUE)}else{stats::dnorm(y,mu,s,log=TRUE)}
-  p.lower=if(logistic){stats::plogis(y,mu,s,log.p=TRUE)}else{stats::pnorm(y,mu,s,log.p=TRUE)}
-  p.upper=if(logistic){
-    stats::plogis(y,mu,s,lower.tail=FALSE,log.p=TRUE)}else{
-    stats::pnorm(y,mu,s,lower.tail=FALSE,log.p=TRUE)}
-  p.at=function(q) if(logistic){stats::plogis(q,mu,s)}else{stats::pnorm(q,mu,s)}
+  log.density=function(q){
+    if(logistic){stats::dlogis(q,mu,s,log=TRUE)}else{stats::dnorm(q,mu,s,log=TRUE)}}
+  log.cdf=function(q){
+    if(logistic){stats::plogis(q,mu,s,log.p=TRUE)}else{stats::pnorm(q,mu,s,log.p=TRUE)}}
+  log.sf=function(q){
+    if(logistic){stats::plogis(q,mu,s,lower.tail=FALSE,log.p=TRUE)}else{
+                 stats::pnorm(q,mu,s,lower.tail=FALSE,log.p=TRUE)}}
 
-  out=d.log
-  left=is.infinite(hi)&hi<0
-  out[left]=p.lower[left]
-  right=is.infinite(hi)&hi>0
-  out[right]=p.upper[right]
-  interval=is.finite(hi)&hi!=y
+  # Every quantity is computed in logs. A far-censored observation underflows
+  # the probability itself to zero, and log() of that is -Inf, which would make
+  # a finite sum infinite and the criterion NA.
+  out=log.density(lower)
+  left=is.infinite(lower)&lower<0
+  right=is.infinite(upper)&upper>0
+  interval=!left&!right&upper!=lower
+  out[left]=log.cdf(upper)[left]
+  out[right]=log.sf(lower)[right]
   if(any(interval)){
-    out[interval]=log((p.at(hi)-p.at(y))[interval])}
+    # log(F(upper) - F(lower)), written from whichever tail the interval sits
+    # in. Taken from the lower tail it cancels for an interval far above the
+    # mean, where both probabilities are near 1, and from the upper tail it
+    # cancels far below it.
+    from.lower=log.cdf(upper)+log1mexp(log.cdf(lower)-log.cdf(upper))
+    from.upper=log.sf(lower)+log1mexp(log.sf(upper)-log.sf(lower))
+    out[interval]=ifelse(upper<=mu,from.lower,from.upper)[interval]}
   sum(out)
 }
 
@@ -121,7 +150,7 @@ censored_loglik=function(fit){
 #
 # Anything that cannot be computed here gives the all-NA criterion rather than
 # stopping the run, which is how a candidate that fails to fit is already
-# recorded: one unfittable candidate must not cost the whole model set.
+# recorded: one unfittable candidate must not leave the whole set unranked.
 # resolve_criterion() has already called logLik.fn on the test.fit, so a
 # function that is broken outright is reported there, once, and only a genuinely
 # model-specific failure reaches this.
@@ -163,13 +192,28 @@ resolve_criterion=function(test.fit,logLik.fn){
   }
 
   if(is_censored_family(fam.name)){
+    # Put through the same check a supplied logLik.fn is put through. Without
+    # it a censored response the built-in cannot evaluate reached the fitting
+    # loop, and the call returned an NA criterion for every candidate under a
+    # message saying the ranking had been corrected -- which is the output
+    # FSSgam_package#44 reports, arrived at by another route.
+    ll=try(censored_loglik(test.fit),silent=TRUE)
+    if(!usable_scalar(ll)){
+      stop(paste0("The fitted family ",fam.name," is one of mgcv's censored ",
+           "families, whose reported AIC is not built from a censored ",
+           "log-likelihood, and the censored log-likelihood this package ",
+           "computes could not be evaluated on the test.fit, so the model set ",
+           "cannot be ranked (FSSgam_package#42). Check the coding of the ",
+           "censored response, or supply logLik.fn to fit_model_set() with a ",
+           "log-likelihood of your own."))}
     message(paste0("The fitted family ",fam.name," is one of mgcv's censored ",
             "families, whose reported AIC is not built from a censored ",
             "log-likelihood. AICc and BIC are computed from a censored ",
             "log-likelihood instead, so the ranking, the weights and variable ",
             "importance differ from those of FSSgam 1.1.0 and earlier ",
             "(FSSgam_package#42). Supply logLik.fn to use a log-likelihood of ",
-            "your own."))
+            "your own; logLik.fn = function(fit) as.numeric(stats::logLik(fit)) ",
+            "reproduces the criterion of those versions."))
     return(censored_loglik)
   }
 

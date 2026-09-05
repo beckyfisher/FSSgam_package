@@ -17,10 +17,12 @@ test_that("fit_family_name reads the family of each supported fit class", {
 })
 
 test_that("fit_family_name reads a uGamm fit, which stats::family cannot", {
-  gamm.fit <- fixture_coral_gamm()$test.fit
   # stats::family() re-evaluates the recorded call, whose first element is not a
-  # function symbol for a uGamm fit, so it errors rather than returning a family.
-  expect_error(stats::family(gamm.fit))
+  # function symbol for a uGamm(lme4 = FALSE) fit, so it errors rather than
+  # returning a family. That is a property of MuMIn, not of this package, and is
+  # not asserted here; what is asserted is that fit_family_name() reads the
+  # family regardless.
+  gamm.fit <- fixture_coral_gamm()$test.fit
   expect_equal(FSSgam:::fit_family_name(gamm.fit), "gaussian")
 
   ugamm4.fit <- fixture_coral_ugamm()$test.fit
@@ -240,12 +242,16 @@ test_that("a censored model set is ranked on the censored log-likelihood", {
   expect_message(corrected <- fit_quietly(model.set, parallel = FALSE,
                                           progress = FALSE),
                  "censored log-likelihood")
-  reported <- fit_quietly(model.set, parallel = FALSE, progress = FALSE,
-                          logLik.fn = mgcv_reported_loglik)
 
   best <- function(out) out$mod.data.out$modname[which.min(out$mod.data.out$AICc)]
   expect_equal(best(corrected), "x+z")
-  expect_equal(best(reported), "x")
+
+  # Nothing here asserts what mgcv's own reported criterion gives. Measured on
+  # 2026-09-05, mgcv 1.9-4, that route selected "x", put the spread of
+  # delta.AICc at 35.8 against 310.8, admitted four models within
+  # delta.AICc <= 5 against two, and ranked the noise predictor v at 0.253 above
+  # z at 0.182. Asserting any of that would fail if mgcv repaired its aic slots,
+  # which is a repair and not a regression.
 
   # The criterion column is the censored log-likelihood's, model by model.
   expected <- vapply(corrected$success.models, FSSgam:::censored_loglik, numeric(1))
@@ -261,8 +267,7 @@ test_that("a censored model set is ranked on the censored log-likelihood", {
   vi <- corrected$variable.importance$aic$variable.weights.raw
   expect_true(vi[["z"]] > vi[["w"]])
   expect_true(vi[["z"]] > vi[["v"]])
-  vi.reported <- reported$variable.importance$aic$variable.weights.raw
-  expect_true(vi.reported[["z"]] < vi.reported[["v"]])
+  expect_equal(unname(vi[["x"]]), 1, tolerance = 1e-3)
 })
 
 test_that("both fitting paths give the same censored criterion", {
@@ -296,6 +301,75 @@ test_that("a failed candidate still yields an all-NA row under a censored family
   expect_true(is.na(broken$AICc))
   expect_true(is.na(broken$BIC))
   expect_false(anyNA(unsaved$mod.data.out$AICc[unsaved$mod.data.out$modname != "x+z"]))
+})
+
+test_that("censored_loglik reads an interval pair in either column order", {
+  # mgcv orders the pair itself -- its dev.resids slot takes pmin and pmax of
+  # the two columns for a finite interval -- so a reversed pair fits identically
+  # and must give the same log-likelihood. Read as lower and upper as given it
+  # returned NaN, and with it an NA criterion for every candidate in the set.
+  d <- fixture_mixed_censored_data(seed = 12, n = 200)
+  reversed <- d
+  reversed$ycens <- d$ycens[, c(2, 1)]
+  # Only the finite intervals are reversed; an infinite bound in the first
+  # column is a different coding and is not what this covers.
+  finite.interval <- is.finite(d$ycens[, 2]) & d$ycens[, 2] != d$ycens[, 1]
+  reversed$ycens[!finite.interval, ] <- d$ycens[!finite.interval, ]
+  expect_true(any(finite.interval))
+
+  fit <- fixture_cnorm(data = d)$test.fit
+  fit.reversed <- fixture_cnorm(data = reversed)$test.fit
+  expect_equal(stats::coef(fit.reversed), stats::coef(fit), tolerance = 1e-6)
+  expect_false(is.na(FSSgam:::censored_loglik(fit.reversed)))
+  expect_equal(FSSgam:::censored_loglik(fit.reversed),
+               censored_loglik_oracle(fit.reversed), tolerance = 1e-8)
+  expect_equal(FSSgam:::censored_loglik(fit.reversed),
+               FSSgam:::censored_loglik(fit), tolerance = 1e-6)
+})
+
+test_that("censored_loglik does not underflow on an interval far into a tail", {
+  # Computed as log(F(upper) - F(lower)) the difference underflows to zero far
+  # from the mean and the whole sum becomes -Inf, which gives an NA criterion.
+  d <- fixture_censored_data(seed = 13, n = 200)
+  d$ycens[1, ] <- c(60, 60 + 1e-9)
+  fit <- fixture_cnorm(data = d)$test.fit
+  expect_true(is.finite(FSSgam:::censored_loglik(fit)))
+  expect_equal(FSSgam:::censored_loglik(fit), censored_loglik_oracle(fit),
+               tolerance = 1e-6)
+})
+
+test_that("censored_loglik agrees with the oracle on a heavily censored response", {
+  # 85 per cent left censored. Censoring every row leaves nothing for mgcv to
+  # estimate the smooth from and the fit itself fails, so this is as far as the
+  # comparison can be taken.
+  d <- fixture_censored_data(seed = 14, n = 300, cens.frac = 0.85)
+  fit <- fixture_cnorm(data = d)$test.fit
+  expect_gt(mean(attr(fit$y, "censor") == -Inf), 0.8)
+  expect_equal(FSSgam:::censored_loglik(fit), censored_loglik_oracle(fit),
+               tolerance = 1e-8)
+})
+
+test_that("resolve_criterion refuses a censored fit the built-in cannot evaluate", {
+  fit <- fixture_cnorm()$test.fit
+  # A censored coding the built-in returns no number for must be reported here,
+  # before the fitting loop, not left to produce an NA criterion column.
+  local_mocked_bindings(censored_loglik = function(fit) NaN, .package = "FSSgam")
+  expect_error(FSSgam:::resolve_criterion(fit, NULL), "could not be evaluated")
+})
+
+test_that("fit_model_set stops where every fitted candidate has an NA criterion", {
+  fit <- fixture_cs1_gaussian()
+  model.set <- fixture_cs1_model_set(fit)
+  # A logLik.fn that passes the test.fit check and fails on every candidate:
+  # nothing before the fitting loop can detect it.
+  seen <- 0L
+  fussy <- function(f) {
+    seen <<- seen + 1L
+    if (seen == 1L) as.numeric(stats::logLik(f)) else NA_real_
+  }
+  expect_error(fit_quietly(model.set, parallel = FALSE, progress = FALSE,
+                           logLik.fn = fussy),
+               "NA")
 })
 
 # ---- full_subsets_gam -------------------------------------------------------

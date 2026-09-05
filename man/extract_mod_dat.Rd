@@ -25,7 +25,11 @@ A list of model fit parameters
 Supporting function for functions full_subsets_gam and fit_model_set. Not called directly.
 }
 \details{
-Extracts model fit parameters from a dsm, gam or uGamm fitted model object
+Extracts model fit parameters from a dsm, gam or uGamm fitted model object.
+Called directly, this function reads AICc and BIC from MuMIn::AICc and stats::BIC
+whatever the fitted family is, so a censored fit gives the value mgcv reports rather
+than one built from a censored log-likelihood. It is fit_model_set that resolves which
+log-likelihood a model set is ranked on and passes it here as logLik.fn.
 }
 \examples{
 library(mgcv)
