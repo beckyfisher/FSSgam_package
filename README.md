@@ -12,7 +12,7 @@ Functions and code for building the FFSgam package.
 Please see https://github.com/beckyfisher/FSSgam for example of usage.
 
 For documentation, FAQs, and case studies see:
-https://beckyfisher.github.io/FSSgam
+https://beckyfisher.github.io/FSSgam/
 
 # License
 

@@ -104,7 +104,22 @@ estimate_non_linear_correlation=function(response.var1,predictor.var2,dat,fact.v
       fit <- try(nnet::multinom(response.var1 ~ predictor.var2,trace=FALSE,
           data=dat.r)$deviance,silent=TRUE)
       null.fit=try(nnet::multinom(response.var1 ~ 1,trace=FALSE,data=dat.r)$deviance,silent=TRUE)
-      if(!inherits(fit,"try-error")){
+      # The null half of this test is defensive and no case reaching it is
+      # known: both models are fitted on the same dat.r, and multinom()'s
+      # relevant failure ("need two or more classes") depends only on the
+      # response, which the two share. Without it a failed null.fit would be
+      # passed to round() as the character vector try() returns, raising
+      # "non-numeric argument to mathematical function", which propagates out of
+      # check_non_linear_correlations() instead of leaving the cell NA, which is
+      # how a failed fit is already handled. check_correlations() was given the
+      # equivalent guard in FSSgam_package#16 -- not the identical one, since its
+      # null.fit can also be NULL by design and so tests !is.null() as well
+      # (FSSgam_package#19).
+      #
+      # The lm() branch below has the same unguarded shape and is reachable, so
+      # this function does not yet degrade to NA in every failure: see
+      # FSSgam_package#33.
+      if(!inherits(fit,"try-error")&&!inherits(null.fit,"try-error")){
          if(round(fit,4)==round(null.fit,4)){r.est=0}else{
         r.est=sqrt(1-(fit/null.fit))}
         }
@@ -112,6 +127,9 @@ estimate_non_linear_correlation=function(response.var1,predictor.var2,dat,fact.v
     # if the response.var1 variable is continuous and the predictor.var2 is a factor, do an
     # anova
     if(class.response.var1=="continuous" & class.predictor.var2 == "factor"){
+       # Not wrapped in try(), unlike every other fit in this function. A
+       # single-level factor makes lm() stop and the error propagates out of
+       # check_non_linear_correlations(): FSSgam_package#33.
        r.est=sqrt(summary(stats::lm(response.var1~predictor.var2,data=dat.r))$r.sq)
      }
     # if both the response.var1 variable and the predictor.var2 are continuous, do a gam
