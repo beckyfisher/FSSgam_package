@@ -504,12 +504,16 @@
   whenever any candidate in the table had an `NA` model weight, including
   predictors appearing in no such candidate. The weights are now summed with
   `na.rm = TRUE`, so a candidate that contributes no weight contributes zero.
+  Under the default `VI.mods = "min.n"` the count of models per predictor is
+  also taken over the candidates that have a weight rather than over every row,
+  so the two fitting paths give the same scores for the same model set.
 
   The route to it on 1.1.0 is a candidate that failed to fit with
   `save.model.fits = FALSE`, which keeps a row for it; the
   `save.model.fits = TRUE` path drops the row and was unaffected, so which of
-  the two a user saw depended on a memory setting. A supplied `logLik.fn` that
-  gives some candidates no value reaches it as well.
+  the two a user saw depended on a memory setting, and `max.models` changes that
+  setting without being asked. A supplied `logLik.fn` that gives some candidates
+  no value reaches it as well.
 
 * Bug fix: `fit_model_set(save.model.fits = FALSE)` recorded a candidate that
   fitted and was given no criterion as a model that failed to fit, and reported

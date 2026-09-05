@@ -31,7 +31,11 @@
 #'
 #' @param progress Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.
 #'
-#' @param logLik.fn A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). AICc and BIC are ordinarily read from MuMIn::AICc and stats::BIC, which both resolve to the fitted family's own aic slot. Where that slot does not give a log-likelihood the whole ranking is unusable, so this argument allows one to be supplied. When it is, AICc and BIC are built from the value it returns, at the degrees of freedom and sample size the default route uses, so only the log-likelihood changes and every model in the set is scored the same way. Two cases are handled without it. A test.fit fitted with one of mgcv's censored families, cnorm or clog, is given a censored log-likelihood computed by the package, with a message saying so, because the value mgcv reports for those families is not built from one. A test.fit whose criterion is not defined at all, which is what a quasi-likelihood such as quasipoisson or quasibinomial gives, stops the call before any candidate is fitted, naming the family; supplying this argument is what allows such a set to be fitted and ranked. Note that generate_model_set fits the null model, so on the full_subsets_gam route that one fit precedes the refusal. Passing function(fit) as.numeric(stats::logLik(fit)) reproduces the criterion of FSSgam 1.1.0 and earlier for any family. One restriction applies under parallel = TRUE with save.model.fits = FALSE, which is the only combination that evaluates this function on a worker process: a function written at the top level of a script has its environment replaced before it is sent, so any object it refers to and does not define is not found there and every candidate is given no criterion, which stops the call. Write it so that it refers to nothing outside itself, or build it with a constructor -- make_ll <- function(k) function(fit) ... k ...; logLik.fn = make_ll(2) -- whose environment is sent with it. This is the restriction GitHub issue beckyfisher/FSSgam#10 reports for the family argument, and it has the same cause.
+#' @param logLik.fn A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). AICc and BIC are ordinarily read from MuMIn::AICc and stats::BIC, which both resolve to the fitted family's own aic slot. Where that slot does not give a log-likelihood the whole ranking is unusable, so this argument allows one to be supplied. When it is, AICc and BIC are built from the value it returns, at the degrees of freedom and sample size the default route uses, so only the log-likelihood changes and every model in the set is scored the same way. Passing function(fit) as.numeric(stats::logLik(fit)) reproduces the criterion of FSSgam 1.1.0 and earlier for any family.
+#'
+#' Two cases are handled without it. A test.fit fitted with one of mgcv's censored families, cnorm or clog, is given a censored log-likelihood computed by the package, with a message saying so, because the value mgcv reports for those families is not built from one; wrap the call in suppressMessages to silence it. A test.fit whose criterion is not defined at all, which is what a quasi-likelihood such as quasipoisson or quasibinomial gives, stops the call before any candidate is fitted, naming the family; supplying this argument is what allows such a set to be fitted and ranked. Note that generate_model_set fits the null model, so on the full_subsets_gam route that one fit precedes the refusal.
+#'
+#' One restriction applies under parallel = TRUE with save.model.fits = FALSE, which is the only combination that evaluates this function on a worker process: a function written at the top level of a script has its environment replaced before it is sent, so any object it refers to and does not define is not found there and every candidate is given no criterion, which stops the call. Write it so that it refers to nothing outside itself, or build it with a constructor -- make_ll <- function(k) function(fit) ... k ...; logLik.fn = make_ll(2) -- whose environment is sent with it. This is the restriction GitHub issue beckyfisher/FSSgam#10 reports for the family argument, and it has the same cause.
 #'
 #' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.
 #'
@@ -50,6 +54,7 @@
 #' Where null.terms is empty the null model's formula is the intercept alone and the column equals r2.vals. This drops every term of the test.fit's formula, a random effect written as s(site, bs = 're') included; that is what null.terms exists to put back. A random structure supplied through a separate argument rather than through the formula, as in uGamm(random = ~(1|site)), is not part of the formula and is retained by the null model either way.
 #' The column is a per-model quantity, not a variance partition among terms: with max.predictors greater than one it is the joint contribution of every predictor in that model, and it is a per-predictor contribution only at max.predictors = 1. It is on whatever scale r2.type produced, so a candidate fitting worse than the null on the chosen measure gives a negative value.
 #' Values of r2.vals.unique are comparable only within a model set sharing the same null.terms and the same r2.type.
+#' Under the default r2.type the R squared is estimated by regressing the response on the fitted values, and for a censored response that response is the recorded bound rather than the latent value, so the estimate is a fit to the censored data. Measured on a simulated set with 20 per cent left censoring, 0.663 against 0.667 computed on the latent response, and the difference grows with the censored fraction.
 #'
 #' failed.models - A list of model formula that failed to fit. Ideally the list of failed models should be empty, but when this is not the case interrogating failed.models provides a useful means of troubleshooting. Users can examine which models are not fitting and explore the reasons for this by fitting the failed models outside the full_subsets_gam call based on the listed formula. When a large number of models fail to fit properly it usually indicates poor specification of the initial test.fit or other arguments in the call to full_subsets_gam (such as the inclusion of factor interactions when there are few data within each level of the factor), or that inappropriate variables are being included in the model set.
 #'
@@ -161,13 +166,13 @@ fit_model_set=function(model.set.list,
   fitted.rows <- mod.data.out$modname %in% names(success.models)
   no.criterion <- fitted.rows&is.na(mod.data.out$AICc)
   if(any(fitted.rows)&&all(no.criterion[fitted.rows])){
-    stop(paste0("Every candidate that fitted was given no criterion, so the ",
-         "model set cannot be ranked",
+    stop(paste0("All ",sum(fitted.rows)," candidates that fitted were given no ",
+         "criterion, so the model set cannot be ranked",
          if(logLik.supplied){
            " -- check the value logLik.fn returns for these fits"
-         }else{
-           " -- check the coding of the response"
-         },
+         }else if(!is.null(logLik.fn)){
+           " -- check the coding of the censored response"
+         }else{""},
          "."))}
   if(any(no.criterion)){
     warning(paste0("Candidate(s) fitted but given no criterion, and excluded ",
@@ -422,13 +427,26 @@ compute_variable_importance=function(mod.data.out,included.vars,VI.mods){
    # find the min number of models for each variable
   # drop=FALSE throughout: with a single predictor the [ , ] would otherwise
   # return a vector and colSums() would fail.
-  min.mods <- min(colSums(mod.data.out[,included.vars,drop=FALSE]))
+  #
+  # Counted over the candidates that have a weight, not over every row. The
+  # save.model.fits=FALSE path keeps an all-NA row for a candidate that did not
+  # fit and the other path drops it, so counting every row made the two paths
+  # give different importance scores for the same model set: measured on the
+  # eight-model case_study1 set with one candidate broken, min.mods of 3 against
+  # 2 and complexity at 0.999 against 0.858. A candidate excluded from the
+  # ranking is excluded from the count as well.
+  # Per criterion, since a candidate could have one weight and not the other.
+  min_mods_for=function(weights){
+    scored <- !is.na(weights)
+    min(colSums(mod.data.out[scored,included.vars,drop=FALSE]))
+  }
 
   if(VI.mods=='min.n'){
     # seq_len() rather than 1:min.mods -- a predictor present in no surviving
     # model gives min.mods of 0, and 1:0 is c(1,0), which would take the single
     # best weight instead of none.
     # first for AICc
+    min.mods <- min_mods_for(mod.data.out$wi.AICc)
     var.weights <- unlist(lapply(included.vars,FUN=function(x){
            sum(sort(mod.data.out$wi.AICc[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)],
                na.rm=TRUE)}))
@@ -437,6 +455,7 @@ compute_variable_importance=function(mod.data.out,included.vars,VI.mods){
     aic.var.weights <- list(variable.weights.raw=variable.weights.raw)
 
     # next for BIC
+    min.mods <- min_mods_for(mod.data.out$wi.BIC)
     var.weights <- unlist(lapply(included.vars,FUN=function(x){
       sum(sort(mod.data.out$wi.BIC[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)],
           na.rm=TRUE)}))

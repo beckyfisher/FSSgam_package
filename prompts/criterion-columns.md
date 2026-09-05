@@ -4,18 +4,18 @@ Model: Claude Opus 5 (1M context)
 
 ### Prompts and Responses
 
-**User:** Address FSSgam_package#44 and #42 in a single PR, then review the PR
+**User:** Address FSSgam_package#44 and FSSgam_package#42 in a single PR, then review the PR
 over up to five cycles, fixing what each review finds.
 
 **Claude:** Both issues are failures of the same extractor. `extract_mod_dat()`
 reads `AICc` from `MuMIn::AICc()` and `BIC` from `stats::BIC()`, and both
 resolve to the fitted family's own `aic` slot. A quasi-likelihood has no
 log-likelihood, so that slot returns `NA` and the whole model set is unrankable
-(#44). `mgcv`'s `cnorm()` and `clog()` return a number that is not a censored
+(FSSgam_package#44). `mgcv`'s `cnorm()` and `clog()` return a number that is not a censored
 log-likelihood, so the set is ranked on a criterion that is wrong rather than
-missing (#42).
+missing (FSSgam_package#42).
 
-Three decisions were put to the user before implementing, being the ones #42
+Three decisions were put to the user before implementing, being the ones FSSgam_package#42
 lists as to be asked rather than guessed. The answers: the corrected values
 overwrite `AICc` and `BIC` rather than arriving as new columns, so the delta
 values, the weights and variable importance are corrected with them; the
@@ -36,7 +36,7 @@ need. `fit_model_set()`, `full_subsets_gam()` and `extract_mod_dat()` gain
 
 The censored log-likelihood is computed from the fitted mean, the scale and the
 response's censoring coding rather than from `mgcv`'s components, so it is
-independent of the three defects #42 documents and stays correct if they are
+independent of the three defects FSSgam_package#42 documents and stays correct if they are
 repaired. `mgcv`'s own `ls` and `dev.resids` slots would have given a shorter
 implementation through the identity `deviance = 2 * (saturated - loglik)`, and
 that route was rejected as the implementation and adopted as the *test oracle*
@@ -73,7 +73,7 @@ families the issue names.
 `logLik.fn` is put through, because a censored response it cannot evaluate
 otherwise reached the fitting loop and produced an `NA` criterion for every
 candidate under a message saying the ranking had been corrected -- which is
-issue #44's output arrived at by another route. `fit_model_set()` then stops
+issue FSSgam_package#44's output arrived at by another route. `fit_model_set()` then stops
 where every candidate that fitted was given no criterion, and warns naming them
 where only some were.
 
@@ -97,5 +97,27 @@ criterion gives, so a repair upstream would fail none of them. The values that
 route produced on 2026-09-05 are recorded in a comment beside the test instead.
 The one deliberate exception is the scale-recovery test, which is aimed at a
 change in `getTheta()`'s semantics rather than at a repair of the `aic` slots.
+
+---
+
+**Added during the review cycle.** Two defects were found in the package while
+this branch was reviewed and are fixed here in their own commits, neither
+introduced by it. The two fitting paths disagreed on what a failed model is:
+`save.model.fits = FALSE` defined one by an `NA` criterion and the other by the
+class of the fit, so the same partial failure returned eight successes with five
+`NA` rows on one path and three successes with five `failed.models` on the
+other. And summed variable importance came back `NA` for every predictor
+whenever any candidate in the table had an `NA` weight, predictors appearing in
+no such candidate included. Both were reachable on 1.1.0 through a candidate
+that failed to fit under `save.model.fits = FALSE`, and `max.models` selects
+that path above 200 candidates without being asked, so neither was the user's
+choice.
+
+The quasi refusal was also widened. Reading only the value `MuMIn::AICc()`
+returns misses a quasi-likelihood fitted through `MuMIn::uGamm()` or
+`mgcv::gamm()`, for which that value is a number read from the internal `lme`
+fit of the PQL working model. Measured on `case_study1`: 176.03, and a
+three-candidate set ranked with a weight of 1.000 on the best, on differences
+that rank nothing. The family name is now checked beside the value.
 
 ---

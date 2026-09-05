@@ -170,6 +170,10 @@ censored_loglik=function(fit){
 criterion_from_loglik=function(mod.fit,logLik.fn){
   ll=try(logLik.fn(mod.fit),silent=TRUE)
   if(!usable_scalar(ll)){return(list(AICc=NA,BIC=NA))}
+  # as.numeric() so that logLik.fn = stats::logLik, which returns a classed
+  # value with its own df attribute, does not make AICc and BIC logLik objects
+  # carrying a df that is no longer theirs.
+  ll=as.numeric(ll)
   k=try(attr(stats::logLik(mod.fit),"df"),silent=TRUE)
   n=try(stats::nobs(mod.fit),silent=TRUE)
   if(!usable_scalar(k)||!usable_scalar(n)){return(list(AICc=NA,BIC=NA))}
@@ -217,9 +221,9 @@ resolve_criterion=function(test.fit,logLik.fn){
            "log-likelihood, and the censored log-likelihood this package ",
            "computes could not be evaluated on the test.fit, so the model set ",
            "cannot be ranked (FSSgam_package#42). Check the coding of the ",
-           "censored response: an infinite bound belongs in the second column, ",
-           "which is where mgcv reads it from. Otherwise supply logLik.fn to ",
-           "fit_model_set() with a log-likelihood of your own."))}
+           "censored response: the most common cause is an infinite bound in ",
+           "the first column, where mgcv does not read one. Otherwise supply ",
+           "logLik.fn to fit_model_set() with a log-likelihood of your own."))}
     message(paste0("The fitted family ",fam.name," is one of mgcv's censored ",
             "families, whose reported AIC is not built from a censored ",
             "log-likelihood in mgcv 1.9-4. AICc and BIC are computed from a ",
@@ -232,18 +236,36 @@ resolve_criterion=function(test.fit,logLik.fn){
     return(censored_loglik)
   }
 
-  # The general check that the criterion is usable at all. Read from the
-  # test.fit, which is already fitted, so nothing is fitted to discover it. A
-  # quasi-likelihood is what reaches it in practice, but the test is on the
-  # value rather than on a list of family names, so any other family whose aic
-  # slot is undefined is covered too.
+  # Two checks, because neither covers the other.
+  #
+  # The value MuMIn::AICc() returns for the test.fit, which is already fitted so
+  # nothing is fitted to discover it. This is the general one: it does not
+  # depend on a list of family names, so any family whose aic slot is undefined
+  # reaches it.
+  #
+  # And the family name, because a quasi-likelihood fitted through
+  # MuMIn::uGamm() or mgcv::gamm() passes the first. AICc for such a fit is read
+  # from the internal lme fit of the PQL working model, and is a number.
+  # Measured on case_study1, uGamm(..., family = quasipoisson()): 176.03, and a
+  # three-candidate set ranked with a weight of 1.000 on the best. A PQL
+  # log-likelihood is a function of the working response, which itself changes
+  # with the fixed effects, so those differences rank nothing.
+  quasi.named=!is.na(fam.name)&&grepl("^quasi",fam.name)
   crit=suppressWarnings(try(MuMIn::AICc(test.fit),silent=TRUE))
-  if(!usable_scalar(crit)){
-    stop(paste0("The model set cannot be ranked: MuMIn::AICc() returns no usable ",
-         "value for the test.fit, whose fitted family ",named,". A ",
-         "quasi-likelihood has no log-likelihood and so no AIC or BIC, and ",
-         "every candidate would be recorded with an NA criterion, leaving ",
-         "delta.AICc, the Akaike weights and variable importance undefined ",
+  if(quasi.named||!usable_scalar(crit)){
+    cause=if(quasi.named){
+      paste0("the fitted family is ",fam.name,", a quasi-likelihood, which has ",
+             "no log-likelihood and so no AIC or BIC. For a gam fit ",
+             "MuMIn::AICc() returns NA, so every candidate would be recorded ",
+             "with an NA criterion; for a gamm or uGamm fit it returns a value ",
+             "read from the PQL working model, which ranks nothing")
+    }else{
+      paste0("MuMIn::AICc() returns no usable value for the test.fit, whose ",
+             "fitted family ",named,", so every candidate would be recorded ",
+             "with an NA criterion")
+    }
+    stop(paste0("The model set cannot be ranked: ",cause,". delta.AICc, the ",
+         "Akaike weights and variable importance would all be undefined ",
          "(FSSgam_package#44). Either refit the test.fit with a family that ",
          "has a likelihood -- nb() or tw() for overdispersed counts, betar() ",
          "for proportions -- or supply logLik.fn to fit_model_set(), a ",

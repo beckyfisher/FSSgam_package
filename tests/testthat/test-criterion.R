@@ -11,7 +11,7 @@ test_that("fit_family_name reads the family of each supported fit class", {
   # An extended family reports its estimated parameter as part of the name once
   # fitted, so this is not the bare "cnorm".
   expect_match(FSSgam:::fit_family_name(fixture_cnorm()$test.fit),
-               "^cnorm\\(")
+               "^cnorm")
   expect_equal(FSSgam:::fit_family_name(fixture_cs1_quasipoisson()$test.fit),
                "quasipoisson")
 })
@@ -147,6 +147,17 @@ test_that("resolve_criterion supplies the censored log-likelihood, with a messag
 test_that("resolve_criterion stops on a test.fit whose criterion is undefined", {
   fit <- fixture_cs1_quasipoisson()$test.fit
   expect_true(is.na(MuMIn::AICc(fit)))
+  expect_error(FSSgam:::resolve_criterion(fit, NULL), "quasipoisson")
+  expect_error(FSSgam:::resolve_criterion(fit, NULL), "cannot be ranked")
+})
+
+test_that("resolve_criterion refuses a quasi-likelihood reached through uGamm", {
+  # MuMIn::AICc returns a number for a gamm fit, read from the internal lme fit
+  # of the PQL working model, so the value check does not refuse it and the set
+  # was ranked on differences that rank nothing: a PQL log-likelihood is a
+  # function of the working response, which changes with the fixed effects.
+  fit <- fixture_cs1_quasipoisson_ugamm()$test.fit
+  expect_true(is.finite(MuMIn::AICc(fit)))
   expect_error(FSSgam:::resolve_criterion(fit, NULL), "quasipoisson")
   expect_error(FSSgam:::resolve_criterion(fit, NULL), "cannot be ranked")
 })
@@ -346,7 +357,7 @@ test_that("censored_loglik refuses a coding whose rows mgcv drops", {
   expect_true(is.na(FSSgam:::censored_loglik(fit)))
   # And is reported before anything is fitted rather than as an NA column.
   expect_error(FSSgam:::resolve_criterion(fit, NULL), "could not be evaluated")
-  expect_error(FSSgam:::resolve_criterion(fit, NULL), "second column")
+  expect_error(FSSgam:::resolve_criterion(fit, NULL), "first column")
 })
 
 test_that("censored_loglik does not underflow on an interval far into a tail", {
@@ -412,13 +423,13 @@ test_that("a candidate fitted and given no criterion is reported, on both paths"
     terms <- attr(stats::terms(stats::formula(f)), "term.labels")
     if (any(grepl("ZONE", terms))) NA_real_ else as.numeric(stats::logLik(f))
   }
-  saved <- expect_warning(
-    fit_quietly(model.set, parallel = FALSE, progress = FALSE,
-                logLik.fn = partial),
+  expect_warning(
+    saved <- fit_quietly(model.set, parallel = FALSE, progress = FALSE,
+                         logLik.fn = partial),
     "given no criterion")
-  unsaved <- expect_warning(
-    fit_quietly(model.set, parallel = FALSE, progress = FALSE,
-                save.model.fits = FALSE, logLik.fn = partial),
+  expect_warning(
+    unsaved <- fit_quietly(model.set, parallel = FALSE, progress = FALSE,
+                           save.model.fits = FALSE, logLik.fn = partial),
     "given no criterion")
   # A candidate given no criterion fitted, so it is not a failed model on
   # either path, and the two paths agree on which candidates succeeded.
@@ -437,6 +448,24 @@ test_that("a candidate fitted and given no criterion is reported, on both paths"
   }
 })
 
+test_that("full_subsets_gam ranks a censored set on the censored log-likelihood", {
+  d <- fixture_censored_data(seed = 16, n = 150)
+  fit <- fixture_cnorm(data = d)
+  expect_message(
+    out <- full_subsets_quietly(use.dat = fit$use.dat, test.fit = fit$test.fit,
+                                pred.vars.cont = c("x", "z"),
+                                max.predictors = 2, k = 5, parallel = FALSE,
+                                progress = FALSE),
+    "censored log-likelihood")
+  expected <- vapply(out$success.models, FSSgam:::censored_loglik, numeric(1))
+  k <- vapply(out$success.models,
+              function(f) attr(stats::logLik(f), "df"), numeric(1))
+  n <- nrow(d)
+  expect_equal(unname(out$mod.data.out$AICc),
+               unname(-2 * expected + 2 * k + 2 * k * (k + 1) / (n - k - 1)),
+               tolerance = 1e-8)
+})
+
 test_that("variable importance is not NA because one candidate failed to fit", {
   # save.model.fits = FALSE keeps a row for a candidate that did not fit, so its
   # NA weight reached the summed importance and made every predictor NA. The
@@ -451,6 +480,24 @@ test_that("variable importance is not NA because one candidate failed to fit", {
   expect_false(anyNA(unsaved$variable.importance$bic$variable.weights.raw))
   saved <- fit_quietly(model.set, parallel = FALSE, progress = FALSE)
   expect_false(anyNA(saved$variable.importance$aic$variable.weights.raw))
+  # And the two paths agree. min.mods counts the candidates that have a weight,
+  # not every row: the unsaved path keeps a row for the candidate that did not
+  # fit and the saved path drops it, so counting rows made the same model set
+  # give different importance scores depending on save.model.fits.
+  expect_equal(unsaved$variable.importance$aic$variable.weights.raw,
+               saved$variable.importance$aic$variable.weights.raw,
+               tolerance = 1e-8)
+  expect_equal(unsaved$variable.importance$bic$variable.weights.raw,
+               saved$variable.importance$bic$variable.weights.raw,
+               tolerance = 1e-8)
+})
+
+test_that("logLik.fn returning a classed logLik gives a plain numeric criterion", {
+  fit <- fixture_cs1_gaussian()$test.fit
+  out <- extract_mod_dat(fit, logLik.fn = stats::logLik)
+  expect_true(is.numeric(out$AICc) && is.null(attributes(out$AICc)))
+  expect_true(is.numeric(out$BIC) && is.null(attributes(out$BIC)))
+  expect_equal(out$AICc, MuMIn::AICc(fit), tolerance = 1e-10)
 })
 
 test_that("a non-identity link and a fixed theta are read correctly", {

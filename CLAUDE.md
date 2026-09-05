@@ -61,7 +61,7 @@ to determine what is available — don't assume this list stays in sync.
 
 - **Imports**: `doSNOW`, `foreach`, `mgcv`, `MuMIn`, `nnet`, `parallel`,
   `stats`, `utils`
-- **Suggests**: `covr`, `gamm4`, `testthat (>= 3.1.5)`. `gamm4` moved out of
+- **Suggests**: `covr`, `gamm4`, `Matrix`, `testthat (>= 3.2.0)`. `gamm4` moved out of
   `Imports` so that a parallel worker no longer loads it and `lme4` with it
   for every model set (FSSgam_package#14).
 - **Depends**: `R (>= 4.4.0)` only — no other package may go in `Depends`.
@@ -123,6 +123,9 @@ R/
                                          # .Deprecated() wrappers (Section 6 Phase 9)
   generate-model-set.R                  # generate_model_set() + 8 unexported helpers (Section 6 Phase 6)
   fit-model-set.R                       # fit_model_set() + 4 unexported helpers (Section 6 Phase 6)
+  criterion.R                           # resolve_criterion() and the censored log-likelihood --
+                                         # decides which log-likelihood AICc and BIC are built from
+                                         # (Section 6, Phase 15)
   check-correlations.R                  # check_correlations() + 3 unexported helpers (Section 6 Phase 6b)
   check-non-linear-correlations.R       # check_non_linear_correlations() + 3 helpers (Section 6 Phase 6b)
   utils.R                                # classify_correlation_predictors() — shared by both check-*.R files;
@@ -1043,6 +1046,87 @@ path recording the injected failing candidate rather than aborting the run.
 `full-subsets-gam.R` and `functions_supporting.R`. An editor that rewrites
 them as LF turns a three-line change into a whole-file diff. Check with
 `file R/*.R` before editing one.
+
+### Phase 15 — The model selection criterion: quasi-likelihood and censored
+families (FSSgam_package#42, #44; PR #48) — Completed
+
+Done. `AICc` and `BIC` were read from `MuMIn::AICc()` and `stats::BIC()`, which
+both resolve to the fitted family's own `aic` slot. A quasi-likelihood has none,
+so the whole model set came back `NA`; `mgcv`'s `cnorm()` and `clog()` return a
+number that is not a censored log-likelihood, so the set was ranked on a
+criterion that was wrong rather than missing. `R/criterion.R` now resolves once
+per model set, before the fitting loop, which log-likelihood the set is ranked
+on. `NEWS.md` describes every user-visible change; the reasoning is in
+`prompts/criterion-columns.md`. What is recorded here is only what a later
+session would otherwise re-derive.
+
+**Three `mgcv` properties this depends on, each measured rather than assumed.**
+`getTheta(TRUE)` returns the scale itself, not its logarithm, despite `theta`
+being documented as a log scale parameter. A prior weight divides the scale by
+its square root, matching `mgcv`'s own `th <- theta - log(wt)/2`. And
+`attr(logLik(fit), "df")` is finite even for a quasi-likelihood fit whose
+`logLik()` value is `NA`, because `logLik.gam` computes the degrees of freedom
+before it reads the `aic` slot -- which is what makes a user-supplied
+`logLik.fn` a usable route for a quasi `test.fit` rather than a dead end.
+
+**A fitted extended family reports its estimated parameter as part of its name.**
+`fit$family$family` is `"cnorm(0.573)"`, not `"cnorm"`. Any test on the family
+of a *fitted* model must be a prefix match. Issue FSSgam_package#42's own
+reproduction script has this defect -- it tests `identical(family, "clog")`,
+which is never true after fitting, and so evaluated the normal density on a
+logistic fit; the `clog` figure in that issue's table is wrong in consequence.
+
+**A quasi-likelihood is not detected by the criterion being `NA`.** Through
+`MuMIn::uGamm()` or `mgcv::gamm()`, `MuMIn::AICc()` returns a number read from
+the internal `lme` fit of the PQL working model. Measured on `case_study1`:
+176.03, and a three-candidate set ranked with a weight of 1.000 on the best.
+Both the value and the family name are therefore checked.
+
+**`mgcv` reads a censored case from the second response column alone.** For a
+finite interval it takes `pmin`/`pmax` of the pair, so either column order fits
+identically and must be read the same way. An *infinite* bound in the first
+column is different: under `clog` the row matches none of the censored cases
+and is dropped from the fit without a message, and `cnorm` refuses to fit that
+coding at all. Anything computing a censored likelihood must classify the same
+way `dev.resids` does, and refuse what `mgcv` silently drops.
+
+**A `logLik.fn` written at the top level of a script cannot reach a doSNOW
+worker with its free variables**, and this cannot be fixed from inside the
+package. `foreach:::getexports()` replaces the environment of any exported
+function whose environment is `.GlobalEnv`, and `.GlobalEnv` is never
+serialised by value in any case. Measured in one cluster: a top-level closure
+reading a top-level variable fails with "object 'shift' not found"; the same
+closure built by a constructor returns the right value. This is
+`beckyfisher/FSSgam#10`'s cause reaching a new argument, and unlike that one it
+cannot be resolved on the calling process, because the function has to be
+evaluated on each fit. It is documented on the argument instead.
+
+**Two defects found while working here, fixed in their own commits.** The two
+fitting paths disagreed on what a failed model is -- `save.model.fits = FALSE`
+defined one by an `NA` criterion and the other by the class of the fit -- and
+summed variable importance came back `NA` for every predictor whenever any
+candidate in the table had an `NA` weight. Both were reachable on 1.1.0 through
+a candidate that failed to fit under `save.model.fits = FALSE`, and `max.models`
+selects that path without being asked, so neither was the user's choice. The
+unsaved loop now returns a `fit.ok` flag alongside each summary row, read and
+dropped before `mod.data.out` is assembled; if you add anything to that row,
+`na_mod_dat_row()` and `normalise_mod_dat_rows()`'s length test must change with
+it, and two tests in `test-fit_model_set_options.R` assert the row shape.
+
+**The test oracle is the point of the censored tests.** `censored_loglik()` is
+compared against a second computation built from `mgcv`'s own `ls` and
+`dev.resids` through `deviance = 2 * (saturated - loglik)`. The two share no
+code, and neither reads the `aic` slot that FSSgam_package#42 reports as
+defective, so their agreement is evidence rather than a tautology. Keep them
+independent: implementing `censored_loglik()` in terms of `ls`/`dev.resids`
+would be shorter and would destroy the test.
+
+**No test asserts what `mgcv`'s defective criterion gives**, per the Phase 13
+rule. The values that route produced are in a comment beside the test instead.
+Two tests do assert external behaviour and are deliberate: the `getTheta()`
+scale-recovery test, aimed at a change in semantics rather than a repair, and
+the `clog` coding test, which skips rather than fails if `mgcv` stops fitting
+that coding.
 
 ---
 

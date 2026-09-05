@@ -252,6 +252,27 @@ fixture_cs1_quasipoisson <- function() {
   )
 }
 
+# A quasi-likelihood test.fit reached through MuMIn::uGamm, of class "gamm".
+# MuMIn::AICc returns a number for it, read from the internal lme fit of the PQL
+# working model, so the value check alone does not refuse it.
+fixture_cs1_quasipoisson_ugamm <- function() {
+  use.dat <- fixture_cs1_data()
+  use.dat$Herbivore.abundance <- round(use.dat$Herbivore.abundance)
+  # A non-gaussian gamm is fitted by PQL, which writes an "iteration n" message
+  # per step and a "Maximum number of PQL iterations" line to stdout, burying
+  # the reporter's output. Both are silenced, the first being a message and the
+  # second not, so capture.output() alone does not reach the first.
+  test.fit <- NULL
+  utils::capture.output(
+    test.fit <- suppressMessages(MuMIn::uGamm(
+      Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
+      random = list(site = ~1), family = stats::quasipoisson(),
+      data = use.dat, lme4 = FALSE
+    ))
+  )
+  list(use.dat = use.dat, test.fit = test.fit)
+}
+
 # ---- model set constructors -------------------------------------------------
 
 # The canonical 8-model candidate set used by most tests. Any generate_model_set
