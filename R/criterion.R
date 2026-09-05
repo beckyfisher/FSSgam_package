@@ -27,6 +27,11 @@
 # resolve_criterion() decides, once per model set and before any model is
 # fitted, which of the two applies and what to do about it.
 
+# A single finite number, and not the try-error a failed computation returns.
+usable_scalar=function(x){
+  !inherits(x,"try-error")&&is.numeric(x)&&length(x)==1&&is.finite(x)
+}
+
 # The family name of a fitted model, or NA_character_ where it cannot be read.
 #
 # stats::family() fails on a MuMIn::uGamm() fit -- it re-evaluates the recorded
@@ -113,15 +118,19 @@ censored_loglik=function(fit){
 # logLik() value is NA: mgcv::logLik.gam computes the degrees of freedom
 # before it reads the family's aic slot. That is what makes logLik.fn a usable
 # route for a quasi test.fit.
+#
+# Anything that cannot be computed here gives the all-NA criterion rather than
+# stopping the run, which is how a candidate that fails to fit is already
+# recorded: one unfittable candidate must not cost the whole model set.
+# resolve_criterion() has already called logLik.fn on the test.fit, so a
+# function that is broken outright is reported there, once, and only a genuinely
+# model-specific failure reaches this.
 criterion_from_loglik=function(mod.fit,logLik.fn){
   ll=try(logLik.fn(mod.fit),silent=TRUE)
-  if(inherits(ll,"try-error")||!is.numeric(ll)||length(ll)!=1||!is.finite(ll)){
-    return(list(AICc=NA,BIC=NA))}
-  k=attr(stats::logLik(mod.fit),"df")
-  n=stats::nobs(mod.fit)
-  if(!is.numeric(k)||length(k)!=1||!is.finite(k)||
-     !is.numeric(n)||length(n)!=1||!is.finite(n)){
-    return(list(AICc=NA,BIC=NA))}
+  if(!usable_scalar(ll)){return(list(AICc=NA,BIC=NA))}
+  k=try(attr(stats::logLik(mod.fit),"df"),silent=TRUE)
+  n=try(stats::nobs(mod.fit),silent=TRUE)
+  if(!usable_scalar(k)||!usable_scalar(n)){return(list(AICc=NA,BIC=NA))}
   list(AICc=-2*ll+2*k+2*k*(k+1)/(n-k-1),
        BIC=-2*ll+k*log(n))
 }
@@ -148,7 +157,7 @@ resolve_criterion=function(test.fit,logLik.fn){
       stop(paste0("logLik.fn failed on the test.fit. It must take one argument, ",
            "a fitted model, and return a single log-likelihood value. The error ",
            "was: ",as.character(ll)))}
-    if(!is.numeric(ll)||length(ll)!=1||!is.finite(ll)){
+    if(!usable_scalar(ll)){
       stop("logLik.fn must return a single finite numeric log-likelihood value; on the test.fit it did not.")}
     return(logLik.fn)
   }
@@ -170,7 +179,7 @@ resolve_criterion=function(test.fit,logLik.fn){
   # value rather than on a list of family names, so any other family whose aic
   # slot is undefined is covered too.
   crit=suppressWarnings(try(MuMIn::AICc(test.fit),silent=TRUE))
-  if(inherits(crit,"try-error")||!is.numeric(crit)||length(crit)!=1||!is.finite(crit)){
+  if(!usable_scalar(crit)){
     stop(paste0("The model set cannot be ranked: MuMIn::AICc() returns no usable ",
          "value for the test.fit, whose fitted family ",named,". A ",
          "quasi-likelihood has no log-likelihood and so no AIC or BIC, and ",
