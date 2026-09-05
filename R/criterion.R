@@ -54,8 +54,8 @@ fit_family_name=function(fit){
 # TRUE for mgcv's two censored continuous families, cnorm() and clog().
 #
 # Matched on the prefix rather than by equality: an extended family reports its
-# estimated parameter as part of its name once fitted, so the value read from a
-# fitted cnorm() model is "cnorm(0.524)" and not "cnorm". The trailing
+# estimated parameter as part of its name once fitted, so the value read from
+# the suite's cnorm fixture is "cnorm(0.573)" and not "cnorm". The trailing
 # alternation keeps the test from also matching a family whose name merely
 # begins with those letters.
 is_censored_family=function(fam.name){
@@ -67,7 +67,7 @@ is_censored_family=function(fam.name){
 # Two forms are needed. log1p(-exp(x)) loses precision as x approaches 0, where
 # exp(x) approaches 1 and the subtraction cancels; log(-expm1(x)) loses it as x
 # becomes very negative. The switch is at -log(2), which is where the two
-# errors are equal (Machler 2012, "Accurately computing log(1-exp(-|a|))").
+# errors are equal (Maechler 2012, "Accurately computing log(1-exp(-|a|))").
 log1mexp=function(x){
   ifelse(x> -log(2),log(-expm1(x)),log1p(-exp(x)))
 }
@@ -85,16 +85,28 @@ log1mexp=function(x){
 # other bound where it is interval censored. A fit with no censored observation
 # at all has no censor attribute.
 #
-# The two columns are ordered here with pmin/pmax rather than read as lower and
-# upper as given, because that is what mgcv does: cnorm's and clog's dev.resids
-# slots take y0 <- pmin(yat, y) and y1 <- pmax(yat, y) for a finite interval,
-# so a pair written in either order fits identically and must be read the same
-# way. Reading the first column as the lower bound returned NaN for a reversed
-# interval and, with it, an NA criterion for every candidate in the set.
+# A finite interval's two columns are ordered here with pmin/pmax rather than
+# read as lower and upper as given, because that is what mgcv does: cnorm's and
+# clog's dev.resids slots take y0 <- pmin(yat, y) and y1 <- pmax(yat, y) for a
+# finite pair, so an interval written in either order fits identically and must
+# be read the same way. Reading the first column as the lower bound returned
+# NaN for a reversed interval and, with it, an NA criterion for every candidate
+# in the set.
+#
+# An infinity in the FIRST column is a different matter and is refused. mgcv
+# selects its censored cases on the second column alone -- yat == -Inf and
+# yat == Inf -- so a row written the other way round matches none of clog's
+# four index sets and contributes nothing to the deviance: the observation is
+# dropped from the fit without a message. Measured on mgcv 1.9-4, 60 of 200
+# rows written that way: this function scored them and read -204.99 where the
+# fit's own deviance gives -88.42. cnorm does not reach it, refusing to fit
+# that coding at all. Returning NA sends it to resolve_criterion(), which
+# reports it before anything is fitted.
 censored_loglik=function(fit){
   y=fit$y
   censor=attr(y,"censor")
   if(is.null(censor)){censor=y}
+  if(any(is.infinite(y))){return(NA_real_)}
   lower=pmin(y,censor)
   upper=pmax(y,censor)
   mu=as.numeric(fit$fitted.values)
@@ -138,8 +150,9 @@ censored_loglik=function(fit){
 #
 # Only the log-likelihood is replaced. mgcv's degrees of freedom convention is
 # sum(edf2) + scale.estimated + family$n.theta, which is neither obvious nor
-# the same as sum(edf) + scale.estimated -- on a cnorm fit measured here, 5.997
-# against 4.919 -- so it is read from the fit rather than recomputed. Both
+# the same as sum(edf) + scale.estimated -- on the suite's cnorm fixture,
+# measured on mgcv 1.9-4, 5.996 against 4.919 -- so it is read from the fit
+# rather than recomputed. Both
 # formulas reproduce MuMIn::AICc() and stats::BIC() exactly when handed the
 # log-likelihood those functions use.
 #
@@ -204,12 +217,14 @@ resolve_criterion=function(test.fit,logLik.fn){
            "log-likelihood, and the censored log-likelihood this package ",
            "computes could not be evaluated on the test.fit, so the model set ",
            "cannot be ranked (FSSgam_package#42). Check the coding of the ",
-           "censored response, or supply logLik.fn to fit_model_set() with a ",
-           "log-likelihood of your own."))}
+           "censored response: an infinite bound belongs in the second column, ",
+           "which is where mgcv reads it from. Otherwise supply logLik.fn to ",
+           "fit_model_set() with a log-likelihood of your own."))}
     message(paste0("The fitted family ",fam.name," is one of mgcv's censored ",
             "families, whose reported AIC is not built from a censored ",
-            "log-likelihood. AICc and BIC are computed from a censored ",
-            "log-likelihood instead, so the ranking, the weights and variable ",
+            "log-likelihood in mgcv 1.9-4. AICc and BIC are computed from a ",
+            "censored log-likelihood by FSSgam instead of being read from the ",
+            "family, so the ranking, the weights and variable ",
             "importance differ from those of FSSgam 1.1.0 and earlier ",
             "(FSSgam_package#42). Supply logLik.fn to use a log-likelihood of ",
             "your own; logLik.fn = function(fit) as.numeric(stats::logLik(fit)) ",

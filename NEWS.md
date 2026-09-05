@@ -460,9 +460,13 @@
   response's censoring coding rather than from the family's `aic` slot, so it is
   independent of the defects and stays correct if they are repaired. Left, right
   and interval censoring, either column order, and non-unit prior weights are
-  all covered, and every quantity is computed in logs so that an observation far
-  into a tail does not underflow. It is checked in the test suite against a second computation built from `mgcv`'s own
-  saturated log-likelihood and deviance residuals, which shares no code with it.
+  all covered, and every quantity is computed in logs so that an observation
+  far into a tail does not underflow. An infinite bound written in the first
+  column is refused instead: `mgcv` reads a censored case from the second
+  column alone, so such a row is dropped from the fit without a message, and
+  scoring it would count observations the fit ignores. It is checked in the
+  test suite against a second computation built from `mgcv`'s own saturated
+  log-likelihood and deviance residuals, which shares no code with it.
 
 * **Behaviour change:** `fit_model_set()` stops, before any candidate is fitted,
   on a `test.fit` whose criterion is not defined, naming the family. A
@@ -470,9 +474,10 @@
   log-likelihood and so no AIC, and `MuMIn::AICc()` returns `NA` for every
   candidate of such a set. The whole of `mod.data.out` was then unusable --
   `delta.AICc`, `delta.BIC` and both weight columns `NA`, and variable
-  importance with nothing to weight -- and nothing reported it: the fits
-  succeeded and the failure was visible only on reading the returned table
-  (FSSgam_package#44).
+  importance with nothing to weight -- and nothing named the cause. The fits
+  succeeded, and the only sign was four `no non-missing arguments to min`
+  warnings out of `wi()`, measured on the eight-model `case_study1` set at
+  `023cd1a` (FSSgam_package#44).
 
   The check is on the value `MuMIn::AICc()` returns for the `test.fit`, not on a
   list of family names, so any other family whose criterion is undefined is
@@ -481,12 +486,22 @@
   families that have a likelihood. `generate_model_set()` fits the null model,
   so on the `full_subsets_gam()` route that one fit precedes the refusal.
 
-  `fit_model_set()` also stops where every candidate fitted and every one was
-  recorded with an `NA` criterion, which a supplied `logLik.fn` that succeeds on
-  the `test.fit` and fails on the candidates would otherwise produce.
+  `fit_model_set()` also stops where every candidate that fitted was given no
+  criterion, and warns naming the candidates where only some were, which a
+  supplied `logLik.fn` that gives the `test.fit` a value and the candidates none
+  would otherwise produce silently.
+
+* Bug fix: `fit_model_set(save.model.fits = FALSE)` recorded a candidate that
+  fitted and was given no criterion as a model that failed to fit, and reported
+  it in `failed.models`. A failed model is now identified by whether
+  `fit_mod_l()` returned a fitted object, which is the test the
+  `save.model.fits = TRUE` path has always used, so the two paths agree on which
+  candidates succeeded. `max.models` forces `save.model.fits = FALSE` above 200
+  candidates, so which path ran was not always the user's choice.
 
 * The declared `testthat` floor is raised from 3.1.5 to 3.2.0, for
-  `local_mocked_bindings()`. It is a `Suggests`, so nothing a user installs
+  `local_mocked_bindings()`, which arrived as experimental in 3.1.7 and was
+  declared stable in 3.2.0. It is a `Suggests`, so nothing a user installs
   changes.
 
 # FSSgam 1.1.0

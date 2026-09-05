@@ -327,6 +327,23 @@ test_that("censored_loglik reads an interval pair in either column order", {
                FSSgam:::censored_loglik(fit), tolerance = 1e-6)
 })
 
+test_that("censored_loglik refuses a coding whose rows mgcv drops", {
+  # mgcv selects its censored cases on the second column alone -- yat == -Inf
+  # and yat == Inf -- so a row with an infinity in the first column matches
+  # none of clog's four index sets and is dropped from the fit without a
+  # message. Scoring it here would count observations the fit ignores, and the
+  # offset depends on the fitted mean, so it is not constant across candidates.
+  d <- fixture_mixed_censored_data(seed = 31, n = 200)
+  infinite <- is.infinite(d$ycens[, 2])
+  expect_true(any(infinite))
+  d$ycens[infinite, ] <- d$ycens[infinite, c(2, 1)]
+  fit <- fixture_clog(data = d)$test.fit
+  expect_true(is.na(FSSgam:::censored_loglik(fit)))
+  # And is reported before anything is fitted rather than as an NA column.
+  expect_error(FSSgam:::resolve_criterion(fit, NULL), "could not be evaluated")
+  expect_error(FSSgam:::resolve_criterion(fit, NULL), "second column")
+})
+
 test_that("censored_loglik does not underflow on an interval far into a tail", {
   # Computed as log(F(upper) - F(lower)) the difference underflows to zero far
   # from the mean and the whole sum becomes -Inf, which gives an NA criterion.
@@ -362,14 +379,47 @@ test_that("fit_model_set stops where every fitted candidate has an NA criterion"
   model.set <- fixture_cs1_model_set(fit)
   # A logLik.fn that passes the test.fit check and fails on every candidate:
   # nothing before the fitting loop can detect it.
-  seen <- 0L
-  fussy <- function(f) {
-    seen <<- seen + 1L
-    if (seen == 1L) as.numeric(stats::logLik(f)) else NA_real_
+  # A constructor, not one closure: the counter must start again for the second
+  # call, whose first evaluation is resolve_criterion()'s check on the test.fit.
+  make_fussy <- function() {
+    seen <- 0L
+    function(f) {
+      seen <<- seen + 1L
+      if (seen == 1L) as.numeric(stats::logLik(f)) else NA_real_
+    }
   }
   expect_error(fit_quietly(model.set, parallel = FALSE, progress = FALSE,
-                           logLik.fn = fussy),
-               "NA")
+                           logLik.fn = make_fussy()),
+               "cannot be ranked")
+  # Both fitting paths reach it: the unsaved path records a failed model from
+  # the fit rather than from an NA criterion, so a candidate that fitted and
+  # was given none is not misreported as one that did not fit.
+  expect_error(fit_quietly(model.set, parallel = FALSE, progress = FALSE,
+                           save.model.fits = FALSE, logLik.fn = make_fussy()),
+               "cannot be ranked")
+})
+
+test_that("a candidate fitted and given no criterion is reported, on both paths", {
+  fit <- fixture_cs1_gaussian()
+  model.set <- fixture_cs1_model_set(fit)
+  # NA for the candidates containing ZONE, a value for every other fit.
+  partial <- function(f) {
+    terms <- attr(stats::terms(stats::formula(f)), "term.labels")
+    if (any(grepl("ZONE", terms))) NA_real_ else as.numeric(stats::logLik(f))
+  }
+  saved <- expect_warning(
+    fit_quietly(model.set, parallel = FALSE, progress = FALSE,
+                logLik.fn = partial),
+    "given no criterion")
+  unsaved <- expect_warning(
+    fit_quietly(model.set, parallel = FALSE, progress = FALSE,
+                save.model.fits = FALSE, logLik.fn = partial),
+    "given no criterion")
+  # A candidate given no criterion fitted, so it is not a failed model on
+  # either path, and the two paths agree on which candidates succeeded.
+  expect_equal(length(saved$failed.models), 0L)
+  expect_equal(length(unsaved$failed.models), 0L)
+  expect_equal(names(unsaved$success.models), names(saved$success.models))
 })
 
 # ---- full_subsets_gam -------------------------------------------------------

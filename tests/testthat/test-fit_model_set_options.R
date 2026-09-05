@@ -229,10 +229,12 @@ test_that("normalise_mod_dat_rows replaces anything that is not a summary row", 
   # failing element comes back as the condition object rather than as the named
   # vector unlist(extract_mod_dat(...)) returns. rbind() over the mixed list
   # would produce a malformed table.
+  # The row the loop collects is extract_mod_dat()'s six values plus the fit.ok
+  # flag that says whether fit_mod_l() returned a fitted model. na_mod_dat_row()
+  # is used rather than rebuilt here so that the two cannot drift apart.
   good <- unlist(list(AICc = 1, BIC = 2, r2.vals = 0.5, r2.vals.unique = NA,
-                      edf = 3, edf.less.1 = 0))
-  na.row <- unlist(list(AICc = NA, BIC = NA, r2.vals = NA, r2.vals.unique = NA,
-                        edf = NA, edf.less.1 = NA))
+                      edf = 3, edf.less.1 = 0, fit.ok = 1))
+  na.row <- na_mod_dat_row()
 
   out <- normalise_mod_dat_rows(list(
     a = good,
@@ -252,16 +254,19 @@ test_that("normalise_mod_dat_rows replaces anything that is not a summary row", 
 
   # the point of the replacement: rbind() now yields one row per element
   tab <- do.call("rbind", out)
-  expect_equal(dim(tab), c(5L, 6L))
+  expect_equal(dim(tab), c(5L, 7L))
   expect_true(is.numeric(tab))
   expect_equal(unname(tab[1, "AICc"]), 1)
   expect_true(all(is.na(tab[c(2, 3, 4, 5), "AICc"])))
+  # A replaced row stands for a candidate that produced no fitted model.
+  expect_equal(unname(tab[, "fit.ok"]), c(1, 0, 0, 0, 0))
 })
 
 test_that("normalise_mod_dat_rows leaves a fully successful list untouched", {
   rows <- replicate(3, unlist(list(AICc = 1, BIC = 2, r2.vals = 0.5,
                                    r2.vals.unique = NA, edf = 3,
-                                   edf.less.1 = 0)), simplify = FALSE)
+                                   edf.less.1 = 0, fit.ok = 1)),
+                    simplify = FALSE)
   expect_identical(normalise_mod_dat_rows(rows), rows)
   expect_identical(normalise_mod_dat_rows(list()), list())
 })

@@ -140,19 +140,31 @@ fit_model_set=function(model.set.list,
   success.models=summary.l$success.models
   var.inclusions=summary.l$var.inclusions
 
-  # Every fitted candidate recorded with an NA criterion leaves delta.AICc and
-  # both weight columns undefined and variable importance with nothing to
-  # weight, which is the unusable output FSSgam_package#44 reports.
+  # A candidate that fitted and has no criterion is neither a failed model nor a
+  # usable one: it takes no part in the ranking, and before this it did so
+  # without being reported. Both fitting paths now classify a failed model by
+  # whether it fitted, so the two cases are separable here and are reported the
+  # same way whichever path ran.
+  #
   # resolve_criterion() refuses a test.fit whose criterion is undefined before
-  # anything is fitted, and checks a supplied logLik.fn on it; this covers the
-  # case nothing earlier can detect, a logLik.fn that succeeds on the test.fit
-  # and fails on every candidate. Reachable on the saved path only: the unsaved
-  # path defines a failed model by an NA criterion, so it stops above with the
-  # message it has always given.
-  if(all(is.na(mod.data.out$AICc))){
-    stop(paste0("Every candidate fitted, and every one was recorded with an NA ",
-         "criterion, so the model set cannot be ranked. Check the value ",
-         "logLik.fn returns for these fits."))}
+  # anything is fitted, and checks a supplied logLik.fn on it. What reaches
+  # here is what nothing earlier can detect: a logLik.fn that gives the
+  # test.fit a value and some or all of the candidates none.
+  # Restricted to the candidates that fitted. The saved path's mod.data.out has
+  # a row per successful fit; the unsaved path's has one per candidate, an
+  # all-NA row for each that did not fit, and those are reported through
+  # failed.models rather than here.
+  fitted.rows <- mod.data.out$modname %in% names(success.models)
+  no.criterion <- fitted.rows&is.na(mod.data.out$AICc)
+  if(any(fitted.rows)&&all(no.criterion[fitted.rows])){
+    stop(paste0("Every candidate that fitted was given no criterion, so the ",
+         "model set cannot be ranked",
+         if(!is.null(logLik.fn)){" -- check the value logLik.fn returns for these fits"}else{""},
+         "."))}
+  if(any(no.criterion)){
+    warning(paste0("Candidate(s) fitted but given no criterion, and excluded ",
+            "from the ranking, the weights and variable importance: ",
+            paste(mod.data.out$modname[no.criterion],collapse=", "),"."))}
 
   mod.data.out=compute_model_weights(mod.data.out=mod.data.out,report.unique.r2=report.unique.r2)
 
@@ -171,10 +183,28 @@ fit_model_set=function(model.set.list,
 
 # Internal helpers for fit_model_set(). Not exported.
 
-# extract_mod_dat()'s all-NA return, in the unlist()ed form the fitting loops
-# collect.
+# TRUE where fit_mod_l() returned a fitted model rather than a try-error.
+#
+# The same predicate on both fitting paths, so that "did not fit" means the
+# same thing in each. It was the class of the object on the saved path and an
+# NA criterion on the unsaved one, and those are different questions: a
+# candidate that fitted and was given no criterion was reported as a failure by
+# one and as a success by the other.
+fit_succeeded=function(mod.l){
+  length(grep("gam",class(mod.l)))>0
+}
+
+# extract_mod_dat()'s all-NA return with the fit.ok flag the unsaved path
+# collects alongside it, in the unlist()ed form the fitting loop returns.
+#
+# fit.ok is 0 here because this row stands for a candidate that produced no
+# fitted model at all: either fit_mod_l() returned a try-error, or the worker
+# raised a condition that .errorhandling='pass' passed back in its place. The
+# flag is read and dropped before mod.data.out is assembled, so it is not a
+# column of the returned table.
 na_mod_dat_row=function(){
-  unlist(list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA))
+  unlist(list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA,
+              fit.ok=0))
 }
 
 # Replaces anything in the collected list that is not one of those vectors
@@ -183,9 +213,8 @@ na_mod_dat_row=function(){
 # Needed because of .errorhandling='pass': a failing element of the foreach()
 # comes back as the condition object rather than as a named vector, and
 # do.call("rbind", .) over the mixed list produces a malformed table. Once
-# replaced, the candidate reaches failed.models via the is.na(AICc) test the
-# caller already applies, which is how a fit that returns a try-error is
-# already handled.
+# replaced, the candidate reaches failed.models via the fit.ok flag the caller
+# reads, which is how a fit that returns a try-error is already handled.
 #
 # is.atomic() rather than is.numeric(): the all-NA row is logical, not
 # numeric, so is.numeric() would reject rows that are already correct. A
@@ -305,8 +334,9 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
                    .packages=worker.packages,
                    .errorhandling='pass',
                    .options.snow = opts)%dopar%{
-      unlist(extract_mod_dat(fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]]),
-                             r2.type.=r2.type,logLik.fn=logLik.fn))
+      mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
+      c(unlist(extract_mod_dat(mod.l,r2.type.=r2.type,logLik.fn=logLik.fn)),
+        fit.ok=as.numeric(fit_succeeded(mod.l)))
 
    }
    parallel::stopCluster(cl)
@@ -315,7 +345,8 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
       mod.dat=vector("list", length(mod.formula))
       for(l in seq_along(mod.formula)){
         mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
-        out=unlist(extract_mod_dat(mod.l,r2.type.=r2.type,logLik.fn=logLik.fn))
+        out=c(unlist(extract_mod_dat(mod.l,r2.type.=r2.type,logLik.fn=logLik.fn)),
+              fit.ok=as.numeric(fit_succeeded(mod.l)))
         mod.dat[[l]]=out
         update_pb(l)
         }
@@ -324,10 +355,16 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
   names(mod.dat) <- names(mod.formula[1:n.mods])
 
   mod.dat <- normalise_mod_dat_rows(mod.dat)
-  mod.data.out <- cbind(mod.data.out,do.call("rbind",mod.dat))
+  collected <- do.call("rbind",mod.dat)
+  # fit.ok says which candidates produced a fitted model. It is dropped here
+  # rather than returned: mod.data.out's columns are the model summary, and a
+  # candidate that did not fit is reported through failed.models.
+  fit.ok <- collected[,"fit.ok"]==1
+  collected <- collected[,colnames(collected)!="fit.ok",drop=FALSE]
+  mod.data.out <- cbind(mod.data.out,collected)
 
-  failed.models <- mod.formula[which(is.na(mod.data.out$AICc)==TRUE)]
-  success.models <- mod.formula[which(is.na(mod.data.out$AICc)==FALSE)]
+  failed.models <- mod.formula[which(!fit.ok)]
+  success.models <- mod.formula[which(fit.ok)]
 
   # The same guard the saved path has always carried, and the same message.
   # Without it a run in which nothing fitted returned a table of NA rather than
