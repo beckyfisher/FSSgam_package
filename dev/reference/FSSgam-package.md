@@ -75,9 +75,9 @@ Useful links:
 
 - <https://github.com/beckyfisher/FSSgam_package>
 
-- <https://beckyfisher.github.io/FSSgam_package>
+- <https://beckyfisher.github.io/FSSgam_package/>
 
-- <https://beckyfisher.github.io/FSSgam>
+- <https://beckyfisher.github.io/FSSgam/>
 
 - Report bugs at <https://github.com/beckyfisher/FSSgam_package/issues>
 

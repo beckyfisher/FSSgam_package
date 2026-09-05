@@ -58,9 +58,11 @@ fit_model_set(
 
 - report.unique.r2:
 
-  The estimated null model R2 is subtracted from each model R2 to give
-  an idea of the unique variance explained. This can be useful where
-  null terms are included in the model set.
+  Should the r2.vals.unique column of mod.data.out be populated.
+  Defaults to FALSE, which leaves it NA. When TRUE, the null model R2 is
+  subtracted from each model R2 to give the variance explained beyond
+  the terms supplied in null.terms. See the description of mod.data.out
+  under Value for what the column is and is not.
 
 - VI.mods:
 
@@ -97,7 +99,26 @@ sizes AICc should be used in any case. Calculating R2 values is
 non-trivial for mixed models, especially non-gaussian cases (and some
 argue should not be done at all). We have supplied a range of methods
 for estimating R2 (r2.type), as in our experience a single method rarely
-performs adequately across all scenarios.
+performs adequately across all scenarios. A column r2.vals.unique is
+also present. It is NA unless report.unique.r2 is TRUE, in which case it
+is the model R2 minus the R2 of the null model, that is, the variance
+explained beyond the terms supplied in null.terms. It is NA with
+report.unique.r2 TRUE wherever r2.vals is itself NA, which happens for a
+gamm test.fit under the default r2.type. Where null.terms is empty the
+null model's formula is the intercept alone and the column equals
+r2.vals. This drops every term of the test.fit's formula, a random
+effect written as s(site, bs = 're') included; that is what null.terms
+exists to put back. A random structure supplied through a separate
+argument rather than through the formula, as in uGamm(random =
+~(1\|site)), is not part of the formula and is retained by the null
+model either way. The column is a per-model quantity, not a variance
+partition among terms: with max.predictors greater than one it is the
+joint contribution of every predictor in that model, and it is a
+per-predictor contribution only at max.predictors = 1. It is on whatever
+scale r2.type produced, so a candidate fitting worse than the null on
+the chosen measure gives a negative value. Values of r2.vals.unique are
+comparable only within a model set sharing the same null.terms and the
+same r2.type.
 
 failed.models - A list of model formula that failed to fit. Ideally the
 list of failed models should be empty, but when this is not the case

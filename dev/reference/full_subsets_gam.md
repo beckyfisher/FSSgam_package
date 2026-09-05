@@ -302,9 +302,12 @@ full_subsets_gam(
 
 - report.unique.r2:
 
-  The estimated null model R2 is subtracted from each model R2 to give
-  an idea of the unique variance explained. This can be useful where
-  null terms are included in the model set.
+  Should the r2.vals.unique column of mod.data.out be populated.
+  Defaults to FALSE, which leaves it NA. When TRUE, the null model R2 is
+  subtracted from each model R2 to give the variance explained beyond
+  the terms supplied in null.terms. See
+  [`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/dev/reference/fit_model_set.md)
+  for what the column is and is not.
 
 - VI.mods:
 
@@ -344,19 +347,24 @@ each model fit. This includes AICc and BIC, delta values (e.g.
 AICc-(min(AICc)), corresponding weight values (Burnham and Anderson
 2003), an estimate of the model R2, and a column for each of the
 included predictor variables containing either 0 (variable not included
-in the model) or 1 (variable is present in the model). Use of BIC in
-information theoretic approaches has been heavily criticised because of
-the inherent assumption of BIC that there is a true model that is
-represented in the candidate set (Anderson & Burnham 2002). Rather than
-decide a-priori which model selection tool users should adopt, we supply
-both as part of the function outputs. To simplify output, only AICc and
-AICc based model weights, rather than AIC, are included as these are
-asymptotically equivalent at large sample sizes, and for small sample
-sizes AICc should be used in any case. Calculating R2 values is
-non-trivial for mixed models, especially non-gaussian cases (and some
-argue should not be done at all). We have supplied a range of methods
-for estimating R2 (r2.type), as in our experience a single method rarely
-performs adequately across all scenarios.
+in the model) or 1 (variable is present in the model). A column
+r2.vals.unique is also present, and is NA unless report.unique.r2 is
+TRUE. This data.frame is the one fit_model_set() produced, passed
+through unaltered, so see
+[`fit_model_set()`](https://beckyfisher.github.io/FSSgam_package/dev/reference/fit_model_set.md)
+for what the column is and is not. Use of BIC in information theoretic
+approaches has been heavily criticised because of the inherent
+assumption of BIC that there is a true model that is represented in the
+candidate set (Anderson & Burnham 2002). Rather than decide a-priori
+which model selection tool users should adopt, we supply both as part of
+the function outputs. To simplify output, only AICc and AICc based model
+weights, rather than AIC, are included as these are asymptotically
+equivalent at large sample sizes, and for small sample sizes AICc should
+be used in any case. Calculating R2 values is non-trivial for mixed
+models, especially non-gaussian cases (and some argue should not be done
+at all). We have supplied a range of methods for estimating R2
+(r2.type), as in our experience a single method rarely performs
+adequately across all scenarios.
 
 used.data - A data.frame which is identical to the data.frame initially
 supplied by the user, but with any hard coded interaction terms appended
