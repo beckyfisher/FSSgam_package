@@ -21,7 +21,7 @@
 #' The test fit must contain the appropriate random effects and call to family (if not gaussian) and if gamm4 should be used, or gamm in the case of a uGamm call (see ?uGamm).
 #' Both gamm from mgcv and gamm4 have slightly different features, as well as advantages and disadvantages, thus it is important that the full subsets function is able to deal with test.fit models based on either package.
 #' For example gamm4 is based on the lme4 package [Bates, D.M. (2010) lme4: Mixed-Effects Modeling with R. Springer, New York] which allows crossed random effects and avoids issues with PQL for non-gaussian model fits.
-#' On the other hand gamm (mgcv) is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day],
+#' On the other hand gamm (mgcv), reached through MuMIn::uGamm since a bare mgcv::gamm fit cannot be refitted, is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day],
 #' variance structures [Pinheiro, J.C. and Bates., D.M. (1996) "Unconstrained Parametrizations for Variance-Covariance Matrices", Statistics and Computing, 6, 289-296],
 #' and a broader range of families that are not yet available in lmer (see ?family.mgcv).
 #' Models that have no random effects and are based only on gam (mgcv) are best fit via a direct call to gam, rather than using the uGamm wrapper.
@@ -41,7 +41,7 @@
 #'
 #' @param  cov.cutoff A numeric value between 0 and 1 indicating the correlation cutoff value to use for excluding collinear models, based on the cor.matrix (see below). The default value is 0.28 (see Graham MH (2003). It is highly recommended to keep this value low, as correlation among predictors can yield spurious results. Note that predictors with a correlation greater than the specified value will still appear in the model set but will never appear in the same model. Including highly correlated predictors can make interpreting variable importance values difficult.
 #'
-#' @param cor.matrix  A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor named in pred.vars.cont, pred.vars.fact and linear.vars; any that are missing are reported by name. The hard coded factor interaction columns that setting factor.factor.interactions causes to be created are the exception, because which of them exist depends on the supplied matrix itself and so cannot be known in advance. Rows and columns for any of those the matrix does not carry are computed from use.dat and appended, leaving every supplied value as supplied. Each dimension is treated separately, so a name supplied as a column and not as a row keeps the column given for it and has only its row computed; because collinearity is screened in both directions, a value supplied in one dimension alone can tighten a screen but never loosen it. Computing them reads the data of every predictor, so this is the one case in which a predictor of a class check_correlations cannot classify has to be named in the supplied matrix along with the interaction columns. When supplied it replaces the automatic estimate rather than overriding it: except in the interaction case above, check_correlations is not called at all, and a predictor of a class it does not accept can be used. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square root of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square root of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.
+#' @param cor.matrix  A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor named in pred.vars.cont, pred.vars.fact and linear.vars; any that are missing are reported by name. The hard coded factor interaction columns that setting factor.factor.interactions causes to be created are the exception, because which of them exist depends on the supplied matrix itself and so cannot be known in advance. Rows and columns for any of those the matrix does not carry are computed from use.dat and appended, leaving every supplied value as supplied. Each dimension is treated separately, so a name supplied as a column and not as a row keeps the column given for it and has only its row computed; because collinearity is screened in both directions, a value supplied in one dimension alone can tighten a screen but never loosen it. Computing them reads the data of every predictor, so this is the one case in which a predictor of a class check_correlations cannot classify has to be named in the supplied matrix along with the interaction columns. When supplied it replaces the automatic estimate rather than overriding it: except in the interaction case above, check_correlations is not called at all, and a predictor of a class it does not accept can be used. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square root of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square root of the R2 value obtained via a call multinom (from package nnet, Venables & Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models, subject to two rules. It must be two-dimensional: a matrix, a data.frame, or any other object with two dimensions, so the value Matrix::Matrix returns is accepted while a length-one value of any other class is not, and NA is reserved for the default. And it must not contain NA between two terms that are actually screened against cov.cutoff, which is reported by naming the pairs; an NA on a pair no screen compares is accepted, so which cells matter depends on max.predictors and on the interaction arguments.
 #'
 #' @param non.linear.correlations Set this argument to TRUE if you would like to exclude continuous predictor combinations that are potentially "correlated" through non-linear relationships. See ?check_non_linear_correlations for more details.
 #'
@@ -58,8 +58,9 @@
 #' the null model. Use of bs=re is an alternative way of fitting simple random structures that
 #' avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used.
 #' see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.
-#' to fit a correlation structure only (but no random effects) this must be achieved through a call the gamm
-#' via , with no random effects, fitted
+#' To fit a correlation structure, pass MuMIn::uGamm(..., correlation = ...) as the test.fit. A fit produced by mgcv::gamm() directly cannot be used: it records no call, so the candidate models cannot be refitted from it, and generate_model_set stops saying so.
+#'
+#' @param null.cov.cutoff The correlation above which a predictor is dropped for being correlated with a variable named in null.terms. Defaults to 0.8. Terms supplied through null.terms are forced into every candidate model and are outside the cov.cutoff screen, which covers pred.vars.cont, pred.vars.fact and linear.vars only, so without this a candidate could be arbitrarily strongly correlated with a forced term and still appear in every model in the set. That inflates the variance of the forced term's estimate, which is frequently the term the analysis exists to estimate, and nothing in the output would indicate it. A separate cutoff, with a much looser default than cov.cutoff, because the two screens answer different questions: cov.cutoff decides which predictors may appear together, and this decides which predictor is so nearly a restatement of a forced term that fitting both is not informative. Set it to 1 to admit every predictor whatever its correlation with a forced term. A variable inside a bs='re' smooth is exempt from this screen, however the argument is written -- quoted either way, or wrapped in c(). A bs given as a variable rather than a literal is exempt too, since it cannot be read here and screening a grouping factor in error drops a legitimate predictor, while not screening a fixed term in error leaves the behaviour of earlier versions. A random-effect grouping factor is correlated with the predictors measured within it by construction -- with null.terms = "s(Location,Site,bs='re')" and Status nested in Location their correlation is 1 -- and that is the design of the study rather than collinearity to screen out. The screen applies to fixed forced terms, which compete with a candidate for the same variation. Correlations among the null.terms variables themselves are neither computed nor screened: those terms are forced in by your decision, and dropping one is what must not happen. Where the correlation estimate is asymmetric, as check_non_linear_correlations returns it, both directions are read and the larger is used, which is what the cov.cutoff screen already does. The correlations this screens on are returned by generate_model_set as null.term.correlations, each cell being the value screened on rather than one direction of it, whether or not anything is dropped, so they can be inspected even where no warning is raised; full_subsets_gam does not return them, its output being that of fit_model_set. A supplied cor.matrix is used for any forced term it names in either dimension, and the rest of the block is computed from use.dat, which is the ordinary case since a supplied matrix is indexed by predictor and a forced term is not one. Where that computation fails, which is what a predictor of a class check_correlations cannot classify causes, the screen is skipped with a warning rather than the call stopping. A variable named in null.terms that is not a column of use.dat, such as a function or a term written over several columns, is skipped, a correlation not being defined for it.
 #'
 #' @details The function constructs a complete model set based on the supplied arguments.
 #' for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
@@ -70,6 +71,8 @@
 #' n.mods - The number of candidate models generated, equal to length(mod.formula).
 #'
 #' predictor.correlations - The matrix of estimated predictor correlations returned by the function check_correlations and used for model exclusion based on cov.cutoff
+#'
+#' null.term.correlations - A matrix of the correlations between each variable named in null.terms and each candidate predictor, used for model exclusion based on null.cov.cutoff. Rows are the null.terms variables and columns the predictors. NULL where null.terms is empty, where it names only random-effect grouping factors or no column of use.dat, or where every predictor is itself a null.terms variable. The element is always present in the returned list; it is its value that is NULL. Correlations among the null.terms variables are not included, being neither computed nor screened.
 #'
 #' mod.formula - A named list containing the model formula that were generated (and will be fitted by fit_model_set). The names are the candidate model names used in the modname column of fit_model_set's output.
 #'
@@ -109,10 +112,29 @@ generate_model_set=function(use.dat,
                           max.predictors=3,
                           k=5,
                           bs.arg="'cr'",
-                          null.terms=""){
+                          null.terms="",
+                          null.cov.cutoff=0.8){
 
   validate_use_dat(use.dat)
   validate_null_terms(null.terms)
+  # Unvalidated, an NA gave an internal "missing value where TRUE/FALSE needed",
+  # and a character or length-2 value was accepted silently -- the latter
+  # recycling into two concatenated messages.
+  if(!is.numeric(null.cov.cutoff)||length(null.cov.cutoff)!=1||
+     is.na(null.cov.cutoff)||null.cov.cutoff<0){
+    stop("null.cov.cutoff must be a single non-negative number, or 1 to admit every predictor whatever its correlation with a forced term.")}
+  # Recorded before build_predictor_correlation_matrix() reassigns cor.matrix to
+  # the resolved matrix. After that point the variable no longer says whether
+  # the caller supplied anything, and the null-term screen needs to know.
+  cor.matrix.supplied=cor_matrix_supplied(cor.matrix)
+  validate_predictor_names(pred.vars.cont=pred.vars.cont,
+                          pred.vars.fact=pred.vars.fact,linear.vars=linear.vars)
+  validate_interaction_predictors(factor.factor.interactions=factor.factor.interactions,
+                          smooth.smooth.interactions=smooth.smooth.interactions,
+                          factor.smooth.interactions=factor.smooth.interactions,
+                          pred.vars.cont=pred.vars.cont,pred.vars.fact=pred.vars.fact,
+                          linear.vars=linear.vars)
+  validate_factor_levels(use.dat=use.dat,pred.vars.fact=pred.vars.fact)
 
   all.predictors=unique(stats::na.omit(c(pred.vars.cont,pred.vars.fact,linear.vars)))
   included.vars=all.predictors
@@ -162,6 +184,56 @@ generate_model_set=function(use.dat,
                           max.predictors=max.predictors,
                           cor.matrix=cor.matrix)
 
+  # Screened against the terms null.terms forces into every candidate. Those
+  # terms are outside cov.cutoff's matrix, which covers pred.vars.cont,
+  # pred.vars.fact and linear.vars only, so a candidate could be arbitrarily
+  # strongly correlated with a forced term and still be admitted to every model
+  # in the set. The consequence is silent: it inflates the variance of the
+  # forced term's estimate, which is frequently the term the analysis exists to
+  # estimate (FSSgam_package#23).
+  #
+  # A separate cutoff, and a much looser default, because the two screens answer
+  # different questions. cov.cutoff decides which predictors may appear
+  # together; this decides which predictor is so nearly a restatement of a
+  # forced term that fitting both is not informative.
+  #
+  # Correlations among the null.terms variables themselves are neither computed
+  # nor screened. Those terms are forced in by the user's decision, and dropping
+  # one is exactly what must not happen.
+  null.vars=null_term_variables(null.terms=null.terms,use.dat=use.dat)
+  null.term.correlations=build_null_term_correlations(use.dat=use.dat,
+                          null.vars=null.vars,all.predictors=all.predictors,
+                          non.linear.correlations=non.linear.correlations,
+                          cor.matrix=cor.matrix,
+                          cor.matrix.supplied=cor.matrix.supplied)
+  screen.l=screen_against_null_terms(pred.vars.cont=pred.vars.cont,
+                          pred.vars.fact=pred.vars.fact,linear.vars=linear.vars,
+                          interaction.terms=interaction.terms,
+                          linear.interaction.terms=linear.interaction.terms,
+                          smooth.smooth.interaction.terms=smooth.smooth.interaction.terms,
+                          null.term.correlations=null.term.correlations,
+                          null.cov.cutoff=null.cov.cutoff)
+  pred.vars.cont=screen.l$pred.vars.cont
+  pred.vars.fact=screen.l$pred.vars.fact
+  linear.vars=screen.l$linear.vars
+  interaction.terms=screen.l$interaction.terms
+  linear.interaction.terms=screen.l$linear.interaction.terms
+  smooth.smooth.interaction.terms=screen.l$smooth.smooth.interaction.terms
+  included.vars=setdiff(included.vars,screen.l$dropped)
+
+  # Dropping predictors can leave fewer than max.predictors, and
+  # enumerate_candidate_models() then stops with a message naming
+  # max.predictors, which a user has no reason to connect to the drop they were
+  # just warned about.
+  if(length(screen.l$dropped)>0){
+    remaining=length(stats::na.omit(unique(c(pred.vars.cont,pred.vars.fact,linear.vars))))
+    if(remaining<max.predictors){
+      stop(paste0("After dropping ",paste(screen.l$dropped,collapse=", "),
+           " for correlation with a null.terms variable, ",remaining,
+           " predictor(s) remain and max.predictors is ",max.predictors,
+           ". Lower max.predictors, raise null.cov.cutoff, or remove the term ",
+           "from null.terms."))}}
+
   use.mods=enumerate_candidate_models(pred.vars.cont=pred.vars.cont,
                           pred.vars.fact=pred.vars.fact,
                           linear.vars=linear.vars,
@@ -188,6 +260,7 @@ generate_model_set=function(use.dat,
   n.mods=length(mod.formula)
   return(list(n.mods=n.mods,
               predictor.correlations=cor.matrix,
+              null.term.correlations=null.term.correlations,
               mod.formula=mod.formula,
               used.data=use.dat,
               test.fit=test.fit,
@@ -216,9 +289,403 @@ validate_null_terms=function(null.terms){
   }
 }
 
+# Rejects a predictor named twice in one argument, and a predictor named as both
+# a factor and a continuous predictor.
+#
+# enumerate_candidate_models() deduplicates a candidate's terms before indexing
+# the correlation matrix, so a candidate holding one term twice yields a 1x1
+# sub-matrix whose triangles are both empty. max() of an empty vector warns and
+# returns -Inf, which is below any cov.cutoff, so the candidate survived: the
+# model set held "ZONE+ZONE" and the run emitted two "no non-missing arguments
+# to max; returning -Inf" warnings naming nothing (FSSgam_package#28).
+#
+# pred.vars.cont and linear.vars are deliberately NOT checked against each
+# other. Naming a predictor in both is the documented way to fit it linearly:
+# setdiff(pred.vars.cont, linear.vars) decides which predictors get a smooth,
+# so a name in both is one that does not. Checking across them broke that idiom,
+# which the test suite caught.
+#
+# Reported here rather than downstream because only here is the repeated name
+# known. It does not remove the empty-triangle case: the documented idiom of
+# naming a predictor in both pred.vars.cont and linear.vars reaches it too, and
+# is exempt from this check. exceeds_cutoff() is what stops the warning.
+validate_predictor_names=function(pred.vars.cont,pred.vars.fact,linear.vars){
+  named=list(pred.vars.cont=pred.vars.cont,pred.vars.fact=pred.vars.fact,
+             linear.vars=linear.vars)
+  named=lapply(named,function(x) as.character(stats::na.omit(x)))
+
+  within=lapply(named,function(x) unique(x[duplicated(x)]))
+  within=within[vapply(within,length,0L)>0]
+  if(length(within)>0){
+    stop(paste0("Each predictor may be named once within an argument. Named ",
+         "twice: ",paste(vapply(names(within),function(a)
+           paste0(paste(within[[a]],collapse=", ")," (",a,")"),""),
+         collapse="; "),"."))}
+
+  # The strings that separate the parts of a generated term name are reserved.
+  # build_model_formulas() and build_factor_smooth_terms() find them with
+  # grep(fixed=TRUE) over every term, not only over names this package
+  # generated, so a predictor whose own name contains one is read as an
+  # interaction: catch.by.effort, an ordinary variable name, produces
+  # ~s(catch.by.effort) + s(catch, by = effort), which fails to fit and drops
+  # out of the model set. It announced itself only through the "-Inf" warnings
+  # that exceeds_cutoff() now suppresses (FSSgam_package#39).
+  #
+  # Rejected rather than escaped. Parsing a term name back into its parts is how
+  # this package identifies interactions throughout, and making that parse
+  # unambiguous is a larger change than this batch.
+  # "+" joins the terms of a candidate name and "*" writes a linear
+  # interaction, so a predictor containing either is parsed as more than one
+  # term in the same way.
+  reserved=c(".by.",".te.",".t.",".I.","+","*")
+  offending=unique(unlist(lapply(named,function(x)
+    x[vapply(x,function(v) any(vapply(reserved,function(r)
+      grepl(r,v,fixed=TRUE),logical(1))),logical(1))])))
+  if(length(offending)>0){
+    stop(paste0("Predictor name(s) containing a reserved separator: ",
+         paste(offending,collapse=", "),". The strings ",
+         paste(reserved,collapse=", ")," separate the parts of a generated term ",
+         "name, so a predictor whose name contains one is parsed as an ",
+         "interaction. Rename the predictor."))}
+
+  # "null" is the name given to the null model's own candidate, so a predictor
+  # of that name produces two candidates called null. mod.formula[["null"]]
+  # returns the first, build_inclusion_mat() matches the wrong row, and the
+  # variable importance table zeroes (FSSgam_package#39).
+  if("null" %in% unlist(named,use.names=FALSE)){
+    stop(paste0("A predictor may not be named \"null\": that is the name of the ",
+         "null model's candidate, so the model set would hold two candidates of ",
+         "that name. Rename the predictor."))}
+
+  # A name cannot be both a factor and a continuous predictor. Unlike the pair
+  # above this is not an idiom: the two lists decide how the term is written
+  # into the formula, and a name in both is written both ways.
+  both=intersect(named$pred.vars.fact,c(named$pred.vars.cont,named$linear.vars))
+  if(length(both)>0){
+    stop(paste0("Predictor(s) named as both a factor and a continuous ",
+         "predictor: ",paste(both,collapse=", "),
+         ". Name each in pred.vars.fact or in pred.vars.cont/linear.vars, not both."))}
+}
+
+
+# Rejects a variable named in the character form of factor.factor.interactions
+# or smooth.smooth.interactions that is not a predictor of this model set.
+#
+# Each argument had a check against the wrong set: factor.factor.interactions
+# against colnames(use.dat), so any column was accepted, and
+# smooth.smooth.interactions against rownames(cor.matrix), so the set depended
+# on whether a cor.matrix was supplied and on what names it carried. A
+# non-predictor named in either was screened against cov.cutoff and contributed
+# interaction terms, while appearing in no other candidate, in included.vars, or
+# in the variable-inclusion columns fit_model_set() returns
+# (FSSgam_package#37).
+#
+# Checked here, against the predictor lists, so that neither depends on a
+# supplied matrix and both are settled before either argument is consumed --
+# factor.factor.interactions by resolve_factor_interactions(), which runs before
+# the resolved correlation matrix exists, and smooth.smooth.interactions by
+# resolve_smooth_smooth_interactions(), which runs after.
+validate_interaction_predictors=function(factor.factor.interactions,
+                          smooth.smooth.interactions,factor.smooth.interactions,
+                          pred.vars.cont,pred.vars.fact,linear.vars){
+  report=function(named,allowed,arg,requirement){
+    if(!is.character(named)){return(invisible(NULL))}
+    missing.vars=setdiff(as.character(stats::na.omit(named)),
+                         as.character(stats::na.omit(allowed)))
+    if(length(missing.vars)==0){return(invisible(NULL))}
+    stop(paste0("Variable(s) ",paste(missing.vars,collapse=", ")," named in ",
+         arg," are not predictors. Each must appear in ",requirement,"."))
+  }
+  report(factor.factor.interactions,pred.vars.fact,
+         "factor.factor.interactions","pred.vars.fact")
+  report(smooth.smooth.interactions,c(pred.vars.cont,linear.vars),
+         "smooth.smooth.interactions","pred.vars.cont (or linear.vars)")
+
+  # A name repeated within either argument is the third route to
+  # FSSgam_package#28, and the one the other two checks miss.
+  # factor.factor.interactions=c("fa","fa","fb") builds the interaction column
+  # fa.I.fb twice, so use.dat gains two columns of that name -- the shape of
+  # FSSgam_package#22 -- and the candidate set gains fa.I.fb+fa.I.fb. It used to
+  # announce itself with the two "-Inf" warnings; exceeds_cutoff() removed those,
+  # so without this check the route would be silent.
+  repeated=function(named,arg){
+    if(!is.character(named)){return(invisible(NULL))}
+    x=as.character(stats::na.omit(named))
+    dup=unique(x[duplicated(x)])
+    if(length(dup)==0){return(invisible(NULL))}
+    stop(paste0("Each variable may be named once in ",arg,". Named twice: ",
+         paste(dup,collapse=", "),"."))
+  }
+  repeated(factor.factor.interactions,"factor.factor.interactions")
+  repeated(smooth.smooth.interactions,"smooth.smooth.interactions")
+
+  # The third interaction argument, in its character form. Its list form is
+  # already validated where it is consumed; the character form was not, and
+  # names factors exactly as factor.factor.interactions does.
+  #
+  # Skipped where it still holds its default, which is pred.vars.fact itself.
+  # Otherwise a name repeated in pred.vars.fact is reported against an argument
+  # the user never set, and validate_predictor_names() already reports it
+  # against the one they did.
+  if(is.character(factor.smooth.interactions)&&
+     !identical(factor.smooth.interactions,pred.vars.fact)){
+    report(factor.smooth.interactions,pred.vars.fact,
+           "factor.smooth.interactions","pred.vars.fact")
+    repeated(factor.smooth.interactions,"factor.smooth.interactions")}
+}
+
+# Rejects a factor predictor with fewer than two levels among the rows used.
+#
+# check_correlations() and check_non_linear_correlations() both fit lm() with
+# such a factor as the predictor, which stops with "contrasts can be applied
+# only to factors with 2 or more levels" -- an error naming neither the
+# function, the argument, nor the predictor. That lm() is now wrapped in try()
+# in both, so the cell is left NA rather than aborting the call, but a
+# single-level factor is not a usable predictor in any case: it explains
+# nothing, and an interaction column built from it is a copy of the other
+# factor, so the model set holds the same model under two names
+# (FSSgam_package#33).
+#
+# droplevels() first: a factor whose extra levels are declared but unobserved
+# has one level in the data and is the same problem.
+validate_factor_levels=function(use.dat,pred.vars.fact){
+  named=as.character(stats::na.omit(pred.vars.fact))
+  named=named[named %in% colnames(use.dat)]
+  if(length(named)==0){return(invisible(NULL))}
+  n.levels=vapply(named,function(v){
+    x=use.dat[,v]
+    if(!is.factor(x)){x=factor(x)}
+    nlevels(droplevels(x))},integer(1))
+  too.few=named[n.levels<2]
+  if(length(too.few)==0){return(invisible(NULL))}
+  stop(paste0("Factor predictor(s) with fewer than two observed levels: ",
+       paste(paste0(too.few," (",n.levels[too.few],")"),collapse=", "),
+       ". A factor taking one value explains nothing and cannot be screened ",
+       "for collinearity; remove it from pred.vars.fact."))
+}
+
+# The variables named in null.terms that are columns of use.dat and are not
+# random-effect grouping factors.
+#
+# null.terms is a formula fragment, not a variable list, so the variables are
+# recovered by parsing it. A name that is not a column -- a function, or a term
+# written over several columns -- is dropped rather than reported: a correlation
+# is not defined for it, and null.terms accepts anything the formula accepts.
+#
+# A variable inside a bs='re' smooth is excluded, and this is the difference
+# between screening something worth screening and breaking an ordinary
+# specification. A random-effect grouping factor is correlated with the
+# predictors measured within it by construction: in the companion repository's
+# case study 2, null.terms is s(Location,Site,bs='re') and Status is nested in
+# Location, so their correlation is 1. That is the design of the study, not
+# collinearity to screen out, and dropping Status there would be wrong.
+#
+# The screen is for a forced term that competes with a candidate for the same
+# variation -- a fixed effect the analysis must adjust for -- which is the case
+# FSSgam_package#23 describes.
+null_term_variables=function(null.terms,use.dat){
+  if(!is.character(null.terms)||length(null.terms)!=1||nchar(null.terms)==0){
+    return(character(0))}
+  parsed=try(stats::as.formula(paste("~",null.terms)),silent=TRUE)
+  if(inherits(parsed,"try-error")){return(character(0))}
+  terms.chr=attr(stats::terms(parsed),"term.labels")
+  # Whether a term sets bs to "re", read from the parsed call rather than by
+  # matching the text. A regex over the text missed bs=c('re'), which mgcv
+  # accepts and which fits the identical null model, so a nested factor was
+  # dropped and the call stopped with a message naming max.predictors -- none of
+  # them the cause.
+  is.re=vapply(terms.chr,function(t){
+    call.t=try(str2lang(t),silent=TRUE)
+    if(inherits(call.t,"try-error")||!is.call(call.t)){return(FALSE)}
+    bs=try(call.t[["bs"]],silent=TRUE)
+    if(inherits(bs,"try-error")||is.null(bs)){return(FALSE)}
+    val=try(eval(bs,envir=baseenv()),silent=TRUE)
+    # A bs that cannot be evaluated here -- bs=mybs, a variable in the caller's
+    # scope, which mgcv accepts -- is treated as a random effect rather than as
+    # a fixed term. The two errors are not symmetric: screening a grouping
+    # factor drops a legitimate predictor, and not screening a fixed term leaves
+    # the previous behaviour. The safe direction is to exempt it.
+    if(inherits(val,"try-error")){return(TRUE)}
+    "re" %in% as.character(val)},logical(1))
+
+  fixed.vars=unique(unlist(lapply(terms.chr[!is.re],function(t)
+    all.vars(stats::as.formula(paste("~",t))))))
+  # as.character() so the empty case returns character(0) rather than NULL:
+  # unlist() of an empty list gives NULL, and every caller tests length() or
+  # calls setdiff(), which cope either way, but a return type that varies is
+  # worth not leaving.
+  intersect(as.character(fixed.vars),colnames(use.dat))
+}
+
+
+# Correlations between each null.terms variable and each candidate predictor.
+#
+# A supplied cor.matrix is used for any forced term it names, so a user who
+# wants a particular value screened on can give one. For the rest the block is
+# computed from use.dat, which is the ordinary case: a supplied matrix is
+# indexed by predictor and a forced term is not one, so requiring it to be named
+# there would disable this screen for every caller who supplies a matrix --
+# reinstating exactly the silence FSSgam_package#23 exists to end.
+#
+# Computing it does not undo FSSgam_package#13. That guarantee is that a
+# supplied matrix replaces the automatic estimate for the predictors, so a
+# predictor of a class check_correlations() cannot classify can be used. Only
+# the null.vars block is computed here, and where that computation fails -- which
+# is what such a predictor causes -- the screen is skipped with a warning rather
+# than the call aborting. The FSSgam_package#13 caller still gets their model
+# set, and is told their forced terms were not screened.
+#
+# Returns NULL where there is nothing to report, so the returned element is
+# absent rather than an empty matrix, and calling code can test for it.
+build_null_term_correlations=function(use.dat,null.vars,all.predictors,
+                          non.linear.correlations,cor.matrix,cor.matrix.supplied){
+  screened=setdiff(all.predictors,null.vars)
+  if(length(null.vars)==0||length(screened)==0){return(NULL)}
+
+  from.supplied=NULL
+  if(isTRUE(cor.matrix.supplied)){
+    supplied.m=as.matrix(cor.matrix)
+    both.names=unique(c(rownames(supplied.m),colnames(supplied.m)))
+    # A forced term named in EITHER dimension is used. Taking have from
+    # rownames() alone discarded, in full, a matrix naming a forced term only as
+    # a column, and substituted a computed estimate -- so a value the user
+    # supplied to control the screen was ignored, and on the FSSgam_package#13
+    # path the screen was skipped altogether. That is the third orientation of
+    # the same asymmetry: the value read, the row shape, and now the column
+    # shape.
+    have=intersect(null.vars,both.names)
+    cols=intersect(screened,both.names)
+    if(length(have)>0&&length(cols)>0){
+      # Allocated rather than subset, since neither dimension is guaranteed to
+      # name every term. A cell no supplied direction covers stays zero, which
+      # is what the previous shape did for the same case.
+      from.supplied=matrix(0,length(have),length(cols),dimnames=list(have,cols))
+
+      fill=function(target,rows,cols.in,transpose){
+        r=intersect(rows,rownames(supplied.m))
+        c.=intersect(cols.in,colnames(supplied.m))
+        if(length(r)==0||length(c.)==0){return(target)}
+        blk=abs(supplied.m[r,c.,drop=FALSE])
+        if(transpose){blk=t(blk)}
+        # Each direction is filled before the two are combined, not after.
+        # pmax() defaults to na.rm=FALSE, so combining first makes an NA in one
+        # direction discard a real value in the other.
+        blk[is.na(blk)]=0
+        target[rownames(blk),colnames(blk)]=
+          pmax(target[rownames(blk),colnames(blk),drop=FALSE],blk)
+        target}
+
+      from.supplied=fill(from.supplied,have,cols,transpose=FALSE)
+      from.supplied=fill(from.supplied,cols,have,transpose=TRUE)}}
+
+  to.compute=setdiff(null.vars,rownames(from.supplied))
+  if(length(to.compute)==0){return(from.supplied)}
+
+  full=try(if(non.linear.correlations==TRUE){
+      check_non_linear_correlations(use.dat[,unique(c(to.compute,screened)),drop=FALSE])
+    }else{
+      check_correlations(use.dat[,unique(c(to.compute,screened)),drop=FALSE])},silent=TRUE)
+  if(inherits(full,"try-error")){
+    warning(paste0("Correlations between the null.terms variable(s) ",
+            paste(to.compute,collapse=", ")," and the predictors could not be ",
+            "computed, so those terms were not screened against ",
+            "null.cov.cutoff: ",trimws(attr(full,"condition")$message)))
+    return(from.supplied)}
+  full[is.na(full)]=0
+  # Both directions, reduced to the larger. check_non_linear_correlations()
+  # returns a deliberately asymmetric matrix -- row is the response, column the
+  # predictor -- so [forced, predictor] and [predictor, forced] answer different
+  # questions and only the second is large when a candidate is a deterministic
+  # function of a forced term. Reading one direction admitted such a candidate
+  # silently, which is the condition FSSgam_package#23 exists to end: measured
+  # in the committed test, a squared forced term gives [forced, curve] 0.280,
+  # below the default cutoff, and [curve, forced] 0.991.
+  #
+  # This is what the cov.cutoff screen already does: exceeds_cutoff() takes
+  # max(abs()) over both triangles. On the symmetric default path the two
+  # directions are equal and this changes nothing.
+  # The computed matrix is square over these names and was zero-filled above,
+  # so both directions exist and neither is NA; the supplied path above cannot
+  # assume either.
+  computed=pmax(abs(full[to.compute,screened,drop=FALSE]),
+                abs(t(full[screened,to.compute,drop=FALSE])))
+  if(is.null(from.supplied)){return(computed)}
+  rbind(from.supplied[,screened,drop=FALSE],computed)
+}
+
+
+# Drops any predictor whose correlation with a null.terms variable exceeds
+# null.cov.cutoff, from every list a term can reach the candidate set through,
+# and reports which and against what.
+#
+# A term that is not a bare predictor -- an interaction name -- is dropped when
+# any of its parts is, since the term cannot be built without them.
+screen_against_null_terms=function(pred.vars.cont,pred.vars.fact,linear.vars,
+                          interaction.terms,linear.interaction.terms,
+                          smooth.smooth.interaction.terms,null.term.correlations,
+                          null.cov.cutoff){
+  out=list(pred.vars.cont=pred.vars.cont,pred.vars.fact=pred.vars.fact,
+           linear.vars=linear.vars,interaction.terms=interaction.terms,
+           linear.interaction.terms=linear.interaction.terms,
+           smooth.smooth.interaction.terms=smooth.smooth.interaction.terms,
+           dropped=character(0))
+  if(is.null(null.term.correlations)||nrow(null.term.correlations)==0){return(out)}
+
+  over=abs(null.term.correlations)>null.cov.cutoff
+  if(!any(over)){return(out)}
+  dropped=colnames(null.term.correlations)[apply(over,2,any)]
+
+  pairs=vapply(dropped,function(v){
+    against=rownames(null.term.correlations)[over[,v]]
+    worst=max(abs(null.term.correlations[against,v,drop=FALSE]))
+    paste0(v," (",paste(against,collapse=", "),", max ",round(worst,3),")")},"")
+  warning(paste0("Predictor(s) dropped, correlated with a null.terms variable ",
+          "above null.cov.cutoff (",null.cov.cutoff,"): ",
+          paste(pairs,collapse="; "),
+          ". Raise null.cov.cutoff to keep them, or remove the term from ",
+          "null.terms if it is not required in every model."))
+
+  keep=function(x){
+    if(length(stats::na.omit(x))==0){return(x)}
+    kept=setdiff(stats::na.omit(x),dropped)
+    if(length(kept)==0){NA}else{kept}}
+  # An interaction name is split on every separator, so a term is dropped when
+  # any part of it is.
+  keep.terms=function(x){
+    if(length(stats::na.omit(x))==0){return(x)}
+    parts=strsplit(stats::na.omit(x),"\\.by\\.|\\.t\\.|\\.te\\.|\\.I\\.")
+    kept=stats::na.omit(x)[!vapply(parts,function(p) any(p %in% dropped),logical(1))]
+    if(length(kept)==0){NA}else{kept}}
+
+  out$pred.vars.cont=keep(pred.vars.cont)
+  out$pred.vars.fact=keep(pred.vars.fact)
+  out$linear.vars=keep(linear.vars)
+  out$interaction.terms=keep.terms(interaction.terms)
+  out$linear.interaction.terms=keep.terms(linear.interaction.terms)
+  out$smooth.smooth.interaction.terms=keep.terms(smooth.smooth.interaction.terms)
+  out$dropped=dropped
+  out
+}
+
 # Builds the null model formula and confirms test.fit can be updated to it.
 # Returns list(null.formula=, null.fit=).
 build_null_model=function(test.fit,use.dat,null.terms){
+  # A bare mgcv::gamm() fit records no call, so stats::update() has nothing to
+  # re-evaluate and every candidate refit fails. Reported here, before the
+  # attempt, because the error update() gives -- "need an object with call
+  # component" -- names neither the argument nor the remedy, and the message
+  # below then advises the user to stop using uGamm, which is what they would
+  # have had to use to succeed (FSSgam_package#34).
+  #
+  # gamm4 fits are a different class and are not affected; MuMIn::uGamm()
+  # supplies the call that bare gamm() lacks, which is why it works.
+  if(inherits(test.fit,"gamm")&&!inherits(test.fit,"gamm4")&&is.null(test.fit$call)){
+    stop(paste0("A test.fit produced by mgcv::gamm() cannot be used: it records ",
+         "no call, so the candidate models cannot be refitted from it. Fit the ",
+         "same model through MuMIn::uGamm(), which supplies the call -- for a ",
+         "correlation structure, uGamm(..., correlation = ...) -- or use gam() ",
+         "with a bs='re' smooth if random effects are all that is required."))}
+
   if(nchar(null.terms)>0){
     null.formula=stats::as.formula(paste("~ ",null.terms,sep=""))}else{
     null.formula=stats::as.formula("~ 1")}
@@ -294,6 +761,12 @@ combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff){
   for(i in sizes){
     combns=c(combns,utils::combn(vars,i,simplify=FALSE))}
   combns=lapply(combns,FUN=function(x){
+          # Defensive given the callers this function has: each pre-subsets
+          # the matrix by name, so nothing reachable through the public API
+          # distinguishes this from positional indexing, and no test pins it.
+          # Reverting it fails nothing. Kept because a future caller passing an
+          # unsubsetted matrix would need it.
+          #
           # Indexed by name, both dimensions in the order of x, so that the
           # sub-matrix holds the pairs it is meant to. which(match(rownames, x))
           # returns positions in rowname order and which(match(colnames, x)) in
@@ -303,9 +776,13 @@ combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff){
           # diagonal, dropping the combination whatever its correlation.
           cor.mat.m=cor.matrix[x[x %in% rownames(cor.matrix)],
                                x[x %in% colnames(cor.matrix)],drop=FALSE]
+          # Reported here, where the pair is known. An NA reaching the
+          # comparison below stops the call with "missing value where
+          # TRUE/FALSE needed", naming neither the matrix, the argument, nor
+          # the pair (FSSgam_package#27).
+          stop_on_na_correlations(cor.mat.m)
           out=x
-          if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){out=NA}
-          if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){out=NA}
+          if(exceeds_cutoff(cor.mat.m,cov.cutoff)){out=NA}
           return(out)})
   combns[which(is.na(combns))]=NULL
   combns
@@ -322,6 +799,55 @@ combine_uncorrelated=function(vars,sizes,cor.matrix,cov.cutoff){
 # apart.
 build_factor_interaction_columns=function(use.dat,fact.combns){
   factor.interaction.terms=unlist(lapply(fact.combns,FUN=paste,collapse=".I."))
+
+  # A generated name that is already a column of use.dat is declined rather
+  # than appended. cbind() accepts the duplicate, and every later stage selects
+  # predictors by name: use.dat[,"a.I.b"] returns the first of the two, which
+  # is the user's own column, while the model formulas and the correlation
+  # matrix were built for the generated one. They are different variables and
+  # nothing reported the collision (FSSgam_package#22).
+  #
+  # Declining rather than overwriting, because overwriting silently changes a
+  # predictor the user named. The combination is dropped from the returned term
+  # names as well as from the columns, so no later stage refers to a term that
+  # was not built.
+  #
+  # The shape arises without contrivance: running generate_model_set() twice and
+  # passing the used.data of the first call as the use.dat of the second
+  # presents every generated name as an existing column.
+  # Two distinct combinations can paste to one name: (a, b.I.c) and (a.I.b, c)
+  # both give a.I.b.I.c. The columns are different variables, so building both
+  # gives use.dat two columns of that name -- the same defect as a collision
+  # with a user's column, reached from inside rather than outside. It arises the
+  # same way, by feeding used.data back in as use.dat, and announced itself only
+  # through the "-Inf" warnings that exceeds_cutoff() now suppresses
+  # (FSSgam_package#22, FSSgam_package#28).
+  #
+  # Screened before the collision check below, so a name colliding with both an
+  # existing column and another generated name is reported once.
+  #
+  # Unreachable through the public API as it stands: producing two combinations
+  # that paste to one name requires a predictor literally named a.I.b, and
+  # validate_predictor_names() rejects a name containing a separator
+  # (FSSgam_package#39). Kept as a guard, and pinned by no test -- do not read
+  # its presence as coverage.
+  self.colliding=duplicated(factor.interaction.terms)
+  if(any(self.colliding)){
+    warning(paste0("Factor interaction column(s) not created, because two ",
+            "combinations of the named factors generate the same column name: ",
+            paste(unique(factor.interaction.terms[self.colliding]),collapse=", "),
+            ". Rename a factor if both interactions are wanted."))
+    fact.combns=fact.combns[!self.colliding]
+    factor.interaction.terms=factor.interaction.terms[!self.colliding]}
+
+  colliding=factor.interaction.terms %in% colnames(use.dat)
+  if(any(colliding)){
+    warning(paste0("Factor interaction column(s) not created, because use.dat ",
+            "already has a column of the same name: ",
+            paste(factor.interaction.terms[colliding],collapse=", "),
+            ". Rename the existing column(s) if the interaction is wanted."))
+    fact.combns=fact.combns[!colliding]
+    factor.interaction.terms=factor.interaction.terms[!colliding]}
 
   if(length(fact.combns)>0){
     tt=data.frame(lapply(fact.combns,FUN=function(x){
@@ -415,8 +941,20 @@ resolve_factor_interactions=function(use.dat,pred.vars.fact,factor.factor.intera
                           factor.smooth.interactions,pred.vars.cont,linear.vars,
                           all.predictors,max.predictors,cov.cutoff,cor.matrix){
   factor_correlations=function(vars){
-    if(length(cor.matrix)==1){
-      check_correlations(use.dat[,vars])
+    # The same default test as build_predictor_correlation_matrix(). This was a
+    # second copy of the length(cor.matrix)==1 sentinel, so a 1x1 supplied
+    # matrix was discarded here as well (FSSgam_package#26).
+    if(!cor_matrix_supplied(cor.matrix)){
+      # Zero-filled, as build_predictor_correlation_matrix() does for the
+      # matrix it computes. Without it a computed matrix reaches the screen
+      # with NA in it -- check_correlations() returns NA for a pair involving
+      # a single-level factor (FSSgam_package#33) -- and the report then named
+      # a supplied cor.matrix when none had been supplied. The issue asserts
+      # the computed branch can never reach that point; it can, by this route
+      # (FSSgam_package#27).
+      computed=check_correlations(use.dat[,vars])
+      computed[is.na(computed)]=0
+      computed
     }else{
       missing.vars=vars[which(is.na(match(vars,rownames(cor.matrix))))]
       if(length(missing.vars)>0){
@@ -593,9 +1131,94 @@ resolve_smooth_smooth_interactions=function(pred.vars.cont,smooth.smooth.interac
 # Resolves the predictor correlation matrix used for collinearity-based
 # model exclusion: either computed from use.dat, or validated if the caller
 # supplied their own cor.matrix.
+# TRUE where any off-diagonal cell of the sub-matrix exceeds cov.cutoff.
+#
+# max() of an empty vector warns "no non-missing arguments to max" and returns
+# -Inf. A 1x1 sub-matrix has empty triangles, and one arises whenever a
+# candidate's deduplicated terms number one: from a predictor named twice, which
+# is now rejected, and also from the documented idiom of naming a predictor in
+# both pred.vars.cont and linear.vars, which is not. That idiom put the name in
+# the pool twice and emitted the two warnings at any max.predictors of 2 or
+# more, naming nothing (FSSgam_package#28).
+#
+# Returning FALSE for an empty triangle keeps the previous behaviour -- -Inf is
+# below any cutoff, so the combination survived -- without the warning.
+exceeds_cutoff=function(cor.mat.m,cov.cutoff){
+  vals=c(cor.mat.m[upper.tri(cor.mat.m)],cor.mat.m[lower.tri(cor.mat.m)])
+  if(length(vals)==0){return(FALSE)}
+  max(abs(vals))>cov.cutoff
+}
+
+# Stops where the sub-matrix about to be screened against cov.cutoff has NA
+# between two of its terms, naming the pairs.
+#
+# Called from the screening sites themselves rather than from a single earlier
+# point. Two earlier placements were tried and both were wrong, in opposite
+# directions. Checking only in build_predictor_correlation_matrix() missed every
+# pair screened before it, resolve_factor_interactions() running first. Checking
+# a union of every name that might be screened then reported pairs that are not:
+# a name given in the character form of factor.factor.interactions is screened
+# against the others in that argument and never against pred.vars.cont, so a
+# union treats the Cartesian product as screened and fails on a cell nothing
+# reads.
+#
+# The sub-matrix here is the one the screen is about to take max(abs(.)) of, so
+# the pairs are exactly those that matter, and no model of which names reach
+# which screen has to be maintained alongside the code that does the screening
+# (FSSgam_package#27).
+#
+# Off-diagonal only: upper.tri() and lower.tri() exclude the diagonal, so a
+# diagonal NA is never read.
+stop_on_na_correlations=function(cor.mat.m){
+  if(is.null(dim(cor.mat.m))||nrow(cor.mat.m)<2){return(invisible(NULL))}
+  m=as.matrix(cor.mat.m)
+  na.cells=which(is.na(m)&!diag(TRUE,nrow(m)),arr.ind=TRUE)
+  if(nrow(na.cells)==0){return(invisible(NULL))}
+  pairs=paste0(rownames(m)[na.cells[,"row"]],"/",colnames(m)[na.cells[,"col"]])
+  # Worded so that it is true whichever matrix this is. Both computed paths are
+  # zero-filled, so in practice only a supplied matrix reaches here -- but the
+  # message said "Supplied cor.matrix" before the zero-fill in
+  # factor_correlations() was added, and told users who had supplied nothing to
+  # supply a correlation. Stating which matrix it is requires nothing extra.
+  stop(paste0("The correlation matrix has NA between terms screened against ",
+       "cov.cutoff: ",paste(unique(pairs),collapse=", "),
+       ". If you supplied cor.matrix, supply a correlation for each of these ",
+       "pairs, or remove the predictor."))
+}
+
+# TRUE where the caller supplied a correlation matrix, FALSE where they left the
+# NA default and it is to be computed from use.dat.
+#
+# Tested on the default value rather than on length. length(cor.matrix)==1 was
+# the sentinel, and a 1x1 matrix has length 1, so a model set with exactly one
+# predictor -- the only case in which a supplied matrix is 1x1 -- had its
+# supplied matrix silently discarded and recomputed (FSSgam_package#26).
+#
+# Anything that is neither a matrix, a data.frame, nor the NA default is
+# rejected here. Under the old sentinel what happened to such a value depended
+# on its length, and neither outcome was right: a length-one value of any class
+# -- a string, a list holding a matrix -- satisfied the sentinel and was
+# silently treated as nothing supplied, so the matrix was computed from use.dat
+# and the model set built as though the argument had not been given; a value of
+# any other length fell through to the supplied branch and failed against the
+# missing-predictor check, reporting predictors rather than the argument.
+cor_matrix_supplied=function(cor.matrix){
+  # Tested on dimensionality rather than on a list of accepted classes. A
+  # whitelist of matrix and data.frame rejected anything else two-dimensional,
+  # including the S4 matrix Matrix::Matrix() returns, which worked before this
+  # argument was validated at all. Matrix::nearPD() is not such a case: it
+  # returns a list, and only its mat component was ever accepted.
+  if(length(dim(cor.matrix))==2){return(TRUE)}
+  if(length(cor.matrix)==1&&is.na(cor.matrix)){return(FALSE)}
+  stop(paste0("cor.matrix must be a two-dimensional matrix or data.frame of predictor ",
+       "correlations, or NA to have them computed from use.dat. Supplied: ",
+       paste(class(cor.matrix),collapse="/"),
+       " of length ",length(cor.matrix),"."))
+}
+
 build_predictor_correlation_matrix=function(use.dat,all.predictors,non.linear.correlations,
                           cor.matrix,derived.predictors=character(0)){
-  if(length(cor.matrix)==1){
+  if(!cor_matrix_supplied(cor.matrix)){
    # Computed only when the caller supplied nothing. It used to be computed
    # either way and then discarded in the else branch below, which meant a
    # supplied cor.matrix did not actually replace the automatic estimate: the
@@ -785,8 +1408,9 @@ enumerate_candidate_models=function(pred.vars.cont,pred.vars.fact,linear.vars,
      terms.m=unique(mod.terms)
      cor.mat.m=cor.matrix[terms.m[terms.m %in% rownames(cor.matrix)],
                           terms.m[terms.m %in% colnames(cor.matrix)],drop=FALSE]
-     if(max(abs(cor.mat.m[upper.tri(cor.mat.m)]))>cov.cutoff){use.mods[[m]]=NA}
-     if(max(abs(cor.mat.m[lower.tri(cor.mat.m)]))>cov.cutoff){use.mods[[m]]=NA}
+     # see the matching comment in combine_uncorrelated()
+     stop_on_na_correlations(cor.mat.m)
+     if(exceeds_cutoff(cor.mat.m,cov.cutoff)){use.mods[[m]]=NA}
     }
 
     # remove the model if there are more than the number of terms specified in "max.predictors"

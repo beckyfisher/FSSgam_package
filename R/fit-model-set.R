@@ -25,7 +25,7 @@
 #'
 #' @param n.cores An integer indicating the number of cores to use if parallel is TRUE. Defaults to 4.
 #'
-#' @param r2.type The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note gamm4 does not currently return a deviance.
+#' @param r2.type The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note that a gamm fit reaches this only through MuMIn::uGamm: a bare mgcv::gamm fit cannot be used as a test.fit, records no call, and is rejected by generate_model_set. Note gamm4 does not currently return a deviance.
 #'
 #' @param  report.unique.r2 Should the r2.vals.unique column of mod.data.out be populated. Defaults to FALSE, which leaves it NA. When TRUE, the null model R2 is subtracted from each model R2 to give the variance explained beyond the terms supplied in null.terms. See the description of mod.data.out under Value for what the column is and is not.
 #'

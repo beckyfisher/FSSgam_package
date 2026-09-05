@@ -18,7 +18,7 @@ Description:
     interactions via te(). Methods are described in
     Fisher et al. (2018) <doi:10.1002/ece3.4134>.
 Depends:
-    R (>= 3.5)
+    R (>= 4.4.0)
 License: Apache License (== 2.0)
 Encoding: UTF-8
 LazyData: true
@@ -36,6 +36,7 @@ BugReports: https://github.com/beckyfisher/FSSgam_package/issues
 Suggests:
     covr,
     gamm4,
+    Matrix,
     testthat (>= 3.1.5)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0

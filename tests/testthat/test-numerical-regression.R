@@ -52,7 +52,7 @@ snapshot_exact <- function(model.set, out) {
   mdo <- out$mod.data.out[order(out$mod.data.out$modname), ]
   list(
     formulas = vapply(
-      model.set$mod.formula[sort(names(model.set$mod.formula))], deparse_one, character(1)
+      model.set$mod.formula[sort(names(model.set$mod.formula))], deparse1, character(1)
     ),
     modname = mdo$modname,
     delta.AICc = mdo$delta.AICc,
