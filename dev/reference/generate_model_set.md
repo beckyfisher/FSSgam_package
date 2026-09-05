@@ -22,7 +22,8 @@ generate_model_set(
   max.predictors = 3,
   k = 5,
   bs.arg = "'cr'",
-  null.terms = ""
+  null.terms = "",
+  null.cov.cutoff = 0.8
 )
 ```
 
@@ -53,9 +54,10 @@ generate_model_set(
   the lme4 package \[Bates, D.M. (2010) lme4: Mixed-Effects Modeling
   with R. Springer, New York\] which allows crossed random effects and
   avoids issues with PQL for non-gaussian model fits. On the other hand
-  gamm (mgcv) is based on nlme which allows correlation structures
-  \[Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series
-  Analysis: Forecasting and Control", 3rd Edition, Holden-Day\],
+  gamm (mgcv), reached through MuMIn::uGamm since a bare mgcv::gamm fit
+  cannot be refitted, is based on nlme which allows correlation
+  structures \[Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time
+  Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day\],
   variance structures \[Pinheiro, J.C. and Bates., D.M. (1996)
   "Unconstrained Parametrizations for Variance-Covariance Matrices",
   Statistics and Computing, 6, 289-296\], and a broader range of
@@ -206,7 +208,14 @@ generate_model_set(
   via a call multinom (from package nnet, Venables & Ripley 2002). Note
   that any user constructed pairwise matrix can be passed to the
   function and used for pairwise exclusion of variables from individual
-  models.
+  models, subject to two rules. It must be two-dimensional: a matrix, a
+  data.frame, or any other object with two dimensions, so the value
+  Matrix::Matrix returns is accepted while a length-one value of any
+  other class is not, and NA is reserved for the default. And it must
+  not contain NA between two terms that are actually screened against
+  cov.cutoff, which is reported by naming the pairs; an NA on a pair no
+  screen compares is accepted, so which cells matter depends on
+  max.predictors and on the interaction arguments.
 
 - non.linear.correlations:
 
@@ -247,9 +256,59 @@ generate_model_set(
   is an alternative way of fitting simple random structures that avoids
   use of PQL and allows a the greater range of families available in
   gam.mgcv to be used. see ?s and links therein. Note: make sure you use
-  gam instead of uGamm to make sure PQL is not used. to fit a
-  correlation structure only (but no random effects) this must be
-  achieved through a call the gamm via , with no random effects, fitted
+  gam instead of uGamm to make sure PQL is not used. To fit a
+  correlation structure, pass MuMIn::uGamm(..., correlation = ...) as
+  the test.fit. A fit produced by mgcv::gamm() directly cannot be used:
+  it records no call, so the candidate models cannot be refitted from
+  it, and generate_model_set stops saying so.
+
+- null.cov.cutoff:
+
+  The correlation above which a predictor is dropped for being
+  correlated with a variable named in null.terms. Defaults to 0.8. Terms
+  supplied through null.terms are forced into every candidate model and
+  are outside the cov.cutoff screen, which covers pred.vars.cont,
+  pred.vars.fact and linear.vars only, so without this a candidate could
+  be arbitrarily strongly correlated with a forced term and still appear
+  in every model in the set. That inflates the variance of the forced
+  term's estimate, which is frequently the term the analysis exists to
+  estimate, and nothing in the output would indicate it. A separate
+  cutoff, with a much looser default than cov.cutoff, because the two
+  screens answer different questions: cov.cutoff decides which
+  predictors may appear together, and this decides which predictor is so
+  nearly a restatement of a forced term that fitting both is not
+  informative. Set it to 1 to admit every predictor whatever its
+  correlation with a forced term. A variable inside a bs='re' smooth is
+  exempt from this screen, however the argument is written – quoted
+  either way, or wrapped in c(). A bs given as a variable rather than a
+  literal is exempt too, since it cannot be read here and screening a
+  grouping factor in error drops a legitimate predictor, while not
+  screening a fixed term in error leaves the behaviour of earlier
+  versions. A random-effect grouping factor is correlated with the
+  predictors measured within it by construction – with null.terms =
+  "s(Location,Site,bs='re')" and Status nested in Location their
+  correlation is 1 – and that is the design of the study rather than
+  collinearity to screen out. The screen applies to fixed forced terms,
+  which compete with a candidate for the same variation. Correlations
+  among the null.terms variables themselves are neither computed nor
+  screened: those terms are forced in by your decision, and dropping one
+  is what must not happen. Where the correlation estimate is asymmetric,
+  as check_non_linear_correlations returns it, both directions are read
+  and the larger is used, which is what the cov.cutoff screen already
+  does. The correlations this screens on are returned by
+  generate_model_set as null.term.correlations, each cell being the
+  value screened on rather than one direction of it, whether or not
+  anything is dropped, so they can be inspected even where no warning is
+  raised; full_subsets_gam does not return them, its output being that
+  of fit_model_set. A supplied cor.matrix is used for any forced term it
+  names in either dimension, and the rest of the block is computed from
+  use.dat, which is the ordinary case since a supplied matrix is indexed
+  by predictor and a forced term is not one. Where that computation
+  fails, which is what a predictor of a class check_correlations cannot
+  classify causes, the screen is skipped with a warning rather than the
+  call stopping. A variable named in null.terms that is not a column of
+  use.dat, such as a function or a term written over several columns, is
+  skipped, a correlation not being defined for it.
 
 ## Value
 
@@ -261,6 +320,16 @@ length(mod.formula).
 predictor.correlations - The matrix of estimated predictor correlations
 returned by the function check_correlations and used for model exclusion
 based on cov.cutoff
+
+null.term.correlations - A matrix of the correlations between each
+variable named in null.terms and each candidate predictor, used for
+model exclusion based on null.cov.cutoff. Rows are the null.terms
+variables and columns the predictors. NULL where null.terms is empty,
+where it names only random-effect grouping factors or no column of
+use.dat, or where every predictor is itself a null.terms variable. The
+element is always present in the returned list; it is its value that is
+NULL. Correlations among the null.terms variables are not included,
+being neither computed nor screened.
 
 mod.formula - A named list containing the model formula that were
 generated (and will be fitted by fit_model_set). The names are the

@@ -54,7 +54,10 @@ fit_model_set(
   value based on a linear regression between the observed and predicted
   values. r2 will return the adjusted R.sq as reported by gam, gamm or
   gamm4.dev will return the deviance explained as reported by gam or
-  gamm. Note gamm4 does not currently return a deviance.
+  gamm. Note that a gamm fit reaches this only through MuMIn::uGamm: a
+  bare mgcv::gamm fit cannot be used as a test.fit, records no call, and
+  is rejected by generate_model_set. Note gamm4 does not currently
+  return a deviance.
 
 - report.unique.r2:
 

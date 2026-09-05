@@ -75,10 +75,56 @@ Dependencies are defined in `DESCRIPTION` (Imports + Suggests). Read
 that file to determine what is available — don’t assume this list stays
 in sync.
 
-- **Imports**: `doSNOW`, `foreach`, `gamm4`, `mgcv`, `MuMIn`, `nnet`,
-  `parallel`, `stats`, `utils`
-- **Suggests**: `covr`, `testthat (>= 3.1.5)`
-- **Depends**: `R (>= 3.5)` only — no other package may go in `Depends`
+- **Imports**: `doSNOW`, `foreach`, `mgcv`, `MuMIn`, `nnet`, `parallel`,
+  `stats`, `utils`
+
+- **Suggests**: `covr`, `gamm4`, `testthat (>= 3.1.5)`. `gamm4` moved
+  out of `Imports` so that a parallel worker no longer loads it and
+  `lme4` with it for every model set (FSSgam_package#14).
+
+- **Depends**: `R (>= 4.4.0)` only — no other package may go in
+  `Depends`. The floor is not chosen: `MuMIn` and `mgcv` both declare
+  `Depends: R (>= 4.4.0)`, so nothing lower is reachable.
+
+  Two jobs in `.github/workflows/R-CMD-check.yaml` cover it, and they
+  check different things. The `r: '4.4.0'` matrix entry establishes that
+  the package installs and passes on an R at the declared floor. The
+  `r-floor-consistency` job runs `tools/check-r-floor.R`, which compares
+  the declared floor against the `Depends` of every hard dependency,
+  walking the closure rather than the direct `Imports`, and fails if the
+  declared one is lower. The closure matters: `Matrix` declares
+  `R (>= 4.4)` and arrives only through `mgcv` and `MuMIn`, so a check
+  of the direct `Imports` misses it.
+
+  The script stops rather than reporting success in three cases where it
+  cannot count a constraint: a dependency that is not installed, an R
+  constraint in a form it does not parse, and a `DESCRIPTION` with no
+  floor. Each was added after review found it in turn silently passing,
+  and a fourth round found the guards themselves ordered wrongly — an
+  empty-closure exit placed above the uninstalled-dependency check
+  accepted the declared floor, having read nothing, for a package all of
+  whose dependencies were missing. **Anything added here must fail
+  loudly rather than contribute no floor, and must be placed above the
+  reporting, not below it** — that is the failure mode the script exists
+  to catch, and it recurred four times inside the script itself.
+
+  **Only the second detects the defect FSSgam_package#31 reported.**
+  Installing rejects a floor set above the running R and accepts any
+  floor below it, so no matrix of R versions sees a floor that is too
+  low. Measured 2026-09-03 on this host: `R CMD INSTALL` and
+  `devtools::check()` both succeed with `Depends: R (>= 3.5)` on R
+  4.6.1. No CI run was made against a reverted `DESCRIPTION`; that every
+  matrix job would stay green follows from what installation does, and
+  is an inference rather than a measurement. Do not add an R version to
+  the matrix and take it for a floor check.
+
+  `DESCRIPTION` records no provenance comment. Writing R Extensions
+  §1.1.1 states the format does not support `#` comments, and any
+  `desc`-based write deletes them silently – `usethis::use_package()`, a
+  version bump, and `roxygen2::roxygenise()` updating
+  `Config/roxygen2/version` all do, and this repository has run two of
+  the three. `tools/check-r-floor.R` holds the provenance instead, where
+  it is executed rather than trusted.
 
 `doSNOW` is not installed by default in fresh environments (e.g. this
 WSL container) even though it’s a long-standing declared dependency —
@@ -145,6 +191,12 @@ ask before installing it, but it genuinely is needed for
                               # CLAUDE.md Section 13) plus golden-master/, the before/after
                               # comparison scripts that phase was verified with. Tracked in git
                               # and .Rbuildignore'd, so none of it reaches the built package.
+    tools/
+      check-r-floor.R         # compares DESCRIPTION's declared Depends: R (>= x) against the
+                              # closure of the hard dependencies and fails if it is not
+                              # reachable. Run by the r-floor-consistency job in
+                              # .github/workflows/R-CMD-check.yaml, not by R CMD check.
+                              # Tracked in git and .Rbuildignore'd (Section 3, Section 5)
 
 ------------------------------------------------------------------------
 
@@ -803,17 +855,23 @@ Points to note before extending the suite again:
   [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/dev/reference/full_subsets_gam.md)
   Phase 7 regression tests, and everything in `test-deprecated.R`.
 
-- **The tests may not use
-  [`deparse1()`](https://rdrr.io/r/base/deparse.html).** It arrived in R
-  4.0.0 and `DESCRIPTION` declares `R (>= 3.5)`, so the suite has to run
-  without it. `deparse_one()` in `helper-fixtures.R` is the replacement,
-  and matches [`deparse1()`](https://rdrr.io/r/base/deparse.html)’s
-  `width.cutoff = 500L`.
-  [`deparse()`](https://rdrr.io/r/base/deparse.html)’s own default of 60
-  wraps 8 of the 39 formulas across three representative candidate sets,
-  and a wrapped formula deparses to a different string, so the cutoff
-  matters. `testthat (>= 3.1.5)` is declared for the same class of
-  reason: `expect_no_warning()` arrived in that version.
+- **Deparse formulas with
+  [`deparse1()`](https://rdrr.io/r/base/deparse.html), not
+  [`deparse()`](https://rdrr.io/r/base/deparse.html).**
+  [`deparse()`](https://rdrr.io/r/base/deparse.html)’s default
+  `width.cutoff` of 60 wraps 8 of the 39 formulas across three
+  representative candidate sets, and a wrapped formula deparses to a
+  different string, so the cutoff matters;
+  [`deparse1()`](https://rdrr.io/r/base/deparse.html) uses 500. The
+  suite used a local `deparse_one()` while
+  [`deparse1()`](https://rdrr.io/r/base/deparse.html) could not be
+  called: it arrived in R 4.0.0 and the declared floor was `R (>= 3.5)`.
+  That floor was not reachable in the first place and has been raised
+  (FSSgam_package#31), so
+  [`deparse1()`](https://rdrr.io/r/base/deparse.html) is now used
+  directly and `deparse_one()` no longer exists. `testthat (>= 3.1.5)`
+  is declared for a related reason: `expect_no_warning()` arrived in
+  that version.
 
 - **The numerical snapshots run everywhere, with one exclusion.** The
   binomial `gamm4`/`uGamm` scenario omits `edf` from its numeric
@@ -956,6 +1014,25 @@ evidence that the code under test is broken, and a single clean run is
 not evidence that it works. Both were concluded during the pre-CRAN
 refactor from one observation each, and both were wrong. Measure a rate
 across fresh processes.
+
+**A rate measured in one session is not comparable with one measured in
+another, and the same host gives different rates on different days.**
+Measured 2026-09-05, the identical script and arms: a baseline rate of
+13 stalls in 30 before a WSL crash, and 6 in 60 after the restart.
+Nothing about the code changed. Only arms alternated trial by trial
+within one run can be compared with each other; a figure quoted from a
+single block is a within-run comparison and not a rate that reproduces.
+That includes the figures in the `NEWS.md` entry for the `gamm4` change.
+
+Both directions this issue listed as uninvestigated have now been
+measured and neither is a fix. Over two blocks of 30 trials per arm,
+alternating: `parallel::makePSOCKcluster(setup_strategy = "sequential")`
+gave 12 stalls in 60 against a baseline 6 in 60, and `clusterEvalQ()`
+pre-loading gave 6 in 60. An earlier block had suggested `sequential`
+helped, at 5 in 30 against 13 in 30; it did not replicate, and the
+direction reversed. Do not re-try either without new evidence. The
+`ubuntu-latest` comparison remains the measurement that would say
+whether users are affected at all.
 
 ### Phase 14 — Pre-CRAN refactor: defects, argument validation, interaction
 

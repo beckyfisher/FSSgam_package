@@ -76,7 +76,7 @@
 
 
 <dt id="arg-r-type">r2.type<a class="anchor" aria-label="anchor" href="#arg-r-type"></a></dt>
-<dd><p>The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note gamm4 does not currently return a deviance.</p></dd>
+<dd><p>The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note that a gamm fit reaches this only through MuMIn::uGamm: a bare mgcv::gamm fit cannot be used as a test.fit, records no call, and is rejected by generate_model_set. Note gamm4 does not currently return a deviance.</p></dd>
 
 
 <dt id="arg-report-unique-r-">report.unique.r2<a class="anchor" aria-label="anchor" href="#arg-report-unique-r-"></a></dt>
