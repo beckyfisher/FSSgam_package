@@ -427,6 +427,13 @@
 
 * `fit_model_set()` and `full_subsets_gam()` gain `logLik.fn`, a function of one
   fitted model returning a single log-likelihood value, defaulting to `NULL`.
+  One restriction applies under `parallel = TRUE` with
+  `save.model.fits = FALSE`, the only combination that evaluates it on a worker
+  process: a function written at the top level of a script has its environment
+  replaced before it is sent, so anything it refers to and does not define is
+  not found there. Build it with a constructor, or write it to refer to nothing
+  outside itself. This is the restriction `beckyfisher/FSSgam#10` reports for
+  the `family` argument, and it has the same cause.
   `AICc` and `BIC` are ordinarily read from `MuMIn::AICc()` and `stats::BIC()`,
   which both resolve to the fitted family's own `aic` slot. Where supplied,
   `logLik.fn` replaces the log-likelihood alone: the criterion is built at the
@@ -463,8 +470,9 @@
   all covered, and every quantity is computed in logs so that an observation
   far into a tail does not underflow. An infinite bound written in the first
   column is refused instead: `mgcv` reads a censored case from the second
-  column alone, so such a row is dropped from the fit without a message, and
-  scoring it would count observations the fit ignores. It is checked in the
+  column alone, so under `clog()` such a row matches none of its censored cases
+  and is dropped from the fit without a message, and scoring it would count
+  observations the fit ignores. `cnorm()` does not fit that coding at all. It is checked in the
   test suite against a second computation built from `mgcv`'s own saturated
   log-likelihood and deviance residuals, which shares no code with it.
 
@@ -476,8 +484,9 @@
   `delta.AICc`, `delta.BIC` and both weight columns `NA`, and variable
   importance with nothing to weight -- and nothing named the cause. The fits
   succeeded, and the only sign was four `no non-missing arguments to min`
-  warnings out of `wi()`, measured on the eight-model `case_study1` set at
-  `023cd1a` (FSSgam_package#44).
+  warnings, two raised by `compute_model_weights()` taking the minimum of the
+  all-`NA` `AICc` and `BIC` columns and two by `wi()` doing the same. Measured
+  on the eight-model `case_study1` set at `023cd1a` (FSSgam_package#44).
 
   The check is on the value `MuMIn::AICc()` returns for the `test.fit`, not on a
   list of family names, so any other family whose criterion is undefined is
@@ -490,6 +499,17 @@
   criterion, and warns naming the candidates where only some were, which a
   supplied `logLik.fn` that gives the `test.fit` a value and the candidates none
   would otherwise produce silently.
+
+* Bug fix: summed variable importance came back `NA` for every predictor
+  whenever any candidate in the table had an `NA` model weight, including
+  predictors appearing in no such candidate. The weights are now summed with
+  `na.rm = TRUE`, so a candidate that contributes no weight contributes zero.
+
+  The route to it on 1.1.0 is a candidate that failed to fit with
+  `save.model.fits = FALSE`, which keeps a row for it; the
+  `save.model.fits = TRUE` path drops the row and was unaffected, so which of
+  the two a user saw depended on a memory setting. A supplied `logLik.fn` that
+  gives some candidates no value reaches it as well.
 
 * Bug fix: `fit_model_set(save.model.fits = FALSE)` recorded a candidate that
   fitted and was given no criterion as a model that failed to fit, and reported

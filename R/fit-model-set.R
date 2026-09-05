@@ -31,7 +31,7 @@
 #'
 #' @param progress Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.
 #'
-#' @param logLik.fn A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). AICc and BIC are ordinarily read from MuMIn::AICc and stats::BIC, which both resolve to the fitted family's own aic slot. Where that slot does not give a log-likelihood the whole ranking is unusable, so this argument allows one to be supplied. When it is, AICc and BIC are built from the value it returns, at the degrees of freedom and sample size the default route uses, so only the log-likelihood changes and every model in the set is scored the same way. Two cases are handled without it. A test.fit fitted with one of mgcv's censored families, cnorm or clog, is given a censored log-likelihood computed by the package, with a message saying so, because the value mgcv reports for those families is not built from one. A test.fit whose criterion is not defined at all, which is what a quasi-likelihood such as quasipoisson or quasibinomial gives, stops the call before any candidate is fitted, naming the family; supplying this argument is what allows such a set to be fitted and ranked. Note that generate_model_set fits the null model, so on the full_subsets_gam route that one fit precedes the refusal. Passing function(fit) as.numeric(stats::logLik(fit)) reproduces the criterion of FSSgam 1.1.0 and earlier for any family.
+#' @param logLik.fn A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). AICc and BIC are ordinarily read from MuMIn::AICc and stats::BIC, which both resolve to the fitted family's own aic slot. Where that slot does not give a log-likelihood the whole ranking is unusable, so this argument allows one to be supplied. When it is, AICc and BIC are built from the value it returns, at the degrees of freedom and sample size the default route uses, so only the log-likelihood changes and every model in the set is scored the same way. Two cases are handled without it. A test.fit fitted with one of mgcv's censored families, cnorm or clog, is given a censored log-likelihood computed by the package, with a message saying so, because the value mgcv reports for those families is not built from one. A test.fit whose criterion is not defined at all, which is what a quasi-likelihood such as quasipoisson or quasibinomial gives, stops the call before any candidate is fitted, naming the family; supplying this argument is what allows such a set to be fitted and ranked. Note that generate_model_set fits the null model, so on the full_subsets_gam route that one fit precedes the refusal. Passing function(fit) as.numeric(stats::logLik(fit)) reproduces the criterion of FSSgam 1.1.0 and earlier for any family. One restriction applies under parallel = TRUE with save.model.fits = FALSE, which is the only combination that evaluates this function on a worker process: a function written at the top level of a script has its environment replaced before it is sent, so any object it refers to and does not define is not found there and every candidate is given no criterion, which stops the call. Write it so that it refers to nothing outside itself, or build it with a constructor -- make_ll <- function(k) function(fit) ... k ...; logLik.fn = make_ll(2) -- whose environment is sent with it. This is the restriction GitHub issue beckyfisher/FSSgam#10 reports for the family argument, and it has the same cause.
 #'
 #' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.
 #'
@@ -108,6 +108,10 @@ fit_model_set=function(model.set.list,
   # defined stops the call (FSSgam_package#44) and where a censored family is
   # given a censored log-likelihood (FSSgam_package#42). See
   # resolve_criterion() in R/criterion.R.
+  # Recorded before the reassignment: after it, logLik.fn is the built-in for
+  # any censored test.fit, so it no longer says whether the caller supplied
+  # anything, and the refusal below would name an argument they never wrote.
+  logLik.supplied <- !is.null(logLik.fn)
   logLik.fn <- resolve_criterion(test.fit=model.set.list$test.fit,logLik.fn=logLik.fn)
 
   use.datModSet <- model.set.list$used.data
@@ -159,7 +163,11 @@ fit_model_set=function(model.set.list,
   if(any(fitted.rows)&&all(no.criterion[fitted.rows])){
     stop(paste0("Every candidate that fitted was given no criterion, so the ",
          "model set cannot be ranked",
-         if(!is.null(logLik.fn)){" -- check the value logLik.fn returns for these fits"}else{""},
+         if(logLik.supplied){
+           " -- check the value logLik.fn returns for these fits"
+         }else{
+           " -- check the coding of the response"
+         },
          "."))}
   if(any(no.criterion)){
     warning(paste0("Candidate(s) fitted but given no criterion, and excluded ",
@@ -216,9 +224,12 @@ na_mod_dat_row=function(){
 # replaced, the candidate reaches failed.models via the fit.ok flag the caller
 # reads, which is how a fit that returns a try-error is already handled.
 #
-# is.atomic() rather than is.numeric(): the all-NA row is logical, not
-# numeric, so is.numeric() would reject rows that are already correct. A
-# condition object is a list, so is.atomic() still separates the two.
+# is.atomic() rather than is.numeric(). Every row the loop now collects is
+# numeric, the fit.ok flag making even the all-NA one a double, so is.numeric()
+# would separate the two as well; is.atomic() is kept because it is the weaker
+# test and a condition object, which is a list, still fails it. It was
+# necessary rather than merely sufficient before fit.ok was added, when the
+# all-NA row was logical.
 normalise_mod_dat_rows=function(mod.dat){
   na.row <- na_mod_dat_row()
   ok <- vapply(mod.dat,
@@ -400,6 +411,13 @@ compute_model_weights=function(mod.data.out,report.unique.r2){
 # minimum number of models any one predictor is present in) or all models
 # (VI.mods='all'). mod.data.out must already include the inclusion columns
 # (cbind(mod.data.out, var.inclusions)) and the wi.AICc/wi.BIC columns.
+# na.rm=TRUE on every sum. A candidate with no criterion has an NA weight, and
+# without this one such candidate makes the importance of every predictor NA,
+# including predictors that appear in no affected candidate. Summing it as zero
+# is what "excluded from the ranking" means: the candidate takes no part.
+# Reachable on dev through a candidate that failed to fit with
+# save.model.fits=FALSE, where the failed rows are kept in mod.data.out, and
+# reachable now through a logLik.fn that gives some candidates no value.
 compute_variable_importance=function(mod.data.out,included.vars,VI.mods){
    # find the min number of models for each variable
   # drop=FALSE throughout: with a single predictor the [ , ] would otherwise
@@ -412,14 +430,16 @@ compute_variable_importance=function(mod.data.out,included.vars,VI.mods){
     # best weight instead of none.
     # first for AICc
     var.weights <- unlist(lapply(included.vars,FUN=function(x){
-           sum(sort(mod.data.out$wi.AICc[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)])}))
+           sum(sort(mod.data.out$wi.AICc[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)],
+               na.rm=TRUE)}))
     names(var.weights) <- included.vars
     variable.weights.raw <- var.weights
     aic.var.weights <- list(variable.weights.raw=variable.weights.raw)
 
     # next for BIC
     var.weights <- unlist(lapply(included.vars,FUN=function(x){
-      sum(sort(mod.data.out$wi.BIC[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)])}))
+      sum(sort(mod.data.out$wi.BIC[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)],
+          na.rm=TRUE)}))
     names(var.weights) <- included.vars
     variable.weights.raw <- var.weights
     bic.var.weights <- list(variable.weights.raw=variable.weights.raw)
@@ -430,11 +450,13 @@ compute_variable_importance=function(mod.data.out,included.vars,VI.mods){
     # unexported and only ever reached after fit_model_set()'s match.arg(), so
     # the two branches are exhaustive.
     # first for AICc
-    variable.weights.raw <- colSums(mod.data.out[,included.vars,drop=FALSE]*mod.data.out$wi.AICc)
+    variable.weights.raw <- colSums(mod.data.out[,included.vars,drop=FALSE]*mod.data.out$wi.AICc,
+                                    na.rm=TRUE)
     aic.var.weights <- list(variable.weights.raw=variable.weights.raw)
 
     # next for BIC
-    variable.weights.raw <- colSums(mod.data.out[,included.vars,drop=FALSE]*mod.data.out$wi.BIC)
+    variable.weights.raw <- colSums(mod.data.out[,included.vars,drop=FALSE]*mod.data.out$wi.BIC,
+                                    na.rm=TRUE)
     bic.var.weights <- list(variable.weights.raw=variable.weights.raw)
   }
 

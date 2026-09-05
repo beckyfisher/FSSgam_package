@@ -337,7 +337,12 @@ test_that("censored_loglik refuses a coding whose rows mgcv drops", {
   infinite <- is.infinite(d$ycens[, 2])
   expect_true(any(infinite))
   d$ycens[infinite, ] <- d$ycens[infinite, c(2, 1)]
-  fit <- fixture_clog(data = d)$test.fit
+  # cnorm refuses this coding outright, and clog may be made to as well. This
+  # test is about what FSSgam does with a fit mgcv produced, so it skips rather
+  # than fails if mgcv stops producing one.
+  fit <- try(fixture_clog(data = d)$test.fit, silent = TRUE)
+  skip_if(inherits(fit, "try-error"),
+          "clog no longer fits an infinite bound written in the first column")
   expect_true(is.na(FSSgam:::censored_loglik(fit)))
   # And is reported before anything is fitted rather than as an NA column.
   expect_error(FSSgam:::resolve_criterion(fit, NULL), "could not be evaluated")
@@ -420,6 +425,51 @@ test_that("a candidate fitted and given no criterion is reported, on both paths"
   expect_equal(length(saved$failed.models), 0L)
   expect_equal(length(unsaved$failed.models), 0L)
   expect_equal(names(unsaved$success.models), names(saved$success.models))
+
+  # A candidate with no criterion has an NA weight. Summed as zero, so that one
+  # such candidate does not make the importance of every predictor NA --
+  # including predictors that appear in no affected candidate.
+  for (out in list(saved, unsaved)) {
+    vi <- out$variable.importance$aic$variable.weights.raw
+    expect_false(anyNA(vi))
+    expect_true(all(vi >= 0))
+    expect_false(anyNA(out$variable.importance$bic$variable.weights.raw))
+  }
+})
+
+test_that("variable importance is not NA because one candidate failed to fit", {
+  # save.model.fits = FALSE keeps a row for a candidate that did not fit, so its
+  # NA weight reached the summed importance and made every predictor NA. The
+  # saved path drops the row and was unaffected, so which of the two a user got
+  # depended on a memory setting.
+  fit <- fixture_cs1_gaussian()
+  model.set <- break_one_candidate(fixture_cs1_model_set(fit))
+  unsaved <- fit_quietly(model.set, parallel = FALSE, progress = FALSE,
+                         save.model.fits = FALSE)
+  expect_true("ZONE+depth" %in% names(unsaved$failed.models))
+  expect_false(anyNA(unsaved$variable.importance$aic$variable.weights.raw))
+  expect_false(anyNA(unsaved$variable.importance$bic$variable.weights.raw))
+  saved <- fit_quietly(model.set, parallel = FALSE, progress = FALSE)
+  expect_false(anyNA(saved$variable.importance$aic$variable.weights.raw))
+})
+
+test_that("a non-identity link and a fixed theta are read correctly", {
+  # censored_loglik() reads the mean from fit$fitted.values, not predict(), so
+  # it is on the response scale whatever the link is; and the scale from
+  # getTheta(TRUE), whether it was estimated or supplied.
+  d <- fixture_censored_data(seed = 15, n = 200)
+  d$ycens <- d$ycens + 5
+  logged <- mgcv::gam(ycens ~ s(x, k = 5, bs = "cr"), data = d,
+                      family = mgcv::cnorm(link = "log"), method = "REML")
+  expect_equal(logged$family$link, "log")
+  expect_equal(FSSgam:::censored_loglik(logged), censored_loglik_oracle(logged),
+               tolerance = 1e-8)
+
+  fixed <- mgcv::gam(ycens ~ s(x, k = 5, bs = "cr"), data = d,
+                     family = mgcv::cnorm(theta = 0.5), method = "REML")
+  expect_equal(fixed$family$getTheta(TRUE), 0.5, tolerance = 1e-8)
+  expect_equal(FSSgam:::censored_loglik(fixed), censored_loglik_oracle(fixed),
+               tolerance = 1e-8)
 })
 
 # ---- full_subsets_gam -------------------------------------------------------
