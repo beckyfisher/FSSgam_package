@@ -876,6 +876,24 @@ evidence that it works. Both were concluded during the pre-CRAN refactor
 from one observation each, and both were wrong. Measure a rate across fresh
 processes.
 
+**A rate measured in one session is not comparable with one measured in
+another, and the same host gives different rates on different days.**
+Measured 2026-09-05, the identical script and arms: a baseline rate of 13
+stalls in 30 before a WSL crash, and 6 in 60 after the restart. Nothing
+about the code changed. Only arms alternated trial by trial within one run
+can be compared with each other; a figure quoted from a single block is a
+within-run comparison and not a rate that reproduces. That includes the
+figures in the `NEWS.md` entry for the `gamm4` change.
+
+Both directions this issue listed as uninvestigated have now been measured
+and neither is a fix. Over two blocks of 30 trials per arm, alternating:
+`parallel::makePSOCKcluster(setup_strategy = "sequential")` gave 12 stalls
+in 60 against a baseline 6 in 60, and `clusterEvalQ()` pre-loading gave 6 in
+60. An earlier block had suggested `sequential` helped, at 5 in 30 against
+13 in 30; it did not replicate, and the direction reversed. Do not re-try
+either without new evidence. The `ubuntu-latest` comparison remains the
+measurement that would say whether users are affected at all.
+
 ### Phase 14 — Pre-CRAN refactor: defects, argument validation, interaction
 restructure; release 1.1.0 (PR #17) — Completed
 
