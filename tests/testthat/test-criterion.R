@@ -350,7 +350,10 @@ test_that("censored_loglik refuses a coding whose rows mgcv drops", {
   d$ycens[infinite, ] <- d$ycens[infinite, c(2, 1)]
   # cnorm refuses this coding outright, and clog may be made to as well. This
   # test is about what FSSgam does with a fit mgcv produced, so it skips rather
-  # than fails if mgcv stops producing one.
+  # than fails if mgcv stops producing one. Were mgcv instead to start scoring
+  # such a row correctly, the refusal here would become an over-refusal and this
+  # test would need revisiting rather than merely skipping; nothing detects that
+  # automatically.
   fit <- try(fixture_clog(data = d)$test.fit, silent = TRUE)
   skip_if(inherits(fit, "try-error"),
           "clog no longer fits an infinite bound written in the first column")
@@ -446,6 +449,14 @@ test_that("a candidate fitted and given no criterion is reported, on both paths"
     expect_true(all(vi >= 0))
     expect_false(anyNA(out$variable.importance$bic$variable.weights.raw))
   }
+  # Here every candidate containing ZONE has no criterion, so ZONE is present in
+  # no scored candidate, n is zero and every predictor sums nothing. That is
+  # what VI.mods = "min.n" means -- the scores are comparable across predictors
+  # or they are not reported -- and it is what the save.model.fits = TRUE path
+  # has always returned in this situation. The warning above is what tells the
+  # user why the table reads as it does.
+  expect_equal(unname(saved$variable.importance$aic$variable.weights.raw),
+               c(0, 0, 0))
 })
 
 test_that("full_subsets_gam ranks a censored set on the censored log-likelihood", {
@@ -490,6 +501,16 @@ test_that("variable importance is not NA because one candidate failed to fit", {
   expect_equal(unsaved$variable.importance$bic$variable.weights.raw,
                saved$variable.importance$bic$variable.weights.raw,
                tolerance = 1e-8)
+
+  # VI.mods = "all" reaches it by the other route, the na.rm on the weighted
+  # sums rather than the count of scored models, and there the failed candidate
+  # does not zero the whole table.
+  unsaved.all <- fit_quietly(model.set, parallel = FALSE, progress = FALSE,
+                             save.model.fits = FALSE, VI.mods = "all")
+  vi.all <- unsaved.all$variable.importance$aic$variable.weights.raw
+  expect_false(anyNA(vi.all))
+  expect_gt(vi.all[["complexity"]], 0)
+  expect_false(anyNA(unsaved.all$variable.importance$bic$variable.weights.raw))
 })
 
 test_that("logLik.fn returning a classed logLik gives a plain numeric criterion", {

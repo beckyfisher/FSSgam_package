@@ -1121,12 +1121,14 @@ defective, so their agreement is evidence rather than a tautology. Keep them
 independent: implementing `censored_loglik()` in terms of `ls`/`dev.resids`
 would be shorter and would destroy the test.
 
-**No test asserts what `mgcv`'s defective criterion gives**, per the Phase 13
-rule. The values that route produced are in a comment beside the test instead.
-Two tests do assert external behaviour and are deliberate: the `getTheta()`
-scale-recovery test, aimed at a change in semantics rather than a repair, and
-the `clog` coding test, which skips rather than fails if `mgcv` stops fitting
-that coding.
+**No test asserts a value produced by `mgcv`'s defective `aic` slots**, per the
+Phase 13 rule. The values that route produced are in a comment beside the test
+instead. Three assertions on external behaviour are deliberate and are premise
+checks rather than expectations about the defect: `MuMIn::AICc()` being `NA` for
+a quasi `gam` and finite for a quasi `uGamm`, which is why two checks are
+needed; the `getTheta()` scale-recovery test, aimed at a change in semantics
+rather than a repair; and the `clog` coding test, which skips rather than fails
+if `mgcv` stops fitting that coding.
 
 ---
 

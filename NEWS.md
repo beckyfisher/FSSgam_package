@@ -488,12 +488,25 @@
   all-`NA` `AICc` and `BIC` columns and two by `wi()` doing the same. Measured
   on the eight-model `case_study1` set at `023cd1a` (FSSgam_package#44).
 
-  The check is on the value `MuMIn::AICc()` returns for the `test.fit`, not on a
-  list of family names, so any other family whose criterion is undefined is
-  covered by it. Supplying `logLik.fn` is what allows such a set to be fitted
-  and ranked; the message says so, and names `nb()`, `tw()` and `betar()` as
-  families that have a likelihood. `generate_model_set()` fits the null model,
-  so on the `full_subsets_gam()` route that one fit precedes the refusal.
+  Two checks, because neither covers the other. The value `MuMIn::AICc()`
+  returns for the `test.fit` is the general one: it does not depend on a list of
+  family names, so any family whose criterion is undefined reaches it. The
+  fitted family's name is checked as well, because a quasi-likelihood supplied
+  through `MuMIn::uGamm()` or `mgcv::gamm()` passes the first. `AICc` for such a
+  fit is read from the internal `lme` fit of the PQL working model and is a
+  number, and a PQL log-likelihood is a function of the working response, which
+  itself changes with the fixed effects, so those differences rank nothing.
+
+  **That second check is a behaviour change beyond the `NA` case.** Measured on
+  `case_study1`, `uGamm(Herbivore.abundance ~ s(depth, k = 3, bs = 'cr'),
+  random = list(site = ~1), family = quasipoisson())` with three candidates:
+  1.1.0 returned a complete table, `AICc` 170.261, 176.030 and 138.582 and a
+  weight of 1.000 on the best; this release stops instead, naming the family.
+
+  Supplying `logLik.fn` is what allows either set to be fitted and ranked; the
+  message says so, and names `nb()`, `tw()` and `betar()` as families that have
+  a likelihood. `generate_model_set()` fits the null model, so on the
+  `full_subsets_gam()` route that one fit precedes the refusal.
 
   `fit_model_set()` also stops where every candidate that fitted was given no
   criterion, and warns naming the candidates where only some were, which a
@@ -503,10 +516,11 @@
 * Bug fix: summed variable importance came back `NA` for every predictor
   whenever any candidate in the table had an `NA` model weight, including
   predictors appearing in no such candidate. The weights are now summed with
-  `na.rm = TRUE`, so a candidate that contributes no weight contributes zero.
-  Under the default `VI.mods = "min.n"` the count of models per predictor is
-  also taken over the candidates that have a weight rather than over every row,
-  so the two fitting paths give the same scores for the same model set.
+  `na.rm = TRUE`, which is what corrects `VI.mods = "all"`. Under the default
+  `VI.mods = "min.n"` the correction is elsewhere: the count of models per
+  predictor is taken over the candidates that have a weight rather than over
+  every row, so the two fitting paths give the same scores for the same model
+  set.
 
   The route to it on 1.1.0 is a candidate that failed to fit with
   `save.model.fits = FALSE`, which keeps a row for it; the

@@ -33,11 +33,11 @@
 #'
 #' @param logLik.fn A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). AICc and BIC are ordinarily read from MuMIn::AICc and stats::BIC, which both resolve to the fitted family's own aic slot. Where that slot does not give a log-likelihood the whole ranking is unusable, so this argument allows one to be supplied. When it is, AICc and BIC are built from the value it returns, at the degrees of freedom and sample size the default route uses, so only the log-likelihood changes and every model in the set is scored the same way. Passing function(fit) as.numeric(stats::logLik(fit)) reproduces the criterion of FSSgam 1.1.0 and earlier for any family.
 #'
-#' Two cases are handled without it. A test.fit fitted with one of mgcv's censored families, cnorm or clog, is given a censored log-likelihood computed by the package, with a message saying so, because the value mgcv reports for those families is not built from one; wrap the call in suppressMessages to silence it. A test.fit whose criterion is not defined at all, which is what a quasi-likelihood such as quasipoisson or quasibinomial gives, stops the call before any candidate is fitted, naming the family; supplying this argument is what allows such a set to be fitted and ranked. Note that generate_model_set fits the null model, so on the full_subsets_gam route that one fit precedes the refusal.
+#' Two cases are handled without it. A test.fit fitted with one of mgcv's censored families, cnorm or clog, is given a censored log-likelihood computed by the package, with a message saying so, because the value mgcv reports for those families is not built from one; wrap the call in suppressMessages to silence it. A test.fit fitted with a quasi-likelihood such as quasipoisson or quasibinomial stops the call before any candidate is fitted, naming the family. Such a family has no log-likelihood: through gam the criterion is NA, and through uGamm or gamm it is a number read from the PQL working model, which ranks nothing. Supplying this argument is what allows such a set to be fitted and ranked. Note that generate_model_set fits the null model, so on the full_subsets_gam route that one fit precedes the refusal.
 #'
 #' One restriction applies under parallel = TRUE with save.model.fits = FALSE, which is the only combination that evaluates this function on a worker process: a function written at the top level of a script has its environment replaced before it is sent, so any object it refers to and does not define is not found there and every candidate is given no criterion, which stops the call. Write it so that it refers to nothing outside itself, or build it with a constructor -- make_ll <- function(k) function(fit) ... k ...; logLik.fn = make_ll(2) -- whose environment is sent with it. This is the restriction GitHub issue beckyfisher/FSSgam#10 reports for the family argument, and it has the same cause.
 #'
-#' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.
+#' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in, counted over the candidates that were given a criterion). Set to 'all' to use all models in the candidate set instead.
 #'
 #' @details The function constructs and fits a complete model set based on the supplied arguments.
 #' for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
@@ -198,11 +198,11 @@ fit_model_set=function(model.set.list,
 
 # TRUE where fit_mod_l() returned a fitted model rather than a try-error.
 #
-# The same predicate on both fitting paths, so that "did not fit" means the
-# same thing in each. It was the class of the object on the saved path and an
-# NA criterion on the unsaved one, and those are different questions: a
-# candidate that fitted and was given no criterion was reported as a failure by
-# one and as a success by the other.
+# Called by both fitting paths, so that "did not fit" means the same thing in
+# each. It was the class of the object on the saved path and an NA criterion on
+# the unsaved one, and those are different questions: a candidate that fitted
+# and was given no criterion was reported as a failure by one and as a success
+# by the other.
 fit_succeeded=function(mod.l){
   length(grep("gam",class(mod.l)))>0
 }
@@ -296,8 +296,7 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
   names(out.dat) <- names(mod.formula)[1:n.mods]
 
   # find all the models that didn't fit and extract the error messages
-  model.success <- lapply(lapply(out.dat,FUN=class),FUN=function(x){
-     length(grep("gam",x))>0})
+  model.success <- lapply(out.dat,FUN=fit_succeeded)
   failed.models <- mod.formula[which(model.success==FALSE)]
   success.models <- out.dat[which(model.success==TRUE)]
   if(length(success.models)==0){

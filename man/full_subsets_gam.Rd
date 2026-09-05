@@ -96,7 +96,7 @@ To fit a correlation structure, pass MuMIn::uGamm(..., correlation = ...) as the
 
 \item{report.unique.r2}{Should the r2.vals.unique column of mod.data.out be populated. Defaults to FALSE, which leaves it NA. When TRUE, the null model R2 is subtracted from each model R2 to give the variance explained beyond the terms supplied in null.terms. See \code{\link[=fit_model_set]{fit_model_set()}} for what the column is and is not.}
 
-\item{VI.mods}{The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.}
+\item{VI.mods}{The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in, counted over the candidates that were given a criterion). Set to 'all' to use all models in the candidate set instead.}
 
 \item{progress}{Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.}
 
