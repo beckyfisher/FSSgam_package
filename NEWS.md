@@ -425,6 +425,59 @@
   still an error, so a misspelled name is still reported rather than quietly
   computed (FSSgam_package#15).
 
+* `fit_model_set()` and `full_subsets_gam()` gain `logLik.fn`, a function of one
+  fitted model returning a single log-likelihood value, defaulting to `NULL`.
+  `AICc` and `BIC` are ordinarily read from `MuMIn::AICc()` and `stats::BIC()`,
+  which both resolve to the fitted family's own `aic` slot. Where supplied,
+  `logLik.fn` replaces the log-likelihood alone: the criterion is built at the
+  degrees of freedom and sample size the default route uses, so every model in
+  the set is scored the same way and the delta values, the weights and variable
+  importance follow. `extract_mod_dat()` takes the same argument.
+
+* **Behaviour change:** a model set whose `test.fit` was fitted with one of
+  `mgcv`'s censored families, `cnorm()` or `clog()`, is now ranked on a censored
+  log-likelihood computed by this package, and a message says so. The ranking,
+  the weights and variable importance therefore differ from those of 1.1.0 and
+  earlier for those two families and no other (FSSgam_package#42).
+
+  Both families' `aic` slots return a value that is not a censored
+  log-likelihood in `mgcv` 1.9-4, and `AICc` and `BIC` were read from them. The
+  fits themselves are unaffected: `dev.resids` and `ls` contain none of the
+  defects, so the smoothing parameters, the coefficients and the scale are as
+  before, and only the reported criterion changes.
+
+  Measured on the simulated set the issue reports, `n = 300` with the lowest 20
+  per cent left censored, four candidate predictors of which two are noise, and
+  eleven candidates: the previous criterion selected `x`, and the censored
+  log-likelihood selects `x+z`, which is the generating model. The spread of
+  `delta.AICc` across the set was 35.8 against 310.8, so a nominal
+  `delta.AICc <= 5` admitted four models against two. Summed variable importance
+  put the noise predictor `v` at 0.253 above `z` at 0.182, where `z` is in the
+  generating model; it now reports 0.035 and 0.838.
+
+  The log-likelihood is computed from the fitted mean, the scale and the
+  response's censoring coding rather than from the family's `aic` slot, so it is
+  independent of the defects and stays correct if they are repaired. Left, right
+  and interval censoring and non-unit prior weights are all covered. It is
+  checked in the test suite against a second computation built from `mgcv`'s own
+  saturated log-likelihood and deviance residuals, which shares no code with it.
+
+* **Behaviour change:** `fit_model_set()` stops, before any model is fitted, on
+  a `test.fit` whose criterion is not defined, naming the family. A
+  quasi-likelihood such as `quasipoisson()` or `quasibinomial()` has no
+  log-likelihood and so no AIC, and `MuMIn::AICc()` returns `NA` for every
+  candidate of such a set. The whole of `mod.data.out` was then unusable ---
+  `delta.AICc`, `delta.BIC` and both weight columns `NA`, and variable
+  importance with nothing to weight --- and nothing reported it: the fits
+  succeeded and the failure was visible only on reading the returned table
+  (FSSgam_package#44).
+
+  The check is on the value `MuMIn::AICc()` returns for the `test.fit`, not on a
+  list of family names, so any other family whose criterion is undefined is
+  covered by it. Supplying `logLik.fn` is what allows such a set to be fitted
+  and ranked; the message says so, and names `nb()`, `tw()` and `betar()` as
+  families that have a likelihood.
+
 # FSSgam 1.1.0
 
 * Completed the snake_case rename across the public API.

@@ -13,7 +13,8 @@ fit_model_set(
   r2.type = "r2.lm.est",
   report.unique.r2 = FALSE,
   VI.mods = "min.n",
-  progress = interactive()
+  progress = interactive(),
+  logLik.fn = NULL
 )
 }
 \arguments{
@@ -34,6 +35,8 @@ fit_model_set(
 \item{VI.mods}{The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.}
 
 \item{progress}{Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.}
+
+\item{logLik.fn}{A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). AICc and BIC are ordinarily read from MuMIn::AICc and stats::BIC, which both resolve to the fitted family's own aic slot. Where that slot does not give a log-likelihood the whole ranking is unusable, so this argument allows one to be supplied. When it is, AICc and BIC are built from the value it returns, at the degrees of freedom and sample size the default route uses, so only the log-likelihood changes and every model in the set is scored the same way. Two cases are handled without it. A test.fit fitted with one of mgcv's censored families, cnorm or clog, is given a censored log-likelihood computed by the package, with a message saying so, because the value mgcv reports for those families is not built from one. A test.fit whose criterion is not defined at all, which is what a quasi-likelihood such as quasipoisson or quasibinomial gives, stops the call before any model is fitted, naming the family; supplying this argument is what allows such a set to be fitted and ranked.}
 }
 \value{
 A list of the following output files:
@@ -41,6 +44,7 @@ A list of the following output files:
 mod.data.out - A data.frame that contains the statistics associated with each model fit. This includes AICc and BIC, delta values (e.g. AICc-(min(AICc)), corresponding weight values (Burnham and Anderson 2003), an estimate of the model R2, and a column for each of the included predictor variables containing either 0 (variable not included in the model) or 1 (variable is present in the model).
 Use of BIC in information theoretic approaches has been heavily criticised because of the inherent assumption of BIC that there is a true model that is represented in the candidate set (Anderson & Burnham 2002). Rather than decide a-priori which model selection tool users should adopt, we supply both as part of the function outputs.
 To simplify output, only AICc and AICc based model weights, rather than AIC, are included as these are asymptotically equivalent at large sample sizes, and for small sample sizes AICc should be used in any case.
+AICc and BIC are read from MuMIn::AICc and stats::BIC unless logLik.fn is supplied, or the test.fit was fitted with one of mgcv's censored families, in which cases both are built from that log-likelihood at the degrees of freedom and sample size the default route uses. The delta values, the weights and variable importance follow whichever was used.
 Calculating R2 values is non-trivial for mixed models, especially non-gaussian cases (and some argue should not be done at all). We have supplied a range of methods for estimating R2 (r2.type), as in our experience a single method rarely performs adequately across all scenarios.
 A column r2.vals.unique is also present. It is NA unless report.unique.r2 is TRUE, in which case it is the model R2 minus the R2 of the null model, that is, the variance explained beyond the terms supplied in null.terms. It is NA with report.unique.r2 TRUE wherever r2.vals is itself NA, which happens for a gamm test.fit under the default r2.type.
 Where null.terms is empty the null model's formula is the intercept alone and the column equals r2.vals. This drops every term of the test.fit's formula, a random effect written as s(site, bs = 're') included; that is what null.terms exists to put back. A random structure supplied through a separate argument rather than through the formula, as in uGamm(random = ~(1|site)), is not part of the formula and is retained by the null model either way.

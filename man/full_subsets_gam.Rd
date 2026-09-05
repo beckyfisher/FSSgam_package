@@ -30,6 +30,7 @@ full_subsets_gam(
   report.unique.r2 = FALSE,
   VI.mods = "min.n",
   progress = interactive(),
+  logLik.fn = NULL,
   factor.interactions,
   smooth.interactions,
   size
@@ -98,6 +99,8 @@ To fit a correlation structure, pass MuMIn::uGamm(..., correlation = ...) as the
 \item{VI.mods}{The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.}
 
 \item{progress}{Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.}
+
+\item{logLik.fn}{A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). Passed to fit_model_set; see ?fit_model_set for what it does and for the two cases it is supplied for automatically.}
 
 \item{factor.interactions}{Deprecated. Superseded by factor.factor.interactions; retained only so older code does not break, and will warn if used.}
 

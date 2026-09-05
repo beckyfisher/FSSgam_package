@@ -4,12 +4,19 @@
 \alias{extract_mod_dat}
 \title{extract_mod_dat}
 \usage{
-extract_mod_dat(mod.fit, r2.type. = "r2.lm.est")
+extract_mod_dat(mod.fit, r2.type. = "r2.lm.est", logLik.fn = NULL)
 }
 \arguments{
 \item{mod.fit}{A dsm, gam or uGamm fitted model object}
 
 \item{r2.type.}{The type of r2 to extract. Passed through arguments supplied to fit_model_set}
+
+\item{logLik.fn}{A function of one argument, a fitted model, returning a single
+log-likelihood value, or NULL (the default) to read AICc from MuMIn::AICc and BIC from
+stats::BIC as before. When supplied, AICc and BIC are built from the value it returns, at
+the degrees of freedom and sample size the default route uses, so only the log-likelihood
+changes. fit_model_set passes this through, and supplies it itself for a test.fit fitted
+with one of mgcv's censored families.}
 }
 \value{
 A list of model fit parameters
