@@ -36,7 +36,9 @@
 #'
 #' @param progress Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.
 #'
-#' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.
+#' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in, counted over the candidates that were given a criterion). Set to 'all' to use all models in the candidate set instead.
+#'
+#' @param logLik.fn A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). Passed to fit_model_set; see ?fit_model_set for what it does and for the two cases it is supplied for automatically.
 #'
 #' @param factor.interactions Deprecated. Superseded by factor.factor.interactions; retained only so older code does not break, and will warn if used.
 #'
@@ -108,6 +110,7 @@ full_subsets_gam=function(use.dat,
                           report.unique.r2=FALSE,
                           VI.mods='min.n',
                           progress=interactive(),
+                          logLik.fn=NULL,
                           factor.interactions,
                           smooth.interactions,
                           size){
@@ -177,7 +180,8 @@ full_subsets_gam=function(use.dat,
                           r2.type=r2.type,
                           report.unique.r2=report.unique.r2,
                           VI.mods=VI.mods,
-                          progress=progress)
+                          progress=progress,
+                          logLik.fn=logLik.fn)
 
   # now return the list of outputs
   return(list(mod.data.out=out.dat$mod.data.out,

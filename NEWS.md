@@ -436,6 +436,123 @@
   still an error, so a misspelled name is still reported rather than quietly
   computed (FSSgam_package#15).
 
+* `fit_model_set()` and `full_subsets_gam()` gain `logLik.fn`, a function of one
+  fitted model returning a single log-likelihood value, defaulting to `NULL`.
+  One restriction applies under `parallel = TRUE` with
+  `save.model.fits = FALSE`, the only combination that evaluates it on a worker
+  process: a function written at the top level of a script has its environment
+  replaced before it is sent, so anything it refers to and does not define is
+  not found there. Build it with a constructor, or write it to refer to nothing
+  outside itself. This is the restriction `beckyfisher/FSSgam#10` reports for
+  the `family` argument, and it has the same cause.
+  `AICc` and `BIC` are ordinarily read from `MuMIn::AICc()` and `stats::BIC()`,
+  which both resolve to the fitted family's own `aic` slot. Where supplied,
+  `logLik.fn` replaces the log-likelihood alone: the criterion is built at the
+  degrees of freedom and sample size the default route uses, so every model in
+  the set is scored the same way and the delta values, the weights and variable
+  importance follow. `extract_mod_dat()` takes the same argument.
+
+* **Behaviour change:** a model set whose `test.fit` was fitted with one of
+  `mgcv`'s censored families, `cnorm()` or `clog()`, is now ranked on a censored
+  log-likelihood computed by this package, and a message says so. The ranking,
+  the weights and variable importance therefore differ from those of 1.1.0 and
+  earlier for those two families and no other (FSSgam_package#42).
+
+  Both families' `aic` slots return a value that is not a censored
+  log-likelihood in `mgcv` 1.9-4, and `AICc` and `BIC` were read from them. The
+  fits themselves are unaffected: `dev.resids` and `ls` contain none of the
+  defects, so the smoothing parameters, the coefficients and the scale are as
+  before, and only the reported criterion changes.
+
+  Measured on Debian WSL2, R 4.6.1, `mgcv` 1.9-4 and `MuMIn` 1.48.19, on the
+  simulated set the issue reports: `n = 300` with the lowest 20 per cent left
+  censored, four candidate predictors of which two are noise, and
+  eleven candidates: the previous criterion selected `x`, and the censored
+  log-likelihood selects `x+z`, which is the generating model. The spread of
+  `delta.AICc` across the set was 35.8 against 310.8, so a nominal
+  `delta.AICc <= 5` admitted four models against two. Summed variable importance
+  put the noise predictor `v` at 0.253 above `z` at 0.182, where `z` is in the
+  generating model; it now reports 0.035 and 0.838.
+
+  The log-likelihood is computed from the fitted mean, the scale and the
+  response's censoring coding rather than from the family's `aic` slot, so it is
+  independent of the defects and stays correct if they are repaired. Left, right
+  and interval censoring, either column order, and non-unit prior weights are
+  all covered, and every quantity is computed in logs so that an observation
+  far into a tail does not underflow. An infinite bound written in the first
+  column is refused instead: `mgcv` reads a censored case from the second
+  column alone, so under `clog()` such a row matches none of its censored cases
+  and is dropped from the fit without a message, and scoring it would count
+  observations the fit ignores. `cnorm()` does not fit that coding at all. It is checked in the
+  test suite against a second computation built from `mgcv`'s own saturated
+  log-likelihood and deviance residuals, which shares no code with it.
+
+* **Behaviour change:** `fit_model_set()` stops, before any candidate is fitted,
+  on a `test.fit` whose criterion is not defined, naming the family. A
+  quasi-likelihood such as `quasipoisson()` or `quasibinomial()` has no
+  log-likelihood and so no AIC, and `MuMIn::AICc()` returns `NA` for every
+  candidate of such a set. The whole of `mod.data.out` was then unusable --
+  `delta.AICc`, `delta.BIC` and both weight columns `NA`, and variable
+  importance with nothing to weight -- and nothing named the cause. The fits
+  succeeded, and the only sign was four `no non-missing arguments to min`
+  warnings, two raised by `compute_model_weights()` taking the minimum of the
+  all-`NA` `AICc` and `BIC` columns and two by `wi()` doing the same. Measured
+  on the eight-model `case_study1` set at `023cd1a` (FSSgam_package#44).
+
+  Two checks, because neither covers the other. The value `MuMIn::AICc()`
+  returns for the `test.fit` is the general one: it does not depend on a list of
+  family names, so any family whose criterion is undefined reaches it. The
+  fitted family's name is checked as well, because a quasi-likelihood supplied
+  through `MuMIn::uGamm()` or `mgcv::gamm()` passes the first. `AICc` for such a
+  fit is read from the internal `lme` fit of the PQL working model and is a
+  number, and a PQL log-likelihood is a function of the working response, which
+  itself changes with the fixed effects, so those differences rank nothing.
+
+  **That second check is a behaviour change beyond the `NA` case.** Measured on
+  `case_study1`, `uGamm(Herbivore.abundance ~ s(depth, k = 3, bs = 'cr'),
+  random = list(site = ~1), family = quasipoisson())` with three candidates:
+  1.1.0 returned a complete table, `AICc` 170.261, 176.030 and 138.582 and a
+  weight of 1.000 on the best; this release stops instead, naming the family.
+
+  Supplying `logLik.fn` is what allows either set to be fitted and ranked; the
+  message says so, and names `nb()`, `tw()` and `betar()` as families that have
+  a likelihood. `generate_model_set()` fits the null model, so on the
+  `full_subsets_gam()` route that one fit precedes the refusal.
+
+  `fit_model_set()` also stops where every candidate that fitted was given no
+  criterion, and warns naming the candidates where only some were, which a
+  supplied `logLik.fn` that gives the `test.fit` a value and the candidates none
+  would otherwise produce silently.
+
+* Bug fix: summed variable importance came back `NA` for every predictor
+  whenever any candidate in the table had an `NA` model weight, including
+  predictors appearing in no such candidate. The weights are now summed with
+  `na.rm = TRUE`, which is what corrects `VI.mods = "all"`. Under the default
+  `VI.mods = "min.n"` the correction is elsewhere: the count of models per
+  predictor is taken over the candidates that have a weight rather than over
+  every row, so the two fitting paths give the same scores for the same model
+  set.
+
+  The route to it on 1.1.0 is a candidate that failed to fit with
+  `save.model.fits = FALSE`, which keeps a row for it; the
+  `save.model.fits = TRUE` path drops the row and was unaffected, so which of
+  the two a user saw depended on a memory setting, and `max.models` changes that
+  setting without being asked. A supplied `logLik.fn` that gives some candidates
+  no value reaches it as well.
+
+* Bug fix: `fit_model_set(save.model.fits = FALSE)` recorded a candidate that
+  fitted and was given no criterion as a model that failed to fit, and reported
+  it in `failed.models`. A failed model is now identified by whether
+  `fit_mod_l()` returned a fitted object, which is the test the
+  `save.model.fits = TRUE` path has always used, so the two paths agree on which
+  candidates succeeded. `max.models` forces `save.model.fits = FALSE` above 200
+  candidates, so which path ran was not always the user's choice.
+
+* The declared `testthat` floor is raised from 3.1.5 to 3.2.0, for
+  `local_mocked_bindings()`, which arrived as experimental in 3.1.7 and was
+  declared stable in 3.2.0. It is a `Suggests`, so nothing a user installs
+  changes.
+
 # FSSgam 1.1.0
 
 * Completed the snake_case rename across the public API.

@@ -40,7 +40,18 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
 #'
 #' @param  r2.type. The type of r2 to extract. Passed through arguments supplied to fit_model_set
 #'
-#' @details Extracts model fit parameters from a dsm, gam or uGamm fitted model object
+#' @param  logLik.fn A function of one argument, a fitted model, returning a single
+#' log-likelihood value, or NULL (the default) to read AICc from MuMIn::AICc and BIC from
+#' stats::BIC as before. When supplied, AICc and BIC are built from the value it returns, at
+#' the degrees of freedom and sample size the default route uses, so only the log-likelihood
+#' changes. fit_model_set passes this through, and supplies it itself for a test.fit fitted
+#' with one of mgcv's censored families.
+#'
+#' @details Extracts model fit parameters from a dsm, gam or uGamm fitted model object.
+#' Called directly, this function reads AICc and BIC from MuMIn::AICc and stats::BIC
+#' whatever the fitted family is, so a censored fit gives the value mgcv reports rather
+#' than one built from a censored log-likelihood. It is fit_model_set that resolves which
+#' log-likelihood a model set is ranked on and passes it here as logLik.fn.
 #'
 #' @export
 #' @return A list of model fit parameters
@@ -51,13 +62,24 @@ wi <- function(AIC.vals){# This function calculate the Aikaike weights:
 #' fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
 #'            family = tw(), data = case_study1)
 #' extract_mod_dat(fit, r2.type. = "r2")
-extract_mod_dat <- function(mod.fit,r2.type.="r2.lm.est"){
+extract_mod_dat <- function(mod.fit,r2.type.="r2.lm.est",logLik.fn=NULL){
 #x=mod.fit
  mod.dat <- list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA)
  if(!inherits(mod.fit,"try-error")){
-  # AIC and BIC
-  mod.dat$AICc <- MuMIn::AICc(mod.fit)
-  mod.dat$BIC <- stats::BIC(mod.fit)
+  # AIC and BIC. MuMIn::AICc() and stats::BIC() both resolve to the fitted
+  # family's own aic slot, which is undefined for a quasi-likelihood and, for
+  # mgcv's censored families, returns a value not built from a censored
+  # log-likelihood. logLik.fn replaces the log-likelihood alone; see
+  # resolve_criterion() in R/criterion.R, which decides what fit_model_set()
+  # passes here.
+  if(is.null(logLik.fn)){
+   mod.dat$AICc <- MuMIn::AICc(mod.fit)
+   mod.dat$BIC <- stats::BIC(mod.fit)
+  }else{
+   crit <- criterion_from_loglik(mod.fit,logLik.fn)
+   mod.dat$AICc <- crit$AICc
+   mod.dat$BIC <- crit$BIC
+  }
   #R.sq
         tempOut=NA
         if(inherits(mod.fit,"gam") & r2.type.=="dev"){tempOut=summary(mod.fit)$dev.expl}
