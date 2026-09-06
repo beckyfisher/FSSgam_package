@@ -1390,3 +1390,118 @@ wrong because the untested paths were the asymmetric ones.
 Suite: 772 passing, from 670.
 
 ---
+## Session: fix an NA in both directions between a forced term and a predictor
+Date: 2026-09-05
+Model: Claude Opus 5 (1M context)
+
+### Prompts and Responses
+
+**User:** can you fix this issue https://github.com/beckyfisher/FSSgam_package/issues/41. I posted the desired solution in the comment
+
+**Claude:** The comment ruled for the second of the three options the issue
+recorded: compute the pair rather than report it or document it. Implemented in
+`build_null_term_correlations()` (`R/generate-model-set.R`).
+
+The previous shape decided by row. `from.supplied` was allocated over the forced
+terms the supplied matrix named in either dimension, every cell not covered by a
+supplied direction left at zero, and `to.compute` was the forced terms the
+matrix did not name at all. So a forced term the matrix named was never
+computed, whatever the matrix left empty within its row.
+
+It now decides by cell. Two matrices are allocated over every forced term and
+every screened predictor: the values, and a logical `given` recording which
+cells a supplied direction actually gave a value for. `fill()` sets `given` from
+`!is.na(blk)` before it zero-fills `blk`, which is the ordering constraint the
+issue named -- after the two directions are combined, an unsupplied cell and a
+supplied zero are the same number. `to.compute` is then every forced term with
+any unsupplied cell, and the computed block is merged into the result at those
+cells only, so a forced term can be part supplied and part computed.
+
+```r
+to.compute=null.vars[apply(!given,1,any)]
+...
+block=out[to.compute,screened,drop=FALSE]
+need=!given[to.compute,screened,drop=FALSE]
+block[need]=computed[need]
+out[to.compute,screened]=block
+```
+
+Two consequences worth recording. Where one direction holds a value the cell is
+supplied and the value is used, unchanged, which is what the issue asked for.
+And the computation an unsupplied cell now triggers can fail on a predictor of a
+class `check_correlations()` cannot classify, so the existing skip-with-warning
+path is reached by a new route; the warning distinguishes the two cases, naming
+the pairs where part of the row was supplied and the terms where none of it was.
+
+The row order of `null.term.correlations` is now `null.vars` order rather than
+supplied rows followed by computed rows. No test asserted the old order.
+
+Verified on the issue's own reproduction: the call now warns
+`a (depth, max 1)`, drops `a`, and reports `null.term.correlations["depth","a"]`
+as 1 while keeping the supplied zero at `["depth","complexity"]`, where the
+computed estimate is 0.334 -- so the assertion distinguishes a cell-wise merge
+from recomputing the whole row. Two tests added, both confirmed to fail against
+the unmodified function (5 failing expectations) and to pass with it.
+
+Measured on this host (Debian WSL2, R 4.6.1, testthat 3.3.2) with
+`testthat::test_local()` and `sum(as.data.frame(res)$passed)`: 782 passing, 0
+failing, 7 skipped, against 772 passing on the branch point.
+`devtools::check()` reports 0 errors, 0 warnings, 0 notes.
+
+---
+## Session: review of the FSSgam_package#41 branch
+Date: 2026-09-05
+Model: Claude Opus 5 (1M context)
+
+### Prompts and Responses
+
+**User:** can you help review this issue https://github.com/beckyfisher/FSSgam_package/pull/46 [five review/fix cycles, then post a final comment]
+
+**Claude:** Reviewed the branch over five cycles, each a read of the diff
+followed by a measurement. Verification was a 20-scenario before/after harness
+over `build_null_term_correlations()` called directly, `dev` at 023cd1a against
+this branch, compared with `identical()` -- the approach Phase 6/6b and Phase 14
+used, since the committed suite does not reach every orientation of a supplied
+matrix. Scenarios: no matrix; all-supplied zeros; `NA` in both directions; `NA`
+in one direction; the forced term named only as a row and only as a column, with
+and without `NA`; a part-supplied row; `NaN`; asymmetric supplied values; no
+forced terms; every predictor a forced term; a failed computation with nothing
+supplied, with part of the block supplied, and with no matrix at all; and each
+of `non.linear.correlations = TRUE`, a `data.frame` matrix and a factor
+predictor.
+
+Four differences from `dev` are the intended ones, and every other scenario is
+`identical()`.
+
+One difference was not: where the computation fails and the supplied matrix gave
+no value for any pair -- including the commonest case, no `cor.matrix` at all --
+the function returned a matrix of zeros where `dev` returned `NULL`. The
+returned matrix then stated a correlation of zero for exactly the pairs the
+warning had just said were not screened, which is the reading this branch
+removes from the supplied path. The failure path now returns only the rows a
+supplied direction gave at least one value for, and `NULL` where none survives:
+
+```r
+    if(!any(has.supplied)){return(NULL)}
+    return(out[has.supplied,,drop=FALSE])}
+```
+
+Two expectations pin it, both of which pass on `dev` and failed against the
+branch as first written: `expect_null()` on the wholly-failed path, and that a
+forced term neither supplied nor computed has no row rather than a row of zeros.
+
+The rule is stated per pair rather than per forced term in `NEWS.md` and in both
+`@param` entries, the merge being cell-wise, and the `@return` entry gains the
+two cases in which a row or the whole matrix is absent. The scope is a pair the
+matrix gives no value for in any direction it has, which is wider than `NA` in
+both directions: a matrix shaped to a single dimension has one direction, and an
+`NA` there is the same absence. The two tests for that were consolidated into
+one loop over the two matrix shapes, following the `shapes` loop the neighbouring
+test for the row and column orientations already uses.
+
+Measured on this host (Debian WSL2, R 4.6.1, testthat 3.3.2) with
+`testthat::test_local()` and `sum(as.data.frame(res)$passed)`: 789 passing, 0
+failing, 7 skipped, against 772 at the branch point. `devtools::check()` reports
+0 errors, 0 warnings, 0 notes.
+
+---

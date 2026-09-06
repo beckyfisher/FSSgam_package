@@ -1240,6 +1240,9 @@ test_that("a forced term whose correlations cannot be computed is skipped, not f
   )
   expect_true(model.set$n.mods > 0)
   expect_true(all(c("complexity", "when") %in% model.set$included.vars))
+  # NULL rather than a row of zeros. A zero here would state a correlation for
+  # the pairs the warning has just said were not screened (FSSgam_package#41).
+  expect_null(model.set$null.term.correlations)
 })
 
 test_that("an interaction term is dropped when any of its parts is", {
@@ -1299,6 +1302,9 @@ test_that("a failed computation keeps the forced terms the supplied matrix did n
   expect_false(is.null(model.set$null.term.correlations))
   expect_true("depth" %in% rownames(model.set$null.term.correlations))
   expect_identical(unname(model.set$null.term.correlations["depth", "complexity"]), 0.2)
+  # and SCORE1, which was neither supplied nor computed, has no row at all
+  # rather than a row of zeros (FSSgam_package#41)
+  expect_false("SCORE1" %in% rownames(model.set$null.term.correlations))
 })
 
 test_that("a predictor correlated with any one of several forced terms is dropped", {
@@ -1372,11 +1378,13 @@ test_that("a linear interaction term built on a dropped predictor is dropped", {
   expect_false(any(grepl("lin", names(model.set$mod.formula), fixed = TRUE)))
 })
 
-test_that("an NA in the supplied forced-term block is treated as zero", {
+test_that("an NA in one supplied direction does not stop the call", {
   # A hand-built matrix may leave a cell NA. Unfilled, it reaches the comparison
   # against null.cov.cutoff and stops the call with "missing value where
   # TRUE/FALSE needed", which is the failure FSSgam_package#27 removed from the
-  # predictor screen (FSSgam_package#23).
+  # predictor screen (FSSgam_package#23). The cell reports the 0 the reverse
+  # direction supplies, not the NA; with no value in either direction it would
+  # be computed instead (FSSgam_package#41).
   fit <- fixture_cs1_gaussian()
   nms <- c("depth", "complexity", "ZONE")
   supplied <- matrix(0, 3, 3, dimnames = list(nms, nms))
@@ -1391,6 +1399,98 @@ test_that("an NA in the supplied forced-term block is treated as zero", {
     )
   )
   expect_identical(unname(model.set$null.term.correlations["depth", "complexity"]), 0)
+})
+
+test_that("a pair the supplied matrix gives no value for is computed", {
+  # An NA in both directions was read as a correlation of zero: the pair was not
+  # screened against null.cov.cutoff, the predictor appeared in every candidate
+  # alongside the forced term, and nothing was reported -- decided by a cell the
+  # user left empty. The same NA between two predictors stops the call
+  # (FSSgam_package#27), and that inconsistency is FSSgam_package#41.
+  #
+  # Both shapes give no value for depth/a. The square matrix says NA in each
+  # direction; the column-only matrix says NA in the one direction it has, and
+  # is what exercises recording the supplied cells from the transposed block,
+  # after the transposition rather than before it.
+  use.dat <- fixture_cs1_data()
+  use.dat$a <- use.dat$depth * 2
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  nms <- c("depth", "a", "complexity")
+  square <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  diag(square) <- 1
+  square["depth", "a"] <- NA
+  square["a", "depth"] <- NA
+  shapes <- list(
+    both.directions = square,
+    column.only = square[setdiff(nms, "depth"), , drop = FALSE]
+  )
+
+  # the supplied zero for depth/complexity is not the computed estimate, so the
+  # assertions below distinguish a cell-wise merge from recomputing the row
+  expect_gt(check_correlations(use.dat[, nms])["depth", "complexity"], 0.3)
+
+  for (nm in names(shapes)) {
+    expect_warning(
+      model.set <- generate_model_set(
+        use.dat = use.dat, test.fit = test.fit, k = 3,
+        pred.vars.cont = c("a", "complexity"),
+        null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')",
+        max.predictors = 1, cor.matrix = shapes[[nm]]
+      ),
+      "a \\(depth", info = nm
+    )
+    expect_equal(
+      unname(model.set$null.term.correlations["depth", "a"]), 1, info = nm
+    )
+    expect_identical(
+      unname(model.set$null.term.correlations["depth", "complexity"]), 0, info = nm
+    )
+    expect_false("a" %in% model.set$included.vars, info = nm)
+    # split on the separator rather than matching "a" anywhere in a candidate
+    # name, which a one-letter fixed match does
+    expect_false(
+      "a" %in% unlist(strsplit(names(model.set$mod.formula), "+", fixed = TRUE)),
+      info = nm
+    )
+  }
+})
+
+test_that("a failed computation leaves a pair with no supplied value at zero", {
+  # The computation an unsupplied pair now triggers can fail, on the same
+  # predictor class FSSgam_package#13 is about. The screen is skipped for that
+  # pair rather than the call stopping, the pairs the matrix did give a value
+  # for are kept, and the warning says which case it is (FSSgam_package#41).
+  # The skipped pair reports zero rather than being absent, the row being kept
+  # for the pair that was supplied; an NA there is what the screen stops on.
+  use.dat <- fixture_cs1_data()
+  use.dat$when <- as.Date("2020-01-01") + seq_len(nrow(use.dat))
+  test.fit <- mgcv::gam(
+    log.Herbivore.biomass ~ s(depth, k = 3, bs = "cr") + s(site, bs = "re"),
+    data = use.dat
+  )
+  nms <- c("depth", "complexity", "when")
+  supplied <- matrix(0, 3, 3, dimnames = list(nms, nms))
+  diag(supplied) <- 1
+  supplied["depth", "complexity"] <- 0.2
+  supplied["complexity", "depth"] <- 0.2
+  supplied["depth", "when"] <- NA
+  supplied["when", "depth"] <- NA
+
+  expect_warning(
+    model.set <- generate_model_set(
+      use.dat = use.dat, test.fit = test.fit, k = 3,
+      pred.vars.cont = c("complexity", "when"),
+      null.terms = "s(depth,k=3,bs='cr')+s(site,bs='re')",
+      max.predictors = 1, cor.matrix = supplied
+    ),
+    "the pairs the supplied cor.matrix gave no value for were not screened"
+  )
+  expect_identical(unname(model.set$null.term.correlations["depth", "complexity"]), 0.2)
+  expect_identical(unname(model.set$null.term.correlations["depth", "when"]), 0)
+  expect_true(all(c("complexity", "when") %in% model.set$included.vars))
 })
 
 test_that("an NA in the computed forced-term block is treated as zero", {
