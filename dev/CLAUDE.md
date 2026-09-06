@@ -421,6 +421,40 @@ ask before installing it, but it genuinely is needed for
   [`generate.model.set()`](https://beckyfisher.github.io/FSSgam_package/dev/reference/generate.model.set.md)/[`fit.model.set()`](https://beckyfisher.github.io/FSSgam_package/dev/reference/fit.model.set.md)
   call patterns to adapt for examples and tests.
 
+- **An absent correlation must stay absent, not become a zero.** Three
+  issues are one defect: a cell no correlation was established for, read
+  as zero, admits a predictor that no screen then examines.
+  FSSgam_package#23 (a forced term outside the `cov.cutoff` screen),
+  \#27 (an `NA` between two predictors) and \#41 (an `NA` between a
+  forced term and a predictor) are each an instance.
+
+  `build_null_term_correlations()` (`R/generate-model-set.R`) has the
+  same trap on its own failure path, and it is easy to walk into while
+  fixing one of the three. Where the correlation computation fails it
+  returns `NULL`, or omits that forced term’s row, so a pair it could
+  not compute is absent from `null.term.correlations` rather than
+  reported there as zero. Allocating the full matrix up front and
+  returning it on every path converts each of those absences into a
+  stated correlation of zero, in the element the documentation offers
+  for inspection, for exactly the pairs the warning says were not
+  screened.
+
+  **That substitution passes the whole test suite.**
+  `screen_against_null_terms()` drops nothing on a zero, so the model
+  set, the warnings and the included variables are all unchanged; only
+  the reported matrix differs. It was found during the review of PR \#46
+  by comparing every scenario against the base branch, not by running
+  the tests. Pin the sentinel with `expect_null()` and with an assertion
+  that the uncomputed forced term has no row – an assertion about the
+  model set does not reach it.
+
+  Reviewing any change to this function needs the direct-call harness
+  the golden masters of Phase 6/6b and Phase 14 use, over the
+  orientations of a supplied `cor.matrix`: named as a row only, as a
+  column only, in both dimensions, `NA` in one direction, `NA` in every
+  direction it has, and a row part supplied. The committed suite reaches
+  the model set, not the shape of the returned matrix.
+
 - **Prose conventions come from the parent `CLAUDE.md`, sections 12 to
   14**, which hold the register, the rules for issue and pull request
   text, and the two-document form for planning. They apply here to
