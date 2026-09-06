@@ -215,7 +215,11 @@ generate_model_set(
   not contain NA between two terms that are actually screened against
   cov.cutoff, which is reported by naming the pairs; an NA on a pair no
   screen compares is accepted, so which cells matter depends on
-  max.predictors and on the interaction arguments.
+  max.predictors and on the interaction arguments. An NA between a
+  variable named in null.terms and a predictor is accepted, that screen
+  being null.cov.cutoff's rather than cov.cutoff's: where the reverse
+  direction gives a value that value is used, and where neither
+  direction does the pair is computed from use.dat.
 
 - non.linear.correlations:
 
@@ -300,15 +304,20 @@ generate_model_set(
   value screened on rather than one direction of it, whether or not
   anything is dropped, so they can be inspected even where no warning is
   raised; full_subsets_gam does not return them, its output being that
-  of fit_model_set. A supplied cor.matrix is used for any forced term it
-  names in either dimension, and the rest of the block is computed from
-  use.dat, which is the ordinary case since a supplied matrix is indexed
-  by predictor and a forced term is not one. Where that computation
-  fails, which is what a predictor of a class check_correlations cannot
-  classify causes, the screen is skipped with a warning rather than the
-  call stopping. A variable named in null.terms that is not a column of
-  use.dat, such as a function or a term written over several columns, is
-  skipped, a correlation not being defined for it.
+  of fit_model_set. A supplied cor.matrix is used for any pair it gives
+  a value for, in either dimension, and every other pair is computed
+  from use.dat, which is the ordinary case since a supplied matrix is
+  indexed by predictor and a forced term is not one. A pair the matrix
+  gives no value for, NA in each direction it has, is one of those
+  others, computed rather than read as a correlation of zero, so a cell
+  left empty does not decide that a predictor may be fitted alongside a
+  forced term; a forced term can therefore be part supplied and part
+  computed. Where that computation fails, which is what a predictor of a
+  class check_correlations cannot classify causes, the screen is skipped
+  with a warning rather than the call stopping. A variable named in
+  null.terms that is not a column of use.dat, such as a function or a
+  term written over several columns, is skipped, a correlation not being
+  defined for it.
 
 ## Value
 
@@ -324,12 +333,16 @@ based on cov.cutoff
 null.term.correlations - A matrix of the correlations between each
 variable named in null.terms and each candidate predictor, used for
 model exclusion based on null.cov.cutoff. Rows are the null.terms
-variables and columns the predictors. NULL where null.terms is empty,
-where it names only random-effect grouping factors or no column of
-use.dat, or where every predictor is itself a null.terms variable. The
-element is always present in the returned list; it is its value that is
-NULL. Correlations among the null.terms variables are not included,
-being neither computed nor screened.
+variables and columns the predictors; a variable whose correlations
+could not be computed and which the supplied cor.matrix gave no value
+for has no row, the warning naming it instead. NULL where null.terms is
+empty, where it names only random-effect grouping factors or no column
+of use.dat, where every predictor is itself a null.terms variable, or
+where the computation failed and the supplied cor.matrix gave no value
+for any pair, so that there is nothing to report. The element is always
+present in the returned list; it is its value that is NULL. Correlations
+among the null.terms variables are not included, being neither computed
+nor screened.
 
 mod.formula - A named list containing the model formula that were
 generated (and will be fitted by fit_model_set). The names are the

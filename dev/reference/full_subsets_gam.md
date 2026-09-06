@@ -232,7 +232,11 @@ full_subsets_gam(
   not contain NA between two terms that are actually screened against
   cov.cutoff, which is reported by naming the pairs; an NA on a pair no
   screen compares is accepted, so which cells matter depends on
-  max.predictors and on the interaction arguments.
+  max.predictors and on the interaction arguments. An NA between a
+  variable named in null.terms and a predictor is accepted, that screen
+  being null.cov.cutoff's rather than cov.cutoff's: where the reverse
+  direction gives a value that value is used, and where neither
+  direction does the pair is computed from use.dat.
 
 - non.linear.correlations:
 
@@ -317,15 +321,20 @@ full_subsets_gam(
   value screened on rather than one direction of it, whether or not
   anything is dropped, so they can be inspected even where no warning is
   raised; full_subsets_gam does not return them, its output being that
-  of fit_model_set. A supplied cor.matrix is used for any forced term it
-  names in either dimension, and the rest of the block is computed from
-  use.dat, which is the ordinary case since a supplied matrix is indexed
-  by predictor and a forced term is not one. Where that computation
-  fails, which is what a predictor of a class check_correlations cannot
-  classify causes, the screen is skipped with a warning rather than the
-  call stopping. A variable named in null.terms that is not a column of
-  use.dat, such as a function or a term written over several columns, is
-  skipped, a correlation not being defined for it.
+  of fit_model_set. A supplied cor.matrix is used for any pair it gives
+  a value for, in either dimension, and every other pair is computed
+  from use.dat, which is the ordinary case since a supplied matrix is
+  indexed by predictor and a forced term is not one. A pair the matrix
+  gives no value for, NA in each direction it has, is one of those
+  others, computed rather than read as a correlation of zero, so a cell
+  left empty does not decide that a predictor may be fitted alongside a
+  forced term; a forced term can therefore be part supplied and part
+  computed. Where that computation fails, which is what a predictor of a
+  class check_correlations cannot classify causes, the screen is skipped
+  with a warning rather than the call stopping. A variable named in
+  null.terms that is not a column of use.dat, such as a function or a
+  term written over several columns, is skipped, a correlation not being
+  defined for it.
 
 - max.models:
 
