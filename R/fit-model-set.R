@@ -31,7 +31,13 @@
 #'
 #' @param progress Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.
 #'
-#' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.
+#' @param logLik.fn A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). AICc and BIC are ordinarily read from MuMIn::AICc and stats::BIC, which both resolve to the fitted family's own aic slot. Where that slot does not give a log-likelihood the whole ranking is unusable, so this argument allows one to be supplied. When it is, AICc and BIC are built from the value it returns, at the degrees of freedom and sample size the default route uses, so only the log-likelihood changes and every model in the set is scored the same way. Passing function(fit) as.numeric(stats::logLik(fit)) reproduces the criterion of FSSgam 1.1.0 and earlier for any family.
+#'
+#' Two cases are handled without it. A test.fit fitted with one of mgcv's censored families, cnorm or clog, is given a censored log-likelihood computed by the package, with a message saying so, because the value mgcv reports for those families is not built from one; wrap the call in suppressMessages to silence it. A test.fit fitted with a quasi-likelihood such as quasipoisson or quasibinomial stops the call before any candidate is fitted, naming the family. Such a family has no log-likelihood: through gam the criterion is NA, and through uGamm or gamm it is a number read from the PQL working model, which ranks nothing. Supplying this argument is what allows such a set to be fitted and ranked. Note that generate_model_set fits the null model, so on the full_subsets_gam route that one fit precedes the refusal.
+#'
+#' One restriction applies under parallel = TRUE with save.model.fits = FALSE, which is the only combination that evaluates this function on a worker process: a function written at the top level of a script has its environment replaced before it is sent, so any object it refers to and does not define is not found there and every candidate is given no criterion, which stops the call. Write it so that it refers to nothing outside itself, or build it with a constructor -- make_ll <- function(k) function(fit) ... k ...; logLik.fn = make_ll(2) -- whose environment is sent with it. This is the restriction GitHub issue beckyfisher/FSSgam#10 reports for the family argument, and it has the same cause.
+#'
+#' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in, counted over the candidates that were given a criterion). Set to 'all' to use all models in the candidate set instead.
 #'
 #' @details The function constructs and fits a complete model set based on the supplied arguments.
 #' for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
@@ -42,11 +48,13 @@
 #' mod.data.out - A data.frame that contains the statistics associated with each model fit. This includes AICc and BIC, delta values (e.g. AICc-(min(AICc)), corresponding weight values (Burnham and Anderson 2003), an estimate of the model R2, and a column for each of the included predictor variables containing either 0 (variable not included in the model) or 1 (variable is present in the model).
 #' Use of BIC in information theoretic approaches has been heavily criticised because of the inherent assumption of BIC that there is a true model that is represented in the candidate set (Anderson & Burnham 2002). Rather than decide a-priori which model selection tool users should adopt, we supply both as part of the function outputs.
 #' To simplify output, only AICc and AICc based model weights, rather than AIC, are included as these are asymptotically equivalent at large sample sizes, and for small sample sizes AICc should be used in any case.
+#' AICc and BIC are read from MuMIn::AICc and stats::BIC unless logLik.fn is supplied, or the test.fit was fitted with one of mgcv's censored families, in which cases both are built from that log-likelihood at the degrees of freedom and sample size the default route uses. The delta values, the weights and variable importance follow whichever was used.
 #' Calculating R2 values is non-trivial for mixed models, especially non-gaussian cases (and some argue should not be done at all). We have supplied a range of methods for estimating R2 (r2.type), as in our experience a single method rarely performs adequately across all scenarios.
 #' A column r2.vals.unique is also present. It is NA unless report.unique.r2 is TRUE, in which case it is the model R2 minus the R2 of the null model, that is, the variance explained beyond the terms supplied in null.terms. It is NA with report.unique.r2 TRUE wherever r2.vals is itself NA, which happens for a gamm test.fit under the default r2.type.
 #' Where null.terms is empty the null model's formula is the intercept alone and the column equals r2.vals. This drops every term of the test.fit's formula, a random effect written as s(site, bs = 're') included; that is what null.terms exists to put back. A random structure supplied through a separate argument rather than through the formula, as in uGamm(random = ~(1|site)), is not part of the formula and is retained by the null model either way.
 #' The column is a per-model quantity, not a variance partition among terms: with max.predictors greater than one it is the joint contribution of every predictor in that model, and it is a per-predictor contribution only at max.predictors = 1. It is on whatever scale r2.type produced, so a candidate fitting worse than the null on the chosen measure gives a negative value.
 #' Values of r2.vals.unique are comparable only within a model set sharing the same null.terms and the same r2.type.
+#' Under the default r2.type the R squared is estimated by regressing the response on the fitted values, and for a censored response that response is the recorded bound rather than the latent value, so the estimate is a fit to the censored data. Measured on a simulated set with 20 per cent left censoring, 0.663 against 0.667 computed on the latent response, and the difference grows with the censored fraction.
 #'
 #' failed.models - A list of model formula that failed to fit. Ideally the list of failed models should be empty, but when this is not the case interrogating failed.models provides a useful means of troubleshooting. Users can examine which models are not fitting and explore the reasons for this by fitting the failed models outside the full_subsets_gam call based on the listed formula. When a large number of models fail to fit properly it usually indicates poor specification of the initial test.fit or other arguments in the call to full_subsets_gam (such as the inclusion of factor interactions when there are few data within each level of the factor), or that inappropriate variables are being included in the model set.
 #'
@@ -85,7 +93,8 @@ fit_model_set=function(model.set.list,
                           r2.type="r2.lm.est",
                           report.unique.r2=FALSE,
                           VI.mods='min.n',
-                          progress=interactive()){
+                          progress=interactive(),
+                          logLik.fn=NULL){
 
   # An unrecognised r2.type used to reach extract_mod_dat(), which matches it
   # against three literals and leaves the value at NA when none matches, so the
@@ -98,6 +107,17 @@ fit_model_set=function(model.set.list,
   # surfaced as "object 'aic.var.weights' not found".
   VI.mods <- match.arg(VI.mods, c("min.n", "all"))
   validate_progress(progress)
+
+  # Resolved once, here, before anything is fitted: which log-likelihood the
+  # whole set is ranked on. This is where a test.fit whose criterion is not
+  # defined stops the call (FSSgam_package#44) and where a censored family is
+  # given a censored log-likelihood (FSSgam_package#42). See
+  # resolve_criterion() in R/criterion.R.
+  # Recorded before the reassignment: after it, logLik.fn is the built-in for
+  # any censored test.fit, so it no longer says whether the caller supplied
+  # anything, and the refusal below would name an argument they never wrote.
+  logLik.supplied <- !is.null(logLik.fn)
+  logLik.fn <- resolve_criterion(test.fit=model.set.list$test.fit,logLik.fn=logLik.fn)
 
   use.datModSet <- model.set.list$used.data
   n.mods=length(model.set.list$mod.formula)#model.set.list$n.mods
@@ -116,16 +136,48 @@ fit_model_set=function(model.set.list,
   if(save.model.fits==TRUE){
     summary.l=fit_and_summarise_saved_models(mod.formula=mod.formula,test.fit=test.fit,
                           use.dat=use.datModSet,n.mods=n.mods,included.vars=included.vars,
-                          r2.type=r2.type,parallel=parallel,n.cores=n.cores,progress=progress)
+                          r2.type=r2.type,parallel=parallel,n.cores=n.cores,progress=progress,
+                          logLik.fn=logLik.fn)
   }else{
     summary.l=fit_and_summarise_unsaved_models(mod.formula=mod.formula,test.fit=test.fit,
                           use.dat=use.datModSet,n.mods=n.mods,included.vars=included.vars,
-                          r2.type=r2.type,parallel=parallel,n.cores=n.cores,progress=progress)
+                          r2.type=r2.type,parallel=parallel,n.cores=n.cores,progress=progress,
+                          logLik.fn=logLik.fn)
   }
   mod.data.out=summary.l$mod.data.out
   failed.models=summary.l$failed.models
   success.models=summary.l$success.models
   var.inclusions=summary.l$var.inclusions
+
+  # A candidate that fitted and has no criterion is neither a failed model nor a
+  # usable one: it takes no part in the ranking, and before this it did so
+  # without being reported. Both fitting paths now classify a failed model by
+  # whether it fitted, so the two cases are separable here and are reported the
+  # same way whichever path ran.
+  #
+  # resolve_criterion() refuses a test.fit whose criterion is undefined before
+  # anything is fitted, and checks a supplied logLik.fn on it. What reaches
+  # here is what nothing earlier can detect: a logLik.fn that gives the
+  # test.fit a value and some or all of the candidates none.
+  # Restricted to the candidates that fitted. The saved path's mod.data.out has
+  # a row per successful fit; the unsaved path's has one per candidate, an
+  # all-NA row for each that did not fit, and those are reported through
+  # failed.models rather than here.
+  fitted.rows <- mod.data.out$modname %in% names(success.models)
+  no.criterion <- fitted.rows&is.na(mod.data.out$AICc)
+  if(any(fitted.rows)&&all(no.criterion[fitted.rows])){
+    stop(paste0("All ",sum(fitted.rows)," candidates that fitted were given no ",
+         "criterion, so the model set cannot be ranked",
+         if(logLik.supplied){
+           " -- check the value logLik.fn returns for these fits"
+         }else if(!is.null(logLik.fn)){
+           " -- check the coding of the censored response"
+         }else{""},
+         "."))}
+  if(any(no.criterion)){
+    warning(paste0("Candidate(s) fitted but given no criterion, and excluded ",
+            "from the ranking, the weights and variable importance: ",
+            paste(mod.data.out$modname[no.criterion],collapse=", "),"."))}
 
   mod.data.out=compute_model_weights(mod.data.out=mod.data.out,report.unique.r2=report.unique.r2)
 
@@ -144,10 +196,28 @@ fit_model_set=function(model.set.list,
 
 # Internal helpers for fit_model_set(). Not exported.
 
-# extract_mod_dat()'s all-NA return, in the unlist()ed form the fitting loops
-# collect.
+# TRUE where fit_mod_l() returned a fitted model rather than a try-error.
+#
+# Called by both fitting paths, so that "did not fit" means the same thing in
+# each. It was the class of the object on the saved path and an NA criterion on
+# the unsaved one, and those are different questions: a candidate that fitted
+# and was given no criterion was reported as a failure by one and as a success
+# by the other.
+fit_succeeded=function(mod.l){
+  length(grep("gam",class(mod.l)))>0
+}
+
+# extract_mod_dat()'s all-NA return with the fit.ok flag the unsaved path
+# collects alongside it, in the unlist()ed form the fitting loop returns.
+#
+# fit.ok is 0 here because this row stands for a candidate that produced no
+# fitted model at all: either fit_mod_l() returned a try-error, or the worker
+# raised a condition that .errorhandling='pass' passed back in its place. The
+# flag is read and dropped before mod.data.out is assembled, so it is not a
+# column of the returned table.
 na_mod_dat_row=function(){
-  unlist(list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA))
+  unlist(list(AICc=NA,BIC=NA,r2.vals=NA,r2.vals.unique=NA,edf=NA,edf.less.1=NA,
+              fit.ok=0))
 }
 
 # Replaces anything in the collected list that is not one of those vectors
@@ -156,13 +226,15 @@ na_mod_dat_row=function(){
 # Needed because of .errorhandling='pass': a failing element of the foreach()
 # comes back as the condition object rather than as a named vector, and
 # do.call("rbind", .) over the mixed list produces a malformed table. Once
-# replaced, the candidate reaches failed.models via the is.na(AICc) test the
-# caller already applies, which is how a fit that returns a try-error is
-# already handled.
+# replaced, the candidate reaches failed.models via the fit.ok flag the caller
+# reads, which is how a fit that returns a try-error is already handled.
 #
-# is.atomic() rather than is.numeric(): the all-NA row is logical, not
-# numeric, so is.numeric() would reject rows that are already correct. A
-# condition object is a list, so is.atomic() still separates the two.
+# is.atomic() rather than is.numeric(). Every row the loop now collects is
+# numeric, the fit.ok flag making even the all-NA one a double, so is.numeric()
+# would separate the two as well; is.atomic() is kept because it is the weaker
+# test and a condition object, which is a list, still fails it. It was
+# necessary rather than merely sufficient before fit.ok was added, when the
+# all-NA row was logical.
 normalise_mod_dat_rows=function(mod.dat){
   na.row <- na_mod_dat_row()
   ok <- vapply(mod.dat,
@@ -176,7 +248,8 @@ normalise_mod_dat_rows=function(mod.dat){
 # fitted model objects, then builds mod.data.out/failed.models/success.models
 # from those fits. Used when save.model.fits=TRUE.
 fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
-                          included.vars,r2.type,parallel,n.cores,progress){
+                          included.vars,r2.type,parallel,n.cores,progress,
+                          logLik.fn=NULL){
   # progress=FALSE leaves pb NULL and passes no .options.snow callback, so
   # nothing reaches stdout at all (FSSgam_package#9). update_pb() rather than
   # reusing the name 'progress' for the callback, which now shadows the
@@ -223,8 +296,7 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
   names(out.dat) <- names(mod.formula)[1:n.mods]
 
   # find all the models that didn't fit and extract the error messages
-  model.success <- lapply(lapply(out.dat,FUN=class),FUN=function(x){
-     length(grep("gam",x))>0})
+  model.success <- lapply(out.dat,FUN=fit_succeeded)
   failed.models <- mod.formula[which(model.success==FALSE)]
   success.models <- out.dat[which(model.success==TRUE)]
   if(length(success.models)==0){
@@ -236,7 +308,7 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
   mod.data.out <- data.frame("modname"=names(success.models))
   mod.data.out$formula <- unlist(lapply(success.models,FUN=function(x){as.character(stats::formula(x)[3])}))
   mod.data.out <- cbind(mod.data.out,do.call("rbind",lapply(success.models,FUN=function(x){
-                      unlist(extract_mod_dat(x,r2.type.=r2.type))})))
+                      unlist(extract_mod_dat(x,r2.type.=r2.type,logLik.fn=logLik.fn))})))
 
   return(list(mod.data.out=mod.data.out,failed.models=failed.models,
               success.models=success.models,var.inclusions=var.inclusions))
@@ -247,7 +319,8 @@ fit_and_summarise_saved_models=function(mod.formula,test.fit,use.dat,n.mods,
 # the model fits themselves are never held in memory. Used when
 # save.model.fits=FALSE (i.e. the candidate set is large).
 fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
-                          included.vars,r2.type,parallel,n.cores,progress){
+                          included.vars,r2.type,parallel,n.cores,progress,
+                          logLik.fn=NULL){
   # progress=FALSE leaves pb NULL and passes no .options.snow callback, so
   # nothing reaches stdout at all (FSSgam_package#9). update_pb() rather than
   # reusing the name 'progress' for the callback, which now shadows the
@@ -276,8 +349,9 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
                    .packages=worker.packages,
                    .errorhandling='pass',
                    .options.snow = opts)%dopar%{
-      unlist(extract_mod_dat(fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]]),
-                             r2.type.=r2.type))
+      mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
+      c(unlist(extract_mod_dat(mod.l,r2.type.=r2.type,logLik.fn=logLik.fn)),
+        fit.ok=as.numeric(fit_succeeded(mod.l)))
 
    }
    parallel::stopCluster(cl)
@@ -286,7 +360,8 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
       mod.dat=vector("list", length(mod.formula))
       for(l in seq_along(mod.formula)){
         mod.l=fit_mod_l(mod.formula[[l]],test.fit.=test.fit,use.dat=use.dat,family.=family.list[[l]])
-        out=unlist(extract_mod_dat(mod.l,r2.type.=r2.type))
+        out=c(unlist(extract_mod_dat(mod.l,r2.type.=r2.type,logLik.fn=logLik.fn)),
+              fit.ok=as.numeric(fit_succeeded(mod.l)))
         mod.dat[[l]]=out
         update_pb(l)
         }
@@ -295,10 +370,16 @@ fit_and_summarise_unsaved_models=function(mod.formula,test.fit,use.dat,n.mods,
   names(mod.dat) <- names(mod.formula[1:n.mods])
 
   mod.dat <- normalise_mod_dat_rows(mod.dat)
-  mod.data.out <- cbind(mod.data.out,do.call("rbind",mod.dat))
+  collected <- do.call("rbind",mod.dat)
+  # fit.ok says which candidates produced a fitted model. It is dropped here
+  # rather than returned: mod.data.out's columns are the model summary, and a
+  # candidate that did not fit is reported through failed.models.
+  fit.ok <- collected[,"fit.ok"]==1
+  collected <- collected[,colnames(collected)!="fit.ok",drop=FALSE]
+  mod.data.out <- cbind(mod.data.out,collected)
 
-  failed.models <- mod.formula[which(is.na(mod.data.out$AICc)==TRUE)]
-  success.models <- mod.formula[which(is.na(mod.data.out$AICc)==FALSE)]
+  failed.models <- mod.formula[which(!fit.ok)]
+  success.models <- mod.formula[which(fit.ok)]
 
   # The same guard the saved path has always carried, and the same message.
   # Without it a run in which nothing fitted returned a table of NA rather than
@@ -334,26 +415,49 @@ compute_model_weights=function(mod.data.out,report.unique.r2){
 # minimum number of models any one predictor is present in) or all models
 # (VI.mods='all'). mod.data.out must already include the inclusion columns
 # (cbind(mod.data.out, var.inclusions)) and the wi.AICc/wi.BIC columns.
+# na.rm=TRUE on every sum. A candidate with no criterion has an NA weight, and
+# without this one such candidate makes the importance of every predictor NA,
+# including predictors that appear in no affected candidate. Summing it as zero
+# is what "excluded from the ranking" means: the candidate takes no part.
+# Reachable on dev through a candidate that failed to fit with
+# save.model.fits=FALSE, where the failed rows are kept in mod.data.out, and
+# reachable now through a logLik.fn that gives some candidates no value.
 compute_variable_importance=function(mod.data.out,included.vars,VI.mods){
    # find the min number of models for each variable
   # drop=FALSE throughout: with a single predictor the [ , ] would otherwise
   # return a vector and colSums() would fail.
-  min.mods <- min(colSums(mod.data.out[,included.vars,drop=FALSE]))
+  #
+  # Counted over the candidates that have a weight, not over every row. The
+  # save.model.fits=FALSE path keeps an all-NA row for a candidate that did not
+  # fit and the other path drops it, so counting every row made the two paths
+  # give different importance scores for the same model set: measured on the
+  # eight-model case_study1 set with one candidate broken, min.mods of 3 against
+  # 2 and complexity at 0.999 against 0.858. A candidate excluded from the
+  # ranking is excluded from the count as well.
+  # Per criterion, since a candidate could have one weight and not the other.
+  min_mods_for=function(weights){
+    scored <- !is.na(weights)
+    min(colSums(mod.data.out[scored,included.vars,drop=FALSE]))
+  }
 
   if(VI.mods=='min.n'){
     # seq_len() rather than 1:min.mods -- a predictor present in no surviving
     # model gives min.mods of 0, and 1:0 is c(1,0), which would take the single
     # best weight instead of none.
     # first for AICc
+    min.mods <- min_mods_for(mod.data.out$wi.AICc)
     var.weights <- unlist(lapply(included.vars,FUN=function(x){
-           sum(sort(mod.data.out$wi.AICc[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)])}))
+           sum(sort(mod.data.out$wi.AICc[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)],
+               na.rm=TRUE)}))
     names(var.weights) <- included.vars
     variable.weights.raw <- var.weights
     aic.var.weights <- list(variable.weights.raw=variable.weights.raw)
 
     # next for BIC
+    min.mods <- min_mods_for(mod.data.out$wi.BIC)
     var.weights <- unlist(lapply(included.vars,FUN=function(x){
-      sum(sort(mod.data.out$wi.BIC[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)])}))
+      sum(sort(mod.data.out$wi.BIC[which(mod.data.out[,x]==1)],decreasing=TRUE)[seq_len(min.mods)],
+          na.rm=TRUE)}))
     names(var.weights) <- included.vars
     variable.weights.raw <- var.weights
     bic.var.weights <- list(variable.weights.raw=variable.weights.raw)
@@ -364,11 +468,13 @@ compute_variable_importance=function(mod.data.out,included.vars,VI.mods){
     # unexported and only ever reached after fit_model_set()'s match.arg(), so
     # the two branches are exhaustive.
     # first for AICc
-    variable.weights.raw <- colSums(mod.data.out[,included.vars,drop=FALSE]*mod.data.out$wi.AICc)
+    variable.weights.raw <- colSums(mod.data.out[,included.vars,drop=FALSE]*mod.data.out$wi.AICc,
+                                    na.rm=TRUE)
     aic.var.weights <- list(variable.weights.raw=variable.weights.raw)
 
     # next for BIC
-    variable.weights.raw <- colSums(mod.data.out[,included.vars,drop=FALSE]*mod.data.out$wi.BIC)
+    variable.weights.raw <- colSums(mod.data.out[,included.vars,drop=FALSE]*mod.data.out$wi.BIC,
+                                    na.rm=TRUE)
     bic.var.weights <- list(variable.weights.raw=variable.weights.raw)
   }
 

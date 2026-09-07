@@ -37,6 +37,6 @@ Suggests:
     covr,
     gamm4,
     Matrix,
-    testthat (>= 3.1.5)
+    testthat (>= 3.2.0)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0
