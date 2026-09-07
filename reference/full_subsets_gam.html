@@ -15,7 +15,7 @@ matrix before actually running the analysis."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">FSSgam</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,7 @@ matrix before actually running the analysis.</p>
 <span>  k <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  bs.arg <span class="op">=</span> <span class="st">"'cr'"</span>,</span>
 <span>  null.terms <span class="op">=</span> <span class="st">""</span>,</span>
+<span>  null.cov.cutoff <span class="op">=</span> <span class="fl">0.8</span>,</span>
 <span>  max.models <span class="op">=</span> <span class="fl">200</span>,</span>
 <span>  save.model.fits <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  parallel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -75,6 +76,7 @@ matrix before actually running the analysis.</p>
 <span>  report.unique.r2 <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  VI.mods <span class="op">=</span> <span class="st">"min.n"</span>,</span>
 <span>  progress <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/interactive.html" class="external-link">interactive</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  logLik.fn <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">factor.interactions</span>,</span>
 <span>  <span class="va">smooth.interactions</span>,</span>
 <span>  <span class="va">size</span></span>
@@ -94,7 +96,7 @@ matrix before actually running the analysis.</p>
 The test fit must contain the appropriate random effects and call to family (if not gaussian) and if gamm4 should be used, or gamm in the case of a uGamm call (see ?uGamm).
 Both gamm from mgcv and gamm4 have slightly different features, as well as advantages and disadvantages, thus it is important that the full subsets function is able to deal with test.fit models based on either package.
 For example gamm4 is based on the lme4 package [Bates, D.M. (2010) lme4: Mixed-Effects Modeling with R. Springer, New York] which allows crossed random effects and avoids issues with PQL for non-gaussian model fits.
-On the other hand gamm (mgcv) is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day],
+On the other hand gamm (mgcv), reached through MuMIn::uGamm since a bare mgcv::gamm fit cannot be refitted, is based on nlme which allows correlation structures [Box, G.E.P., Jenkins, G.M., and Reinsel G.C. (1994) "Time Series Analysis: Forecasting and Control", 3rd Edition, Holden-Day],
 variance structures [Pinheiro, J.C. and Bates., D.M. (1996) "Unconstrained Parametrizations for Variance-Covariance Matrices", Statistics and Computing, 6, 289-296],
 and a broader range of families that are not yet available in lmer (see ?family.mgcv).
 Models that have no random effects and are based only on gam (mgcv) are best fit via a direct call to gam, rather than using the uGamm wrapper.</p></dd>
@@ -134,7 +136,7 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 
 
 <dt id="arg-cor-matrix">cor.matrix<a class="anchor" aria-label="anchor" href="#arg-cor-matrix"></a></dt>
-<dd><p>A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor named in pred.vars.cont, pred.vars.fact and linear.vars; any that are missing are reported by name. The hard coded factor interaction columns that setting factor.factor.interactions causes to be created are the exception, because which of them exist depends on the supplied matrix itself and so cannot be known in advance. Rows and columns for any of those the matrix does not carry are computed from use.dat and appended, leaving every supplied value as supplied. Each dimension is treated separately, so a name supplied as a column and not as a row keeps the column given for it and has only its row computed; because collinearity is screened in both directions, a value supplied in one dimension alone can tighten a screen but never loosen it. Computing them reads the data of every predictor, so this is the one case in which a predictor of a class check_correlations cannot classify has to be named in the supplied matrix along with the interaction columns. When supplied it replaces the automatic estimate rather than overriding it: except in the interaction case above, check_correlations is not called at all, and a predictor of a class it does not accept can be used. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square root of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square root of the R2 value obtained via a call multinom (from package nnet, Venables &amp; Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models.</p></dd>
+<dd><p>A user-supplied pairwise correlation matrix, or NA (the default) to compute one from use.dat. When supplied it governs every stage that screens on correlation: which factor-factor interaction columns are built, which te smooth-smooth interaction terms are built, and which assembled candidate models are excluded. It must therefore carry a row and a column for every predictor named in pred.vars.cont, pred.vars.fact and linear.vars; any that are missing are reported by name. The hard coded factor interaction columns that setting factor.factor.interactions causes to be created are the exception, because which of them exist depends on the supplied matrix itself and so cannot be known in advance. Rows and columns for any of those the matrix does not carry are computed from use.dat and appended, leaving every supplied value as supplied. Each dimension is treated separately, so a name supplied as a column and not as a row keeps the column given for it and has only its row computed; because collinearity is screened in both directions, a value supplied in one dimension alone can tighten a screen but never loosen it. Computing them reads the data of every predictor, so this is the one case in which a predictor of a class check_correlations cannot classify has to be named in the supplied matrix along with the interaction columns. When supplied it replaces the automatic estimate rather than overriding it: except in the interaction case above, check_correlations is not called at all, and a predictor of a class it does not accept can be used. By default predictor correlations are evaluated via a call to check_correlations, a function taking a data.frame (containing all predictors) as argument and generating a correlation matrix comprised of: 1) correlation coefficients between all continuous predictors via a call to cor; 2) approximate correlation values between continuous predictors and factors, as the square root of the R2 value obtained via a call to lm, where the continuous predictor is modelled as a response and the factor variable as a single fixed factor; and 3) approximate correlations values between factor predictors, as the square root of the R2 value obtained via a call multinom (from package nnet, Venables &amp; Ripley 2002). Note that any user constructed pairwise matrix can be passed to the function and used for pairwise exclusion of variables from individual models, subject to two rules. It must be two-dimensional: a matrix, a data.frame, or any other object with two dimensions, so the value Matrix::Matrix returns is accepted while a length-one value of any other class is not, and NA is reserved for the default. And it must not contain NA between two terms that are actually screened against cov.cutoff, which is reported by naming the pairs; an NA on a pair no screen compares is accepted, so which cells matter depends on max.predictors and on the interaction arguments. An NA between a variable named in null.terms and a predictor is accepted, that screen being null.cov.cutoff's rather than cov.cutoff's: where the reverse direction gives a value that value is used, and where neither direction does the pair is computed from use.dat.</p></dd>
 
 
 <dt id="arg-non-linear-correlations">non.linear.correlations<a class="anchor" aria-label="anchor" href="#arg-non-linear-correlations"></a></dt>
@@ -159,8 +161,11 @@ If factor.factor.interactions is set to TRUE the function automatically generate
 the null model. Use of bs=re is an alternative way of fitting simple random structures that
 avoids use of PQL and allows a the greater range of families available in gam.mgcv to be used.
 see ?s and links therein. Note: make sure you use gam instead of uGamm to make sure PQL is not used.
-to fit a correlation structure only (but no random effects) this must be achieved through a call the gamm
-via , with no random effects, fitted</p></dd>
+To fit a correlation structure, pass MuMIn::uGamm(..., correlation = ...) as the test.fit. A fit produced by mgcv::gamm() directly cannot be used: it records no call, so the candidate models cannot be refitted from it, and generate_model_set stops saying so.</p></dd>
+
+
+<dt id="arg-null-cov-cutoff">null.cov.cutoff<a class="anchor" aria-label="anchor" href="#arg-null-cov-cutoff"></a></dt>
+<dd><p>The correlation above which a predictor is dropped for being correlated with a variable named in null.terms. Defaults to 0.8. Terms supplied through null.terms are forced into every candidate model and are outside the cov.cutoff screen, which covers pred.vars.cont, pred.vars.fact and linear.vars only, so without this a candidate could be arbitrarily strongly correlated with a forced term and still appear in every model in the set. That inflates the variance of the forced term's estimate, which is frequently the term the analysis exists to estimate, and nothing in the output would indicate it. A separate cutoff, with a much looser default than cov.cutoff, because the two screens answer different questions: cov.cutoff decides which predictors may appear together, and this decides which predictor is so nearly a restatement of a forced term that fitting both is not informative. Set it to 1 to admit every predictor whatever its correlation with a forced term. A variable inside a bs='re' smooth is exempt from this screen, however the argument is written – quoted either way, or wrapped in c(). A bs given as a variable rather than a literal is exempt too, since it cannot be read here and screening a grouping factor in error drops a legitimate predictor, while not screening a fixed term in error leaves the behaviour of earlier versions. A random-effect grouping factor is correlated with the predictors measured within it by construction – with null.terms = "s(Location,Site,bs='re')" and Status nested in Location their correlation is 1 – and that is the design of the study rather than collinearity to screen out. The screen applies to fixed forced terms, which compete with a candidate for the same variation. Correlations among the null.terms variables themselves are neither computed nor screened: those terms are forced in by your decision, and dropping one is what must not happen. Where the correlation estimate is asymmetric, as check_non_linear_correlations returns it, both directions are read and the larger is used, which is what the cov.cutoff screen already does. The correlations this screens on are returned by generate_model_set as null.term.correlations, each cell being the value screened on rather than one direction of it, whether or not anything is dropped, so they can be inspected even where no warning is raised; full_subsets_gam does not return them, its output being that of fit_model_set. A supplied cor.matrix is used for any pair it gives a value for, in either dimension, and every other pair is computed from use.dat, which is the ordinary case since a supplied matrix is indexed by predictor and a forced term is not one. A pair the matrix gives no value for, NA in each direction it has, is one of those others, computed rather than read as a correlation of zero, so a cell left empty does not decide that a predictor may be fitted alongside a forced term; a forced term can therefore be part supplied and part computed. Where that computation fails, which is what a predictor of a class check_correlations cannot classify causes, the screen is skipped with a warning rather than the call stopping. A variable named in null.terms that is not a column of use.dat, such as a function or a term written over several columns, is skipped, a correlation not being defined for it.</p></dd>
 
 
 <dt id="arg-max-models">max.models<a class="anchor" aria-label="anchor" href="#arg-max-models"></a></dt>
@@ -184,15 +189,19 @@ via , with no random effects, fitted</p></dd>
 
 
 <dt id="arg-report-unique-r-">report.unique.r2<a class="anchor" aria-label="anchor" href="#arg-report-unique-r-"></a></dt>
-<dd><p>The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.</p></dd>
+<dd><p>Should the r2.vals.unique column of mod.data.out be populated. Defaults to FALSE, which leaves it NA. When TRUE, the null model R2 is subtracted from each model R2 to give the variance explained beyond the terms supplied in null.terms. See <code><a href="fit_model_set.html">fit_model_set()</a></code> for what the column is and is not.</p></dd>
 
 
 <dt id="arg-vi-mods">VI.mods<a class="anchor" aria-label="anchor" href="#arg-vi-mods"></a></dt>
-<dd><p>The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.</p></dd>
+<dd><p>The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in, counted over the candidates that were given a criterion). Set to 'all' to use all models in the candidate set instead.</p></dd>
 
 
 <dt id="arg-progress">progress<a class="anchor" aria-label="anchor" href="#arg-progress"></a></dt>
 <dd><p>Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.</p></dd>
+
+
+<dt id="arg-loglik-fn">logLik.fn<a class="anchor" aria-label="anchor" href="#arg-loglik-fn"></a></dt>
+<dd><p>A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). Passed to fit_model_set; see ?fit_model_set for what it does and for the two cases it is supplied for automatically.</p></dd>
 
 
 <dt id="arg-factor-interactions">factor.interactions<a class="anchor" aria-label="anchor" href="#arg-factor-interactions"></a></dt>
@@ -211,6 +220,7 @@ via , with no random effects, fitted</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list of the following output files:</p>
 <p>mod.data.out - A data.frame that contains the statistics associated with each model fit. This includes AICc and BIC, delta values (e.g. AICc-(min(AICc)), corresponding weight values (Burnham and Anderson 2003), an estimate of the model R2, and a column for each of the included predictor variables containing either 0 (variable not included in the model) or 1 (variable is present in the model).
+A column r2.vals.unique is also present, and is NA unless report.unique.r2 is TRUE. This data.frame is the one fit_model_set() produced, passed through unaltered, so see <code><a href="fit_model_set.html">fit_model_set()</a></code> for what the column is and is not.
 Use of BIC in information theoretic approaches has been heavily criticised because of the inherent assumption of BIC that there is a true model that is represented in the candidate set (Anderson &amp; Burnham 2002). Rather than decide a-priori which model selection tool users should adopt, we supply both as part of the function outputs.
 To simplify output, only AICc and AICc based model weights, rather than AIC, are included as these are asymptotically equivalent at large sample sizes, and for small sample sizes AICc should be used in any case.
 Calculating R2 values is non-trivial for mixed models, especially non-gaussian cases (and some argue should not be done at all). We have supplied a range of methods for estimating R2 (r2.type), as in our experience a single method rarely performs adequately across all scenarios.</p>
@@ -225,7 +235,7 @@ To determine the relative importance of each predictor across the whole model se
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The function constructs and fits a complete model set based on the supplied arguments.
 for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
-https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134</p>
+<a href="https://doi.org/10.1002/ece3.4134" class="external-link">doi:10.1002/ece3.4134</a></p>
     </div>
 
     <div class="section level2">

@@ -15,7 +15,8 @@ fit_model_set(
   r2.type = "r2.lm.est",
   report.unique.r2 = FALSE,
   VI.mods = "min.n",
-  progress = interactive()
+  progress = interactive(),
+  logLik.fn = NULL
 )
 ```
 
@@ -54,27 +55,71 @@ fit_model_set(
   value based on a linear regression between the observed and predicted
   values. r2 will return the adjusted R.sq as reported by gam, gamm or
   gamm4.dev will return the deviance explained as reported by gam or
-  gamm. Note gamm4 does not currently return a deviance.
+  gamm. Note that a gamm fit reaches this only through MuMIn::uGamm: a
+  bare mgcv::gamm fit cannot be used as a test.fit, records no call, and
+  is rejected by generate_model_set. Note gamm4 does not currently
+  return a deviance.
 
 - report.unique.r2:
 
-  The estimated null model R2 is subtracted from each model R2 to give
-  an idea of the unique variance explained. This can be useful where
-  null terms are included in the model set.
+  Should the r2.vals.unique column of mod.data.out be populated.
+  Defaults to FALSE, which leaves it NA. When TRUE, the null model R2 is
+  subtracted from each model R2 to give the variance explained beyond
+  the terms supplied in null.terms. See the description of mod.data.out
+  under Value for what the column is and is not.
 
 - VI.mods:
 
   The set of models used to calculate summed variable importance scores.
   Defaults to 'min.n', which uses only the best n models for each
   variable (n being the minimum number of models any one predictor is
-  present in). Set to 'all' to use all models in the candidate set
-  instead.
+  present in, counted over the candidates that were given a criterion).
+  Set to 'all' to use all models in the candidate set instead.
 
 - progress:
 
   Should a text progress bar be written to the console while models are
   fitted. Defaults to interactive(), so the bar appears at the console
   but not in scripts, reports or checks.
+
+- logLik.fn:
+
+  A function of one argument, a fitted model, returning a single
+  log-likelihood value, or NULL (the default). AICc and BIC are
+  ordinarily read from MuMIn::AICc and stats::BIC, which both resolve to
+  the fitted family's own aic slot. Where that slot does not give a
+  log-likelihood the whole ranking is unusable, so this argument allows
+  one to be supplied. When it is, AICc and BIC are built from the value
+  it returns, at the degrees of freedom and sample size the default
+  route uses, so only the log-likelihood changes and every model in the
+  set is scored the same way. Passing function(fit)
+  as.numeric(stats::logLik(fit)) reproduces the criterion of FSSgam
+  1.1.0 and earlier for any family.
+
+  Two cases are handled without it. A test.fit fitted with one of mgcv's
+  censored families, cnorm or clog, is given a censored log-likelihood
+  computed by the package, with a message saying so, because the value
+  mgcv reports for those families is not built from one; wrap the call
+  in suppressMessages to silence it. A test.fit fitted with a
+  quasi-likelihood such as quasipoisson or quasibinomial stops the call
+  before any candidate is fitted, naming the family. Such a family has
+  no log-likelihood: through gam the criterion is NA, and through uGamm
+  or gamm it is a number read from the PQL working model, which ranks
+  nothing. Supplying this argument is what allows such a set to be
+  fitted and ranked. Note that generate_model_set fits the null model,
+  so on the full_subsets_gam route that one fit precedes the refusal.
+
+  One restriction applies under parallel = TRUE with save.model.fits =
+  FALSE, which is the only combination that evaluates this function on a
+  worker process: a function written at the top level of a script has
+  its environment replaced before it is sent, so any object it refers to
+  and does not define is not found there and every candidate is given no
+  criterion, which stops the call. Write it so that it refers to nothing
+  outside itself, or build it with a constructor – make_ll \<-
+  function(k) function(fit) ... k ...; logLik.fn = make_ll(2) – whose
+  environment is sent with it. This is the restriction GitHub issue
+  beckyfisher/FSSgam#10 reports for the family argument, and it has the
+  same cause.
 
 ## Value
 
@@ -93,11 +138,41 @@ decide a-priori which model selection tool users should adopt, we supply
 both as part of the function outputs. To simplify output, only AICc and
 AICc based model weights, rather than AIC, are included as these are
 asymptotically equivalent at large sample sizes, and for small sample
-sizes AICc should be used in any case. Calculating R2 values is
+sizes AICc should be used in any case. AICc and BIC are read from
+MuMIn::AICc and stats::BIC unless logLik.fn is supplied, or the test.fit
+was fitted with one of mgcv's censored families, in which cases both are
+built from that log-likelihood at the degrees of freedom and sample size
+the default route uses. The delta values, the weights and variable
+importance follow whichever was used. Calculating R2 values is
 non-trivial for mixed models, especially non-gaussian cases (and some
 argue should not be done at all). We have supplied a range of methods
 for estimating R2 (r2.type), as in our experience a single method rarely
-performs adequately across all scenarios.
+performs adequately across all scenarios. A column r2.vals.unique is
+also present. It is NA unless report.unique.r2 is TRUE, in which case it
+is the model R2 minus the R2 of the null model, that is, the variance
+explained beyond the terms supplied in null.terms. It is NA with
+report.unique.r2 TRUE wherever r2.vals is itself NA, which happens for a
+gamm test.fit under the default r2.type. Where null.terms is empty the
+null model's formula is the intercept alone and the column equals
+r2.vals. This drops every term of the test.fit's formula, a random
+effect written as s(site, bs = 're') included; that is what null.terms
+exists to put back. A random structure supplied through a separate
+argument rather than through the formula, as in uGamm(random =
+~(1\|site)), is not part of the formula and is retained by the null
+model either way. The column is a per-model quantity, not a variance
+partition among terms: with max.predictors greater than one it is the
+joint contribution of every predictor in that model, and it is a
+per-predictor contribution only at max.predictors = 1. It is on whatever
+scale r2.type produced, so a candidate fitting worse than the null on
+the chosen measure gives a negative value. Values of r2.vals.unique are
+comparable only within a model set sharing the same null.terms and the
+same r2.type. Under the default r2.type the R squared is estimated by
+regressing the response on the fitted values, and for a censored
+response that response is the recorded bound rather than the latent
+value, so the estimate is a fit to the censored data. Measured on a
+simulated set with 20 per cent left censoring, 0.663 against 0.667
+computed on the latent response, and the difference grows with the
+censored fraction.
 
 failed.models - A list of model formula that failed to fit. Ideally the
 list of failed models should be empty, but when this is not the case
@@ -138,7 +213,7 @@ The function constructs and fits a complete model set based on the
 supplied arguments. for more information see Fisher R, Wilson SK, Sin
 TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets
 multiple regression in ecology with R. Ecology and Evolution
-https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134
+[doi:10.1002/ece3.4134](https://doi.org/10.1002/ece3.4134)
 
 ## Examples
 

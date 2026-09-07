@@ -1,4 +1,4 @@
-# FSSgam: Full Subsets Multiple Regression in R Using GAMs
+# FSSgam: Full Subsets Multiple Regression Using GAMs
 
 Full-subsets information-theoretic approaches are increasingly used to
 explore predictive power and variable importance when a wide range of
@@ -66,8 +66,7 @@ case study files on github for usage examples at
 
 Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple
 function for full-subsets multiple regression in ecology with R. Ecology
-and Evolution
-<https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134>
+and Evolution [doi:10.1002/ece3.4134](https://doi.org/10.1002/ece3.4134)
 
 ## See also
 
@@ -75,9 +74,9 @@ Useful links:
 
 - <https://github.com/beckyfisher/FSSgam_package>
 
-- <https://beckyfisher.github.io/FSSgam_package>
+- <https://beckyfisher.github.io/FSSgam_package/>
 
-- <https://beckyfisher.github.io/FSSgam>
+- <https://beckyfisher.github.io/FSSgam/>
 
 - Report bugs at <https://github.com/beckyfisher/FSSgam_package/issues>
 

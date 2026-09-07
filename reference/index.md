@@ -4,7 +4,7 @@
 
 - [`FSSgam-package`](https://beckyfisher.github.io/FSSgam_package/reference/FSSgam-package.md)
   [`FSSgam`](https://beckyfisher.github.io/FSSgam_package/reference/FSSgam-package.md)
-  : FSSgam: Full Subsets Multiple Regression in R Using GAMs
+  : FSSgam: Full Subsets Multiple Regression Using GAMs
 
 ## Core functions
 

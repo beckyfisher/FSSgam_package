@@ -75,10 +75,56 @@ Dependencies are defined in `DESCRIPTION` (Imports + Suggests). Read
 that file to determine what is available — don’t assume this list stays
 in sync.
 
-- **Imports**: `doSNOW`, `foreach`, `gamm4`, `mgcv`, `MuMIn`, `nnet`,
-  `parallel`, `stats`, `utils`
-- **Suggests**: `covr`, `testthat (>= 3.1.5)`
-- **Depends**: `R (>= 3.5)` only — no other package may go in `Depends`
+- **Imports**: `doSNOW`, `foreach`, `mgcv`, `MuMIn`, `nnet`, `parallel`,
+  `stats`, `utils`
+
+- **Suggests**: `covr`, `gamm4`, `Matrix`, `testthat (>= 3.2.0)`.
+  `gamm4` moved out of `Imports` so that a parallel worker no longer
+  loads it and `lme4` with it for every model set (FSSgam_package#14).
+
+- **Depends**: `R (>= 4.4.0)` only — no other package may go in
+  `Depends`. The floor is not chosen: `MuMIn` and `mgcv` both declare
+  `Depends: R (>= 4.4.0)`, so nothing lower is reachable.
+
+  Two jobs in `.github/workflows/R-CMD-check.yaml` cover it, and they
+  check different things. The `r: '4.4.0'` matrix entry establishes that
+  the package installs and passes on an R at the declared floor. The
+  `r-floor-consistency` job runs `tools/check-r-floor.R`, which compares
+  the declared floor against the `Depends` of every hard dependency,
+  walking the closure rather than the direct `Imports`, and fails if the
+  declared one is lower. The closure matters: `Matrix` declares
+  `R (>= 4.4)` and arrives only through `mgcv` and `MuMIn`, so a check
+  of the direct `Imports` misses it.
+
+  The script stops rather than reporting success in three cases where it
+  cannot count a constraint: a dependency that is not installed, an R
+  constraint in a form it does not parse, and a `DESCRIPTION` with no
+  floor. Each was added after review found it in turn silently passing,
+  and a fourth round found the guards themselves ordered wrongly — an
+  empty-closure exit placed above the uninstalled-dependency check
+  accepted the declared floor, having read nothing, for a package all of
+  whose dependencies were missing. **Anything added here must fail
+  loudly rather than contribute no floor, and must be placed above the
+  reporting, not below it** — that is the failure mode the script exists
+  to catch, and it recurred four times inside the script itself.
+
+  **Only the second detects the defect FSSgam_package#31 reported.**
+  Installing rejects a floor set above the running R and accepts any
+  floor below it, so no matrix of R versions sees a floor that is too
+  low. Measured 2026-09-03 on this host: `R CMD INSTALL` and
+  `devtools::check()` both succeed with `Depends: R (>= 3.5)` on R
+  4.6.1. No CI run was made against a reverted `DESCRIPTION`; that every
+  matrix job would stay green follows from what installation does, and
+  is an inference rather than a measurement. Do not add an R version to
+  the matrix and take it for a floor check.
+
+  `DESCRIPTION` records no provenance comment. Writing R Extensions
+  §1.1.1 states the format does not support `#` comments, and any
+  `desc`-based write deletes them silently – `usethis::use_package()`, a
+  version bump, and `roxygen2::roxygenise()` updating
+  `Config/roxygen2/version` all do, and this repository has run two of
+  the three. `tools/check-r-floor.R` holds the provenance instead, where
+  it is executed rather than trusted.
 
 `doSNOW` is not installed by default in fresh environments (e.g. this
 WSL container) even though it’s a long-standing declared dependency —
@@ -96,6 +142,9 @@ ask before installing it, but it genuinely is needed for
                                              # .Deprecated() wrappers (Section 6 Phase 9)
       generate-model-set.R                  # generate_model_set() + 8 unexported helpers (Section 6 Phase 6)
       fit-model-set.R                       # fit_model_set() + 4 unexported helpers (Section 6 Phase 6)
+      criterion.R                           # resolve_criterion() and the censored log-likelihood --
+                                             # decides which log-likelihood AICc and BIC are built from
+                                             # (Section 6, Phase 15)
       check-correlations.R                  # check_correlations() + 3 unexported helpers (Section 6 Phase 6b)
       check-non-linear-correlations.R       # check_non_linear_correlations() + 3 helpers (Section 6 Phase 6b)
       utils.R                                # classify_correlation_predictors() — shared by both check-*.R files;
@@ -145,6 +194,12 @@ ask before installing it, but it genuinely is needed for
                               # CLAUDE.md Section 13) plus golden-master/, the before/after
                               # comparison scripts that phase was verified with. Tracked in git
                               # and .Rbuildignore'd, so none of it reaches the built package.
+    tools/
+      check-r-floor.R         # compares DESCRIPTION's declared Depends: R (>= x) against the
+                              # closure of the hard dependencies and fails if it is not
+                              # reachable. Run by the r-floor-consistency job in
+                              # .github/workflows/R-CMD-check.yaml, not by R CMD check.
+                              # Tracked in git and .Rbuildignore'd (Section 3, Section 5)
 
 ------------------------------------------------------------------------
 
@@ -219,7 +274,41 @@ ask before installing it, but it genuinely is needed for
 - **The publication repo (`beckyfisher/FSSgam`) is strictly read-only**
   for the purposes of this work. Do not commit to it or suggest changes
   to it. Its URLs are permanent references in the published paper
-  (Fisher et al. 2018).
+  (Fisher et al. 2018). Filing an issue there is not a change to it, and
+  is required by the rule below.
+
+- **Enhancements are lodged in `beckyfisher/FSSgam`. Issues in this
+  repository are genuine bugs or defects.** Ruled by RF on 2026-09-05,
+  when `FSSgam_package#25`, a request for a per-model precision summary
+  of a `null.terms` term, was transferred to `beckyfisher/FSSgam#18`.
+  The purpose is that this repository’s open issue count reads as
+  outstanding defects rather than a mixed backlog.
+
+  Before filing here, establish whether the item reports something
+  behaving wrongly or asks for something new; anything new goes to the
+  publication repository. Use `gh issue transfer` to move one, which
+  preserves the body and comments and leaves a redirect from the old
+  number.
+
+  **A transfer breaks every unqualified issue reference in the body**,
+  which then resolves to the destination repository — the reason the
+  qualification rule at the end of this section exists. Requalify them
+  after transferring, and check whether the body’s motivation still
+  holds: `FSSgam_package#25` argued from a screen that
+  `FSSgam_package#23` had removed in the meantime.
+
+- **A closing keyword needs `beckyfisher/FSSgam_package#41`, not
+  `FSSgam_package#41`.** GitHub resolves `#41` and `owner/repo#41`; the
+  owner-less short form renders as plain text, so no link is made and
+  the issue stays open when the pull request merges. That short form
+  satisfies the qualification rule below on its own, which is how it
+  came to be used. Pull request \#46 wrote `Closes FSSgam_package#41`
+  and pull request \#48 named FSSgam_package#42 and \#44 in prose; both
+  merged, on 2026-09-06 and 2026-09-07, and all three issues stayed open
+  until they were closed by hand on 2026-09-07. Write the full
+  `owner/repo#N` form in a closing keyword, which both qualifies the
+  reference and closes the issue. Elsewhere, where a reference is not
+  meant to close anything, either form qualifies it.
 
 - **Vignettes live in the publication repo, not here.** Do not create a
   `vignettes/` folder in this package repo. Full worked examples and
@@ -244,17 +333,60 @@ ask before installing it, but it genuinely is needed for
   not in any index” if a new exported function is missing from every
   group).
 
+- **New work branches off `dev`; pull requests target `dev`.** `master`
+  receives `dev` at a release, and nothing is committed to `master`
+  directly. This was not the practice until 2026-09-02: every pull
+  request from \#1 to \#29 was opened against `master`, and `dev` sat 64
+  commits behind carrying no commits of its own. It was fast-forwarded
+  to `master` on that date, which required no history rewrite because it
+  was a strict ancestor, and GitHub’s default branch was changed from
+  `master` to `dev` so that `gh pr create` and the web interface base
+  there without being told. One consequence is already in place:
+  `master` carries the development version `1.1.0.9000` and an
+  unreleased `NEWS.md` section, because that is where the merged work
+  landed. Both workflows already trigger on `dev`, and pkgdown builds
+  `dev` in devel mode to `docs/dev/` while `master` keeps the release
+  site at the root (Phase 11).
+
+- **A stack of dependent branches reaches `dev` only through its tip,
+  and merging the lowest one first strands the rest.** Batches 1 to 6
+  were each branched from the one before, and PR \#32 merged batch 1
+  into `dev` before PRs \#35, \#36, \#38, \#40 and \#43 merged each
+  later batch into its predecessor. Those five merges travelled up the
+  stack and never reached `dev`, so for three days `dev` held batch 1
+  alone while all six branches read as merged on GitHub and eleven
+  issues were fixed on none of them. PR \#45 propagated the tip on
+  2026-09-05.
+
+  Two things made this hard to see. Every branch reported itself ahead
+  of `dev`, so none looked like the tip; and after the collapse each of
+  batches 1 to 4 was ahead by exactly one commit, its own merge commit,
+  whose parents were already on `dev` and which therefore held no
+  content. The tip was batch 5, the branch that was ahead by the most.
+
+  Establish the tip by content rather than by what is ahead.
+  `git diff --name-only <candidate> <branch>` against every other branch
+  identifies the one nothing is missing from, and
+  `git log <branch> --not <candidate> -- R/ tests/ DESCRIPTION NAMESPACE man/`
+  confirms no package content is stranded. Where a branch is ahead only
+  by merge commits whose parents are all reachable from `dev`, it is
+  fully merged whatever `git branch --merged` reports.
+
+  The remedy for the arrangement is to merge the stack tip into `dev` in
+  one PR, not to merge each branch in turn — the intermediate branches
+  carry older trees and merging them adds nothing.
+
 - **`master` and `dev` share the same `DESCRIPTION` `Version`.** This
   was not always true. Originally `dev` ran `1.0.0.9000` so pkgdown’s
   `development: mode: auto` could resolve `master` to `release` and
   `dev` to `devel` purely from the Version string (Phase 8) — but that
-  meant every ordinary merge/PR between the branches fought the
-  deliberate divergence. It broke for real once (PR \#2, 2026-06-22:
-  merging `dev` into `master` dragged `1.0.0.9000` across, fixed by hand
-  afterward) before being designed out altogether. Phase 11 moved the
-  release/devel decision into `.github/workflows/pkgdown.yaml` (keyed
-  off the branch name via the `PKGDOWN_MODE` env var, passed into a
-  manual `as_pkgdown()`/`build_site()` call rather than
+  meant every ordinary merge/PR between the branches worked against the
+  deliberate divergence. It failed once in practice (PR \#2, 2026-06-22:
+  merging `dev` into `master` carried `1.0.0.9000` over, corrected by
+  hand afterward) before being designed out altogether. Phase 11 moved
+  the release/devel decision into `.github/workflows/pkgdown.yaml`
+  (keyed off the branch name via the `PKGDOWN_MODE` env var, passed into
+  a manual `as_pkgdown()`/`build_site()` call rather than
   `build_site_github_pages()`’s own override forwarding — see the Phase
   11 caution note for why that distinction matters), so `_pkgdown.yml`’s
   `development.mode` is now a plain static `release` default and
@@ -275,8 +407,8 @@ ask before installing it, but it genuinely is needed for
   construction silently (caught by
   [`try()`](https://rdrr.io/r/base/try.html), surfaces as an unexplained
   `NA`). mgcv resolves these by literal symbol name during formula
-  parsing, not via normal namespaced function dispatch. This bit us once
-  during the 1.0.0 refactor (see the comment in
+  parsing, not via normal namespaced function dispatch. This was
+  encountered once during the 1.0.0 refactor (see the comment in
   `function_check_non_linear_correlations_v1.00.R`) — when adding
   `package::function()` namespacing elsewhere, never apply it to a
   smooth constructor written inside a formula, even though it’s safe
@@ -304,6 +436,56 @@ ask before installing it, but it genuinely is needed for
   (e.g. `case-study-1.Rmd`) are the best source of real, working
   [`generate.model.set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate.model.set.md)/[`fit.model.set()`](https://beckyfisher.github.io/FSSgam_package/reference/fit.model.set.md)
   call patterns to adapt for examples and tests.
+
+- **An absent correlation must stay absent, not become a zero.** Three
+  issues are one defect: a cell no correlation was established for, read
+  as zero, admits a predictor that no screen then examines.
+  FSSgam_package#23 (a forced term outside the `cov.cutoff` screen),
+  \#27 (an `NA` between two predictors) and \#41 (an `NA` between a
+  forced term and a predictor) are each an instance.
+
+  `build_null_term_correlations()` (`R/generate-model-set.R`) has the
+  same trap on its own failure path, and it is easy to walk into while
+  fixing one of the three. Where the correlation computation fails it
+  returns `NULL`, or omits that forced term’s row, so a pair it could
+  not compute is absent from `null.term.correlations` rather than
+  reported there as zero. Allocating the full matrix up front and
+  returning it on every path converts each of those absences into a
+  stated correlation of zero, in the element the documentation offers
+  for inspection, for exactly the pairs the warning says were not
+  screened.
+
+  **That substitution passes the whole test suite.**
+  `screen_against_null_terms()` drops nothing on a zero, so the model
+  set, the warnings and the included variables are all unchanged; only
+  the reported matrix differs. It was found during the review of PR \#46
+  by comparing every scenario against the base branch, not by running
+  the tests. Pin the sentinel with `expect_null()` and with an assertion
+  that the uncomputed forced term has no row – an assertion about the
+  model set does not reach it.
+
+  Reviewing any change to this function needs the direct-call harness
+  the golden masters of Phase 6/6b and Phase 14 use, over the
+  orientations of a supplied `cor.matrix`: named as a row only, as a
+  column only, in both dimensions, `NA` in one direction, `NA` in every
+  direction it has, and a row part supplied. The committed suite reaches
+  the model set, not the shape of the returned matrix.
+
+- **Prose conventions come from the parent `CLAUDE.md`, sections 12 to
+  14**, which hold the register, the rules for issue and pull request
+  text, and the two-document form for planning. They apply here to
+  `NEWS.md`, commit messages, issue and pull request text, and roxygen2
+  documentation. None of them is restated in this file, and the ruling
+  section 12 distils is `bayesnec/notes/vignette_numbering.md` (RF,
+  2026-08-24). Two applications are specific to this repository and are
+  recorded in full where they were learned rather than as general style:
+  qualify every issue number by repository, since \#10, \#12 and \#15
+  each exist in both `beckyfisher/FSSgam` and
+  `beckyfisher/FSSgam_package` (Section 6, Phase 13); and attribute
+  every measurement with what was run, on what host and at which package
+  versions, since the test expectation count went out of step between
+  `NEWS.md`, this file and a pull request body in five consecutive
+  review rounds in Phase 13, and again in Phase 14.
 
 ------------------------------------------------------------------------
 
@@ -772,17 +954,23 @@ Points to note before extending the suite again:
   [`full_subsets_gam()`](https://beckyfisher.github.io/FSSgam_package/reference/full_subsets_gam.md)
   Phase 7 regression tests, and everything in `test-deprecated.R`.
 
-- **The tests may not use
-  [`deparse1()`](https://rdrr.io/r/base/deparse.html).** It arrived in R
-  4.0.0 and `DESCRIPTION` declares `R (>= 3.5)`, so the suite has to run
-  without it. `deparse_one()` in `helper-fixtures.R` is the replacement,
-  and matches [`deparse1()`](https://rdrr.io/r/base/deparse.html)’s
-  `width.cutoff = 500L`.
-  [`deparse()`](https://rdrr.io/r/base/deparse.html)’s own default of 60
-  wraps 8 of the 39 formulas across three representative candidate sets,
-  and a wrapped formula deparses to a different string, so the cutoff
-  matters. `testthat (>= 3.1.5)` is declared for the same class of
-  reason: `expect_no_warning()` arrived in that version.
+- **Deparse formulas with
+  [`deparse1()`](https://rdrr.io/r/base/deparse.html), not
+  [`deparse()`](https://rdrr.io/r/base/deparse.html).**
+  [`deparse()`](https://rdrr.io/r/base/deparse.html)’s default
+  `width.cutoff` of 60 wraps 8 of the 39 formulas across three
+  representative candidate sets, and a wrapped formula deparses to a
+  different string, so the cutoff matters;
+  [`deparse1()`](https://rdrr.io/r/base/deparse.html) uses 500. The
+  suite used a local `deparse_one()` while
+  [`deparse1()`](https://rdrr.io/r/base/deparse.html) could not be
+  called: it arrived in R 4.0.0 and the declared floor was `R (>= 3.5)`.
+  That floor was not reachable in the first place and has been raised
+  (FSSgam_package#31), so
+  [`deparse1()`](https://rdrr.io/r/base/deparse.html) is now used
+  directly and `deparse_one()` no longer exists. `testthat (>= 3.1.5)`
+  is declared for a related reason: `expect_no_warning()` arrived in
+  that version.
 
 - **The numerical snapshots run everywhere, with one exclusion.** The
   binomial `gamm4`/`uGamm` scenario omits `edf` from its numeric
@@ -891,8 +1079,9 @@ and re-run more than once.
 
 **Three statements this caution originally carried were wrong, and were
 corrected on 2026-09-01 after the stall was measured properly. Do not
-re-derive them.** Each one sent a later session down a blind alley. See
-FSSgam_package#14, which holds the measurements and a reprex.
+re-derive them.** Each one led a later session to an incorrect
+conclusion. See FSSgam_package#14, which holds the measurements and a
+reprex.
 
 - *“cluster startup stalled”*. Startup completes. Instrumenting
   `fit_and_summarise_unsaved_models()` and running until a stall showed
@@ -924,6 +1113,48 @@ evidence that the code under test is broken, and a single clean run is
 not evidence that it works. Both were concluded during the pre-CRAN
 refactor from one observation each, and both were wrong. Measure a rate
 across fresh processes.
+
+**These arms have been measured and the measurements settle nothing. The
+sample sizes used are far too small, which was not noticed until it was
+pointed out.**
+
+`setup_strategy = "sequential"` and `clusterEvalQ()` pre-loading were
+both tried on 2026-09-05, two blocks of 30 trials per arm, alternating
+trial by trial: 12 stalls in 60 for `sequential` against a baseline 6 in
+60, and 6 in 60 for pre-loading. That was reported as “neither is a
+fix”. **It does not support that.** Simulated power at 60 per arm to
+detect a halving of a 0.10 rate is 0.09, so a direction that halved the
+stall rate would have been missed nine times in ten. An independent
+replication of the same design, 212 trials, put `sequential` at parity
+and pre-loading at an odds ratio of 0.23 (p = 0.10) – the opposite
+direction for pre-loading. The position is undetermined, not settled.
+
+The same applies to the block before it, which measured 13 in 30 against
+5 in 30 for `sequential` and gave p = 0.047. Power for that comparison
+is 0.51, so it was a coin flip whether the effect it “found” would
+appear at all. It did not replicate.
+
+**Do not conclude from a stall measurement without computing the power
+first.** Three of these comparisons have now been reported as findings
+and none had the power to support one.
+
+An earlier version of this entry attributed the failure to replicate to
+comparing across sessions, and told future sessions that only arms
+alternated within one run are comparable. Both blocks were alternated
+within one run, so that explanation is refuted by its own data; the
+sample size is the explanation. It also asserted the `NEWS.md` figures
+for the `gamm4` change are within-run comparisons rather than rates.
+That criticism is withdrawn: that entry alternated in blocks of ten
+across 140 runs and already states its figures are one session’s
+measurement on one host. The unqualified “1 stall in 50 runs against 21
+in 50” earlier in this section is the figure that was not alternated.
+
+**`ubuntu-latest` has already been measured and does not reproduce the
+stall.** That is stated in FSSgam_package#14’s own comments of
+2026-09-01, and `.github/workflows/parallel-tests.yaml` runs the opt-in
+parallel tests there on every pull request. Three documents written on
+2026-09-05 called it the remaining untried direction, which is what
+comes of writing about an issue without reading its comments.
 
 ### Phase 14 — Pre-CRAN refactor: defects, argument validation, interaction
 
@@ -1015,6 +1246,106 @@ candidate rather than aborting the run.
 `full-subsets-gam.R` and `functions_supporting.R`. An editor that
 rewrites them as LF turns a three-line change into a whole-file diff.
 Check with `file R/*.R` before editing one.
+
+### Phase 15 — The model selection criterion: quasi-likelihood and censored
+
+families (FSSgam_package#42, \#44; PR \#48) — Completed
+
+Done. `AICc` and `BIC` were read from
+[`MuMIn::AICc()`](https://rdrr.io/pkg/MuMIn/man/AICc.html) and
+[`stats::BIC()`](https://rdrr.io/r/stats/AIC.html), which both resolve
+to the fitted family’s own `aic` slot. A quasi-likelihood has none, so
+the whole model set came back `NA`; `mgcv`’s `cnorm()` and `clog()`
+return a number that is not a censored log-likelihood, so the set was
+ranked on a criterion that was wrong rather than missing.
+`R/criterion.R` now resolves once per model set, before the fitting
+loop, which log-likelihood the set is ranked on. `NEWS.md` describes
+every user-visible change; the reasoning is in
+`prompts/criterion-columns.md`. What is recorded here is only what a
+later session would otherwise re-derive.
+
+**Three `mgcv` properties this depends on, each measured rather than
+assumed.** `getTheta(TRUE)` returns the scale itself, not its logarithm,
+despite `theta` being documented as a log scale parameter. A prior
+weight divides the scale by its square root, matching `mgcv`’s own
+`th <- theta - log(wt)/2`. And `attr(logLik(fit), "df")` is finite even
+for a quasi-likelihood fit whose
+[`logLik()`](https://rdrr.io/r/stats/logLik.html) value is `NA`, because
+`logLik.gam` computes the degrees of freedom before it reads the `aic`
+slot – which is what makes a user-supplied `logLik.fn` a usable route
+for a quasi `test.fit` rather than a dead end.
+
+**A fitted extended family reports its estimated parameter as part of
+its name.** `fit$family$family` is `"cnorm(0.573)"`, not `"cnorm"`. Any
+test on the family of a *fitted* model must be a prefix match. Issue
+FSSgam_package#42’s own reproduction script has this defect – it tests
+`identical(family, "clog")`, which is never true after fitting, and so
+evaluated the normal density on a logistic fit; the `clog` figure in
+that issue’s table is wrong in consequence.
+
+**A quasi-likelihood is not detected by the criterion being `NA`.**
+Through
+[`MuMIn::uGamm()`](https://rdrr.io/pkg/MuMIn/man/updateable.html) or
+[`mgcv::gamm()`](https://rdrr.io/pkg/mgcv/man/gamm.html),
+[`MuMIn::AICc()`](https://rdrr.io/pkg/MuMIn/man/AICc.html) returns a
+number read from the internal `lme` fit of the PQL working model.
+Measured on `case_study1`: 176.03, and a three-candidate set ranked with
+a weight of 1.000 on the best. Both the value and the family name are
+therefore checked.
+
+**`mgcv` reads a censored case from the second response column alone.**
+For a finite interval it takes `pmin`/`pmax` of the pair, so either
+column order fits identically and must be read the same way. An
+*infinite* bound in the first column is different: under `clog` the row
+matches none of the censored cases and is dropped from the fit without a
+message, and `cnorm` refuses to fit that coding at all. Anything
+computing a censored likelihood must classify the same way `dev.resids`
+does, and refuse what `mgcv` silently drops.
+
+**A `logLik.fn` written at the top level of a script cannot reach a
+doSNOW worker with its free variables**, and this cannot be fixed from
+inside the package. `foreach:::getexports()` replaces the environment of
+any exported function whose environment is `.GlobalEnv`, and
+`.GlobalEnv` is never serialised by value in any case. Measured in one
+cluster: a top-level closure reading a top-level variable fails with
+“object ‘shift’ not found”; the same closure built by a constructor
+returns the right value. This is `beckyfisher/FSSgam#10`’s cause
+reaching a new argument, and unlike that one it cannot be resolved on
+the calling process, because the function has to be evaluated on each
+fit. It is documented on the argument instead.
+
+**Two defects found while working here, fixed in their own commits.**
+The two fitting paths disagreed on what a failed model is –
+`save.model.fits = FALSE` defined one by an `NA` criterion and the other
+by the class of the fit – and summed variable importance came back `NA`
+for every predictor whenever any candidate in the table had an `NA`
+weight. Both were reachable on 1.1.0 through a candidate that failed to
+fit under `save.model.fits = FALSE`, and `max.models` selects that path
+without being asked, so neither was the user’s choice. The unsaved loop
+now returns a `fit.ok` flag alongside each summary row, read and dropped
+before `mod.data.out` is assembled; if you add anything to that row,
+`na_mod_dat_row()` and `normalise_mod_dat_rows()`’s length test must
+change with it, and two tests in `test-fit_model_set_options.R` assert
+the row shape.
+
+**The test oracle is the point of the censored tests.**
+`censored_loglik()` is compared against a second computation built from
+`mgcv`’s own `ls` and `dev.resids` through
+`deviance = 2 * (saturated - loglik)`. The two share no code, and
+neither reads the `aic` slot that FSSgam_package#42 reports as
+defective, so their agreement is evidence rather than a tautology. Keep
+them independent: implementing `censored_loglik()` in terms of
+`ls`/`dev.resids` would be shorter and would destroy the test.
+
+**No test asserts a value produced by `mgcv`’s defective `aic` slots**,
+per the Phase 13 rule. The values that route produced are in a comment
+beside the test instead. Three assertions on external behaviour are
+deliberate and are premise checks rather than expectations about the
+defect: [`MuMIn::AICc()`](https://rdrr.io/pkg/MuMIn/man/AICc.html) being
+`NA` for a quasi `gam` and finite for a quasi `uGamm`, which is why two
+checks are needed; the `getTheta()` scale-recovery test, aimed at a
+change in semantics rather than a repair; and the `clog` coding test,
+which skips rather than fails if `mgcv` stops fitting that coding.
 
 ------------------------------------------------------------------------
 
