@@ -40,7 +40,7 @@
 #'
 #' Maintainer: Rebecca Fisher \email{r.fisher@@aims.gov.au}
 #' @references Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
-#' \url{https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134}
+#' \doi{10.1002/ece3.4134}
 #' @examples
 #' library(FSSgam)
 #' @importFrom foreach %dopar%

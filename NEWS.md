@@ -553,6 +553,31 @@
   declared stable in 3.2.0. It is a `Suggests`, so nothing a user installs
   changes.
 
+* Package metadata prepared for a CRAN submission. The `Title` drops "in R",
+  which CRAN reads as redundant. `Authors@R` declares the Australian Institute
+  of Marine Science as copyright holder (`cph`); every file in `R/` states that
+  copyright and the holder was previously undeclared.
+
+  No `Language` field is declared, which was measured rather than assumed.
+  The documentation uses Australian spelling, but `DESCRIPTION` names
+  "Generalized Additive Models", the standard term. Measured with `hunspell`
+  3.0.5 on this tree: `en_GB` flags six words in the `Title` and `Description`
+  against `en_US`'s four, adding "Generalized" and "GAMs", and 57 against 56
+  across `man/`. CRAN reports the `DESCRIPTION` words, so declaring `en-GB`
+  would report more of them, not fewer.
+
+* The reference to Fisher et al. (2018) is written as `\doi{10.1002/ece3.4134}`
+  in all four places it appears, rather than as a link to the publisher's page.
+  The publisher refuses automated requests, so the URL check reported that link
+  as possibly invalid; a DOI is resolved instead.
+
+* `README.md` states what the package does, how to install it, and a worked
+  two-step call of `generate_model_set()` and `fit_model_set()`. The CRAN status
+  badge is removed until the package is accepted, its link having been a 404
+  that the URL check reported. Corrected "FFSgam" to "FSSgam" and
+  "calaculation" to "calculation" in `check_correlations()`'s `parallel`
+  argument.
+
 # FSSgam 1.1.0
 
 * Completed the snake_case rename across the public API.

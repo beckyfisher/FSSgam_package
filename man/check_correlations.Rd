@@ -10,7 +10,7 @@ check_correlations(dat, parallel = FALSE, n.cores = 4)
 \item{dat}{the data.frame containing the columns for which a correlation
 matrix is sought.}
 
-\item{parallel}{a logical indicating if calaculation of the correlation matrix
+\item{parallel}{a logical indicating if calculation of the correlation matrix
 should be done in parallel. Defaults to FALSE.}
 
 \item{n.cores}{a numeric value indicating the number of cores to utilise if

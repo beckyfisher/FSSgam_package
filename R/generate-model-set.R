@@ -64,7 +64,7 @@
 #'
 #' @details The function constructs a complete model set based on the supplied arguments.
 #' for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
-#' https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134
+#' \doi{10.1002/ece3.4134}
 #' @export
 #' @return A list of the following output files:
 #'

@@ -17,7 +17,7 @@
 #' generates a correlation matrix among all columns of a data.frame
 #' @param dat the data.frame containing the columns for which a correlation
 #' matrix is sought.
-#' @param parallel a logical indicating if calaculation of the correlation matrix
+#' @param parallel a logical indicating if calculation of the correlation matrix
 #' should be done in parallel. Defaults to FALSE.
 #' @param n.cores a numeric value indicating the number of cores to utilise if
 #' parallel is TRUE.
