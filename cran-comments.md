@@ -49,8 +49,10 @@ needs it calls `skip_if_not_installed()`.
   <https://github.com/beckyfisher/FSSgam>, which is cited in the package
   documentation (`@references`, `URL`).
 * All `@examples` are runnable; none are wrapped in `\donttest{}`. The slowest
-  is `fit.model.set()` at 0.60 seconds elapsed, read from the 1.2.0 check's own
-  `FSSgam-Ex.timings`; all thirteen are below 0.61 seconds.
+  of the thirteen takes 0.60 seconds elapsed, read from the 1.2.0 check's own
+  `FSSgam-Ex.timings`. Three of them are the examples of the deprecated aliases
+  named above, and each emits one deprecation warning, that being the behaviour
+  the example documents.
 * No `Language` field is declared. The documentation uses Australian spelling,
   but `DESCRIPTION` names "Generalized Additive Models", the standard term.
   Measured with `hunspell` 3.0.5: `en_GB` flags six words in the `Title` and
