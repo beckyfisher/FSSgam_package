@@ -1,4 +1,4 @@
-# FSSgam (development version)
+# FSSgam 1.2.0
 
 * `generate_model_set()` gains `null.cov.cutoff`, defaulting to 0.8, and returns
   `null.term.correlations`. **Behaviour change:** a predictor correlated with a
