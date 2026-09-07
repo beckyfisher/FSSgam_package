@@ -258,6 +258,18 @@ tools/
   and check whether the body's motivation still holds: `FSSgam_package#25`
   argued from a screen that `FSSgam_package#23` had removed in the meantime.
 
+- **A closing keyword needs `beckyfisher/FSSgam_package#41`, not
+  `FSSgam_package#41`.** GitHub resolves `#41` and `owner/repo#41`; the
+  owner-less short form renders as plain text, so no link is made and the issue
+  stays open when the pull request merges. That short form satisfies the
+  qualification rule below on its own, which is how it came to be used. Pull
+  request #46 wrote `Closes FSSgam_package#41` and pull request #48 named
+  FSSgam_package#42 and #44 in prose; both merged, on 2026-09-06 and
+  2026-09-07, and all three issues stayed open until they were closed by hand
+  on 2026-09-07. Write the full `owner/repo#N` form in a closing keyword, which
+  both qualifies the reference and closes the issue. Elsewhere, where a
+  reference is not meant to close anything, either form qualifies it.
+
 - **Vignettes live in the publication repo, not here.** Do not create a
   `vignettes/` folder in this package repo. Full worked examples and case
   studies are permanently hosted at https://github.com/beckyfisher/FSSgam.
