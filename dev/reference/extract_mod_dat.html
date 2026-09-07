@@ -38,7 +38,7 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">extract_mod_dat</span><span class="op">(</span><span class="va">mod.fit</span>, r2.type. <span class="op">=</span> <span class="st">"r2.lm.est"</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">extract_mod_dat</span><span class="op">(</span><span class="va">mod.fit</span>, r2.type. <span class="op">=</span> <span class="st">"r2.lm.est"</span>, logLik.fn <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -52,6 +52,15 @@
 <dt id="arg-r-type-">r2.type.<a class="anchor" aria-label="anchor" href="#arg-r-type-"></a></dt>
 <dd><p>The type of r2 to extract. Passed through arguments supplied to fit_model_set</p></dd>
 
+
+<dt id="arg-loglik-fn">logLik.fn<a class="anchor" aria-label="anchor" href="#arg-loglik-fn"></a></dt>
+<dd><p>A function of one argument, a fitted model, returning a single
+log-likelihood value, or NULL (the default) to read AICc from MuMIn::AICc and BIC from
+stats::BIC as before. When supplied, AICc and BIC are built from the value it returns, at
+the degrees of freedom and sample size the default route uses, so only the log-likelihood
+changes. fit_model_set passes this through, and supplies it itself for a test.fit fitted
+with one of mgcv's censored families.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -59,7 +68,11 @@
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>Extracts model fit parameters from a dsm, gam or uGamm fitted model object</p>
+    <p>Extracts model fit parameters from a dsm, gam or uGamm fitted model object.
+Called directly, this function reads AICc and BIC from MuMIn::AICc and stats::BIC
+whatever the fitted family is, so a censored fit gives the value mgcv reports rather
+than one built from a censored log-likelihood. It is fit_model_set that resolves which
+log-likelihood a model set is ranked on and passes it here as logLik.fn.</p>
     </div>
 
     <div class="section level2">
