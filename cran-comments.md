@@ -29,6 +29,11 @@ The check was run with `--no-manual`, this machine's TeX Live having neither
 
 `urlchecker::url_check()` reports all 11 URLs in the package as correct.
 
+The package was also checked with `_R_CHECK_DEPENDS_ONLY_=true`, so that the
+`Suggests` are unavailable: `Status: OK`, with 887 tests passing, 0 failing and
+20 skipped. `gamm4` is the only `Suggests` the tests use, and the fixture that
+needs it calls `skip_if_not_installed()`.
+
 ## Notes for CRAN reviewers
 
 * `full.subsets.gam()`, `generate.model.set()` and `fit.model.set()` are
@@ -44,8 +49,8 @@ The check was run with `--no-manual`, this machine's TeX Live having neither
   <https://github.com/beckyfisher/FSSgam>, which is cited in the package
   documentation (`@references`, `URL`).
 * All `@examples` are runnable; none are wrapped in `\donttest{}`. The slowest
-  is `full.subsets.gam()` at 0.54 seconds elapsed, measured from the check's own
-  `FSSgam-Ex.timings`.
+  is `fit.model.set()` at 0.60 seconds elapsed, read from the 1.2.0 check's own
+  `FSSgam-Ex.timings`; all thirteen are below 0.61 seconds.
 * No `Language` field is declared. The documentation uses Australian spelling,
   but `DESCRIPTION` names "Generalized Additive Models", the standard term.
   Measured with `hunspell` 3.0.5: `en_GB` flags six words in the `Title` and
