@@ -5,12 +5,12 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Full Subsets Multiple Regression in R Using GAMs • FSSgam</title>
+<title>Full Subsets Multiple Regression Using GAMs • FSSgam</title>
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Full Subsets Multiple Regression in R Using GAMs">
+<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Full Subsets Multiple Regression Using GAMs">
 <meta name="description" content="Full-subsets information-theoretic approaches are increasingly used to explore predictive power and variable importance when a wide range of candidate predictors are being considered. This package provides functions that can be used to construct, fit, and compare a complete model set of possible ecological or environmental predictors for a given response variable of interest. Models are based on Generalized Additive Models (GAMs) and build on the MuMIn package. Advantages include the capacity to fit more predictors than there are replicates, automatic removal of models with correlated predictors, and support for model sets that include interactions between factors and smooth predictors, as well as smooth-by-smooth interactions via te(). Methods are described in Fisher et al. (2018) &lt;doi:10.1002/ece3.4134&gt;.">
 <meta property="og:description" content="Full-subsets information-theoretic approaches are increasingly used to explore predictive power and variable importance when a wide range of candidate predictors are being considered. This package provides functions that can be used to construct, fit, and compare a complete model set of possible ecological or environmental predictors for a given response variable of interest. Models are based on Generalized Additive Models (GAMs) and build on the MuMIn package. Advantages include the capacity to fit more predictors than there are replicates, automatic removal of models with correlated predictors, and support for model sets that include interactions between factors and smooth predictors, as well as smooth-by-smooth interactions via te(). Methods are described in Fisher et al. (2018) &lt;doi:10.1002/ece3.4134&gt;.">
 <meta name="robots" content="noindex">
@@ -23,7 +23,7 @@
 
     <a class="navbar-brand me-2" href="index.html">FSSgam</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">1.1.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">1.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -47,31 +47,79 @@
 </nav><div class="container template-home">
 <div class="row">
   <main id="main" class="col-md-9"><div class="section level1">
-<div class="page-header"><h1 id="fssgam_package">FSSgam_package<a class="anchor" aria-label="anchor" href="#fssgam_package"></a>
+<div class="page-header"><h1 id="fssgam">FSSgam<a class="anchor" aria-label="anchor" href="#fssgam"></a>
 </h1></div>
 <!-- badges: start -->
 
-<p>Functions and code for building the FFSgam package.</p>
-<p>Please see <a href="https://github.com/beckyfisher/FSSgam" class="external-link uri">https://github.com/beckyfisher/FSSgam</a> for example of usage.</p>
-<p>For documentation, FAQs, and case studies see: <a href="https://beckyfisher.github.io/FSSgam/" class="external-link uri">https://beckyfisher.github.io/FSSgam/</a></p>
+<p>FSSgam constructs, fits and compares a complete model set of candidate ecological or environmental predictors for a response variable of interest. Models are generalized additive models, fitted with <a href="https://cran.r-project.org/package=mgcv" class="external-link">mgcv</a> or <a href="https://cran.r-project.org/package=gamm4" class="external-link">gamm4</a>, and ranked by AICc using <a href="https://cran.r-project.org/package=MuMIn" class="external-link">MuMIn</a>.</p>
+<p>The approach admits more predictors than there are replicates, removes models with correlated predictors automatically, and supports model sets containing interactions between factors and smooth predictors as well as smooth-by-smooth interactions through <code><a href="https://rdrr.io/pkg/mgcv/man/te.html" class="external-link">te()</a></code>. The method is described in Fisher et al. (2018), <em>Ecology and Evolution</em>, <a href="doi:10.1002/ece3.4134" class="uri">doi:10.1002/ece3.4134</a>.</p>
+<div class="section level2">
+<h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
+</h2>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># install.packages("devtools")</span></span>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"beckyfisher/FSSgam_package"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a>
+</h2>
+<p>An analysis is built in two steps. <code><a href="reference/generate_model_set.html">generate_model_set()</a></code> builds the candidate set from a test fit and a list of predictors, and <code><a href="reference/fit_model_set.html">fit_model_set()</a></code> fits and compares that set. Separating them allows the candidate set to be inspected before anything is fitted, and allows the fitted objects to be discarded as they are summarised, which matters for large sets.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/beckyfisher/FSSgam_package" class="external-link">FSSgam</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">mgcv</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">case_study1</span><span class="op">)</span></span>
+<span><span class="va">use.dat</span> <span class="op">&lt;-</span> <span class="va">case_study1</span></span>
+<span><span class="va">use.dat</span><span class="op">$</span><span class="va">site</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">as.factor</a></span><span class="op">(</span><span class="va">use.dat</span><span class="op">$</span><span class="va">site</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">test.fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">Herbivore.abundance</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">depth</span>, k <span class="op">=</span> <span class="fl">3</span>, bs <span class="op">=</span> <span class="st">"cr"</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">site</span>, bs <span class="op">=</span> <span class="st">"re"</span><span class="op">)</span>,</span>
+<span>                family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/Tweedie.html" class="external-link">tw</a></span><span class="op">(</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">use.dat</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">model.set</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/generate_model_set.html">generate_model_set</a></span><span class="op">(</span></span>
+<span>  use.dat        <span class="op">=</span> <span class="va">use.dat</span>,</span>
+<span>  test.fit       <span class="op">=</span> <span class="va">test.fit</span>,</span>
+<span>  pred.vars.cont <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"complexity"</span>, <span class="st">"depth"</span><span class="op">)</span>,</span>
+<span>  pred.vars.fact <span class="op">=</span> <span class="st">"ZONE"</span>,</span>
+<span>  null.terms     <span class="op">=</span> <span class="st">"s(site,bs='re')"</span>,</span>
+<span>  max.predictors <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  k              <span class="op">=</span> <span class="fl">3</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/fit_model_set.html">fit_model_set</a></span><span class="op">(</span><span class="va">model.set</span><span class="op">)</span></span>
+<span><span class="va">out</span><span class="op">$</span><span class="va">mod.data.out</span>          <span class="co"># the model table, ranked by AICc</span></span>
+<span><span class="va">out</span><span class="op">$</span><span class="va">variable.importance</span>   <span class="co"># summed model weights per predictor, by criterion</span></span></code></pre></div>
+<p><code><a href="reference/full_subsets_gam.html">full_subsets_gam()</a></code> performs both steps in one call. It saves every fitted model, so it is recommended only for small candidate sets.</p>
+<p><code><a href="reference/check_correlations.html">check_correlations()</a></code> and <code><a href="reference/check_non_linear_correlations.html">check_non_linear_correlations()</a></code> report the predictor correlations the model set is screened against, and can be called before generating a set.</p>
+</div>
+<div class="section level2">
+<h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
+</h2>
+<p>Function reference: <a href="https://beckyfisher.github.io/FSSgam_package/" class="uri">https://beckyfisher.github.io/FSSgam_package/</a></p>
+<p>Worked case studies, an FAQ and the material accompanying the publication are maintained in the companion repository, which is the citable reference for the method: <a href="https://github.com/beckyfisher/FSSgam" class="external-link uri">https://github.com/beckyfisher/FSSgam</a> and <a href="https://beckyfisher.github.io/FSSgam/" class="external-link uri">https://beckyfisher.github.io/FSSgam/</a></p>
+</div>
+<div class="section level2">
+<h2 id="citation">Citation<a class="anchor" aria-label="anchor" href="#citation"></a>
+</h2>
+<p>Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. <em>Ecology and Evolution</em> 8(12): 6104-6113. <a href="doi:10.1002/ece3.4134" class="uri">doi:10.1002/ece3.4134</a></p>
+</div>
 </div>
 <div class="section level1">
 <h1 id="license">License<a class="anchor" aria-label="anchor" href="#license"></a>
 </h1>
 <p>The code is released under the Apache License 2.0</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>Copyright <span class="dv">2020</span> Australian Institute of Marine Science</span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>Licensed under the Apache License, Version <span class="fl">2.0</span> (the <span class="st">"License"</span>);</span>
-<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>you may not use this file except <span class="cf">in</span> compliance with the License.</span>
-<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>You may obtain a copy of the License at </span>
-<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>   http<span class="sc">:</span><span class="er">//</span>www.apache.org<span class="sc">/</span>licenses<span class="sc">/</span>LICENSE<span class="fl">-2.0</span></span>
-<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a></span>
-<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>Unless required by applicable law or agreed to <span class="cf">in</span> writing, software</span>
-<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>distributed under the License is distributed on an <span class="st">"AS IS"</span> BASIS,</span>
-<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
-<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>See the License <span class="cf">for</span> the specific language governing permissions and</span>
-<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>limitations under the License.</span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>Copyright <span class="dv">2020</span> Australian Institute of Marine Science</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>Licensed under the Apache License, Version <span class="fl">2.0</span> (the <span class="st">"License"</span>);</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>you may not use this file except <span class="cf">in</span> compliance with the License.</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>You may obtain a copy of the License at </span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>   http<span class="sc">:</span><span class="er">//</span>www.apache.org<span class="sc">/</span>licenses<span class="sc">/</span>LICENSE<span class="fl">-2.0</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>Unless required by applicable law or agreed to <span class="cf">in</span> writing, software</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>distributed under the License is distributed on an <span class="st">"AS IS"</span> BASIS,</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>See the License <span class="cf">for</span> the specific language governing permissions and</span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>limitations under the License.</span></code></pre></div>
 </div>
 
   </main><aside class="col-md-3"><div class="links">
@@ -101,6 +149,7 @@
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
 <li>Rebecca Fisher <br><small class="roles"> Author, maintainer </small>   </li>
+<li><a href="authors.html">More about authors...</a></li>
 </ul>
 </div>
 
@@ -109,7 +158,6 @@
 <ul class="list-unstyled">
 <li><a href="https://github.com/beckyfisher/FSSgam_package/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/beckyfisher/FSSgam_package/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
 <li><a href="https://app.codecov.io/gh/beckyfisher/FSSgam_package" class="external-link"><img src="https://codecov.io/gh/beckyfisher/FSSgam_package/graph/badge.svg" alt="Codecov test coverage"></a></li>
-<li><a href="https://CRAN.R-project.org/package=FSSgam" class="external-link"><img src="https://www.r-pkg.org/badges/version/FSSgam" alt="CRAN status"></a></li>
 <li><a href="https://www.apache.org/licenses/LICENSE-2.0" class="external-link"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a></li>
 </ul>
 </div>

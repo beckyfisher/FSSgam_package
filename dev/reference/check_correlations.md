@@ -17,7 +17,7 @@ check_correlations(dat, parallel = FALSE, n.cores = 4)
 
 - parallel:
 
-  a logical indicating if calaculation of the correlation matrix should
+  a logical indicating if calculation of the correlation matrix should
   be done in parallel. Defaults to FALSE.
 
 - n.cores:

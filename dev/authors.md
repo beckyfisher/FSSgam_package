@@ -4,19 +4,21 @@
 
 - **Rebecca Fisher**. Author, maintainer.
 
+- **Australian Institute of Marine Science**. Copyright holder.
+
 ## Citation
 
 Source:
 [`DESCRIPTION`](https://github.com/beckyfisher/FSSgam_package/blob/HEAD/DESCRIPTION)
 
-Fisher R (2026). *FSSgam: Full Subsets Multiple Regression in R Using
-GAMs*. R package version 1.1.0.9000,
+Fisher R (2026). *FSSgam: Full Subsets Multiple Regression Using GAMs*.
+R package version 1.2.0,
 <https://github.com/beckyfisher/FSSgam_package>.
 
     @Manual{,
-      title = {FSSgam: Full Subsets Multiple Regression in R Using GAMs},
+      title = {FSSgam: Full Subsets Multiple Regression Using GAMs},
       author = {Rebecca Fisher},
       year = {2026},
-      note = {R package version 1.1.0.9000},
+      note = {R package version 1.2.0},
       url = {https://github.com/beckyfisher/FSSgam_package},
     }

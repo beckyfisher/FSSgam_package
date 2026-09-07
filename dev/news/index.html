@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">FSSgam</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">1.1.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">1.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,7 +32,7 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="development version" id="fssgam-development-version">FSSgam (development version)<a class="anchor" aria-label="anchor" href="#fssgam-development-version"></a></h2>
+<h2 class="pkg-version" data-toc-text="1.2.0" id="fssgam-120">FSSgam 1.2.0<a class="anchor" aria-label="anchor" href="#fssgam-120"></a></h2>
 <ul><li>
 <p><code><a href="../reference/generate_model_set.html">generate_model_set()</a></code> gains <code>null.cov.cutoff</code>, defaulting to 0.8, and returns <code>null.term.correlations</code>. <strong>Behaviour change:</strong> a predictor correlated with a variable named in <code>null.terms</code> above that cutoff is now dropped from the model set, and a warning names it, what it correlates with, and how strongly (FSSgam_package#23).</p>
 <p><code>null.terms</code> forces a term into every candidate, and those terms were outside the <code>cov.cutoff</code> screen, which covers <code>pred.vars.cont</code>, <code>pred.vars.fact</code> and <code>linear.vars</code> only. So a candidate could be arbitrarily strongly correlated with a forced term and appear in every model in the set. That inflates the variance of the forced term’s estimate, which is frequently the term the analysis exists to estimate, and nothing in the output indicated it.</p>
@@ -142,6 +142,12 @@
 </li>
 <li><p>Bug fix: <code>fit_model_set(save.model.fits = FALSE)</code> recorded a candidate that fitted and was given no criterion as a model that failed to fit, and reported it in <code>failed.models</code>. A failed model is now identified by whether <code><a href="../reference/fit_mod_l.html">fit_mod_l()</a></code> returned a fitted object, which is the test the <code>save.model.fits = TRUE</code> path has always used, so the two paths agree on which candidates succeeded. <code>max.models</code> forces <code>save.model.fits = FALSE</code> above 200 candidates, so which path ran was not always the user’s choice.</p></li>
 <li><p>The declared <code>testthat</code> floor is raised from 3.1.5 to 3.2.0, for <code>local_mocked_bindings()</code>, which arrived as experimental in 3.1.7 and was declared stable in 3.2.0. It is a <code>Suggests</code>, so nothing a user installs changes.</p></li>
+<li>
+<p>Package metadata prepared for a CRAN submission. The <code>Title</code> drops “in R”, which CRAN reads as redundant. <code>Authors@R</code> declares the Australian Institute of Marine Science as copyright holder (<code>cph</code>); every file in <code>R/</code> states that copyright and the holder was previously undeclared.</p>
+<p>No <code>Language</code> field is declared, which was measured rather than assumed. The documentation uses Australian spelling, but <code>DESCRIPTION</code> names “Generalized Additive Models”, the standard term. Measured with <code>hunspell</code> 3.0.5 on this tree: <code>en_GB</code> flags six words in the <code>Title</code> and <code>Description</code> against <code>en_US</code>’s four, adding “Generalized” and “GAMs”, and 57 against 56 across <code>man/</code>. CRAN reports the <code>DESCRIPTION</code> words, so declaring <code>en-GB</code> would report more of them, not fewer.</p>
+</li>
+<li><p>The reference to Fisher et al. (2018) is written as <code>\doi{10.1002/ece3.4134}</code> in all four places it appears, rather than as a link to the publisher’s page. The publisher refuses automated requests, so the URL check reported that link as possibly invalid; a DOI is resolved instead.</p></li>
+<li><p><code>README.md</code> states what the package does, how to install it, and a worked two-step call of <code><a href="../reference/generate_model_set.html">generate_model_set()</a></code> and <code><a href="../reference/fit_model_set.html">fit_model_set()</a></code>. The CRAN status badge is removed until the package is accepted, its link having been a 404 that the URL check reported. Corrected “FFSgam” to “FSSgam” and “calaculation” to “calculation” in <code><a href="../reference/check_correlations.html">check_correlations()</a></code>’s <code>parallel</code> argument.</p></li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.1.0" id="fssgam-110">FSSgam 1.1.0<a class="anchor" aria-label="anchor" href="#fssgam-110"></a></h2>
