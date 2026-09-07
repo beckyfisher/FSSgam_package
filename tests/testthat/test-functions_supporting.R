@@ -249,7 +249,7 @@ test_that("fit_mod_l refits a gamm4 test.fit", {
   )
 
   expect_s3_class(updated, "gamm4")
-  expect_match(deparse_one(stats::formula(updated$gam)), "av.wave", fixed = TRUE)
+  expect_match(deparse1(stats::formula(updated$gam)), "av.wave", fixed = TRUE)
 })
 
 test_that("fit_mod_l accepts an explicitly supplied family", {

@@ -4,7 +4,7 @@
 \name{FSSgam-package}
 \alias{FSSgam-package}
 \alias{FSSgam}
-\title{FSSgam: Full Subsets Multiple Regression in R Using GAMs}
+\title{FSSgam: Full Subsets Multiple Regression Using GAMs}
 \description{
 Full-subsets information-theoretic approaches are increasingly used to explore predictive power and variable importance when a wide range of candidate predictors are being considered. This package provides functions that can be used to construct, fit, and compare a complete model set of possible ecological or environmental predictors for a given response variable of interest. Models are based on Generalized Additive Models (GAMs) and build on the 'MuMIn' package. Advantages include the capacity to fit more predictors than there are replicates, automatic removal of models with correlated predictors, and support for model sets that include interactions between factors and smooth predictors, as well as smooth-by-smooth interactions via te(). Methods are described in Fisher et al. (2018) \doi{10.1002/ece3.4134}.
 }
@@ -34,14 +34,14 @@ library(FSSgam)
 }
 \references{
 Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
-\url{https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134}
+\doi{10.1002/ece3.4134}
 }
 \seealso{
 Useful links:
 \itemize{
   \item \url{https://github.com/beckyfisher/FSSgam_package}
-  \item \url{https://beckyfisher.github.io/FSSgam_package}
-  \item \url{https://beckyfisher.github.io/FSSgam}
+  \item \url{https://beckyfisher.github.io/FSSgam_package/}
+  \item \url{https://beckyfisher.github.io/FSSgam/}
   \item Report bugs at \url{https://github.com/beckyfisher/FSSgam_package/issues}
 }
 

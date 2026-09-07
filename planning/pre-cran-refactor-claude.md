@@ -363,9 +363,13 @@ character vector; 8. `factor.smooth.interactions` as a list; 9.
 16. a single predictor.
 
 Scenarios 15 and 16 will differ after phase 4 and must be captured again at
-that point. Use `deparse_one()` from `helper-fixtures.R`, not `deparse()` — its
-default `width.cutoff` of 60 wraps long formulas and a wrapped formula
-deparses to a different string.
+that point. Use `deparse1()`, not `deparse()` — the latter's default
+`width.cutoff` of 60 wraps long formulas and a wrapped formula deparses to a
+different string. This said `deparse_one()`, a local helper in
+`helper-fixtures.R` that existed only because `deparse1()` postdated the
+declared R floor. The floor was raised and the helper deleted
+(FSSgam_package#31); `planning/golden-master/capture.R` still defines its own
+copy and is left alone, being a self-contained record of what was run.
 
 ---
 

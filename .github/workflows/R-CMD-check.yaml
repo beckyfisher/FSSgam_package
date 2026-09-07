@@ -23,6 +23,19 @@ jobs:
           - {os: windows-latest, r: 'release'}
           - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release'}
+          # Establishes that the package builds, installs and passes its
+          # tests on an R at the declared floor, which nothing did before.
+          # Named literally rather than as oldrel-2, which is 4.4.3 and
+          # drifts: a base function added in 4.4.1 would pass CI and fail at
+          # the floor. Update this whenever DESCRIPTION's Depends changes --
+          # the floor-consistency job below fails if the two disagree in the
+          # direction that matters.
+          #
+          # Note what this job cannot do. Installing rejects a floor set
+          # ABOVE the running R and accepts any floor BELOW it, so no matrix
+          # of R versions detects a floor that is too low, which is the whole
+          # of FSSgam_package#31. That is the floor-consistency job's work.
+          - {os: ubuntu-latest,   r: '4.4.0'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -47,3 +60,39 @@ jobs:
         with:
           upload-snapshots: true
           build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
+
+  # The check R CMD check cannot make: whether DESCRIPTION's declared
+  # "Depends: R (>= x)" is reachable given what the hard dependencies
+  # themselves require, transitively. Installing accepts any floor below the
+  # running R, so the matrix above is blind to a floor set too low -- which is
+  # exactly what FSSgam_package#31 reported, and what left "R (>= 3.5)"
+  # standing while mgcv and MuMIn both required R (>= 4.4.0).
+  #
+  # Run against the versions resolved for this job, so a dependency raising
+  # its own floor fails this job rather than going unnoticed until a user
+  # cannot install the package. The script stops if any hard dependency is
+  # not installed, rather than reporting a floor derived from part of the
+  # closure.
+  r-floor-consistency:
+    runs-on: ubuntu-latest
+    name: declared R floor is reachable
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      # The script reads each dependency's own DESCRIPTION, so they have to be
+      # installed, and it stops rather than passing if any is not. needs: check
+      # installs more than it reads -- Suggests included -- which is harmless.
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          needs: check
+
+      - name: Compare the declared floor against the dependency closure
+        run: Rscript tools/check-r-floor.R

@@ -32,11 +32,13 @@
 #'
 #' @param r2.type The value to extract from the gam model fit to use as the R squared value. Defaults to r2.lm.est which returns and estimated R squared value based on a linear regression between the observed and predicted values. r2 will return the adjusted R.sq as reported by gam, gamm or gamm4.dev will return the deviance explained as reported by gam or gamm. Note gamm4 does not currently return a deviance.
 #'
-#' @param  report.unique.r2 The estimated null model R2 is subtracted from each model R2 to give an idea of the unique variance explained. This can be useful where null terms are included in the model set.
+#' @param  report.unique.r2 Should the r2.vals.unique column of mod.data.out be populated. Defaults to FALSE, which leaves it NA. When TRUE, the null model R2 is subtracted from each model R2 to give the variance explained beyond the terms supplied in null.terms. See \code{\link[=fit_model_set]{fit_model_set()}} for what the column is and is not.
 #'
 #' @param progress Should a text progress bar be written to the console while models are fitted. Defaults to interactive(), so the bar appears at the console but not in scripts, reports or checks.
 #'
-#' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in). Set to 'all' to use all models in the candidate set instead.
+#' @param  VI.mods The set of models used to calculate summed variable importance scores. Defaults to 'min.n', which uses only the best n models for each variable (n being the minimum number of models any one predictor is present in, counted over the candidates that were given a criterion). Set to 'all' to use all models in the candidate set instead.
+#'
+#' @param logLik.fn A function of one argument, a fitted model, returning a single log-likelihood value, or NULL (the default). Passed to fit_model_set; see ?fit_model_set for what it does and for the two cases it is supplied for automatically.
 #'
 #' @param factor.interactions Deprecated. Superseded by factor.factor.interactions; retained only so older code does not break, and will warn if used.
 #'
@@ -46,11 +48,12 @@
 #'
 #' @details The function constructs and fits a complete model set based on the supplied arguments.
 #' for more information see Fisher R, Wilson SK, Sin TM, Lee AC, Langlois TJ (2018) A simple function for full-subsets multiple regression in ecology with R. Ecology and Evolution
-#' https://onlinelibrary.wiley.com/doi/abs/10.1002/ece3.4134
+#' \doi{10.1002/ece3.4134}
 #' @export
 #' @return A list of the following output files:
 #'
 #' mod.data.out - A data.frame that contains the statistics associated with each model fit. This includes AICc and BIC, delta values (e.g. AICc-(min(AICc)), corresponding weight values (Burnham and Anderson 2003), an estimate of the model R2, and a column for each of the included predictor variables containing either 0 (variable not included in the model) or 1 (variable is present in the model).
+#' A column r2.vals.unique is also present, and is NA unless report.unique.r2 is TRUE. This data.frame is the one fit_model_set() produced, passed through unaltered, so see \code{\link[=fit_model_set]{fit_model_set()}} for what the column is and is not.
 #' Use of BIC in information theoretic approaches has been heavily criticised because of the inherent assumption of BIC that there is a true model that is represented in the candidate set (Anderson & Burnham 2002). Rather than decide a-priori which model selection tool users should adopt, we supply both as part of the function outputs.
 #' To simplify output, only AICc and AICc based model weights, rather than AIC, are included as these are asymptotically equivalent at large sample sizes, and for small sample sizes AICc should be used in any case.
 #' Calculating R2 values is non-trivial for mixed models, especially non-gaussian cases (and some argue should not be done at all). We have supplied a range of methods for estimating R2 (r2.type), as in our experience a single method rarely performs adequately across all scenarios.
@@ -98,6 +101,7 @@ full_subsets_gam=function(use.dat,
                           k=5,
                           bs.arg="'cr'",
                           null.terms="",
+                          null.cov.cutoff=0.8,
                           max.models=200,
                           save.model.fits=TRUE,
                           parallel=FALSE,
@@ -106,6 +110,7 @@ full_subsets_gam=function(use.dat,
                           report.unique.r2=FALSE,
                           VI.mods='min.n',
                           progress=interactive(),
+                          logLik.fn=NULL,
                           factor.interactions,
                           smooth.interactions,
                           size){
@@ -164,7 +169,8 @@ full_subsets_gam=function(use.dat,
                           max.predictors=max.predictors,
                           k=k,
                           bs.arg=bs.arg,
-                          null.terms=null.terms)
+                          null.terms=null.terms,
+                          null.cov.cutoff=null.cov.cutoff)
 
   out.dat=fit_model_set(model.set.list=model.set,
                           max.models=max.models,
@@ -174,7 +180,8 @@ full_subsets_gam=function(use.dat,
                           r2.type=r2.type,
                           report.unique.r2=report.unique.r2,
                           VI.mods=VI.mods,
-                          progress=progress)
+                          progress=progress,
+                          logLik.fn=logLik.fn)
 
   # now return the list of outputs
   return(list(mod.data.out=out.dat$mod.data.out,

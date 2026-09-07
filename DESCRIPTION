@@ -1,10 +1,13 @@
 Package: FSSgam
-Title: Full Subsets Multiple Regression in R Using GAMs
-Version: 1.1.0.9000
-Authors@R:
+Title: Full Subsets Multiple Regression Using GAMs
+Version: 1.2.0
+Authors@R: c(
     person("Rebecca", "Fisher",
            email = "r.fisher@aims.gov.au",
-           role = c("aut", "cre"))
+           role = c("aut", "cre")),
+    person("Australian Institute of Marine Science",
+           role = "cph")
+    )
 Description:
     Full-subsets information-theoretic approaches are increasingly used to explore
     predictive power and variable importance when a wide range of candidate predictors
@@ -18,7 +21,7 @@ Description:
     interactions via te(). Methods are described in
     Fisher et al. (2018) <doi:10.1002/ece3.4134>.
 Depends:
-    R (>= 3.5)
+    R (>= 4.4.0)
 License: Apache License (== 2.0)
 Encoding: UTF-8
 LazyData: true
@@ -31,11 +34,12 @@ Imports:
     parallel,
     stats,
     utils
-URL: https://github.com/beckyfisher/FSSgam_package, https://beckyfisher.github.io/FSSgam_package, https://beckyfisher.github.io/FSSgam
+URL: https://github.com/beckyfisher/FSSgam_package, https://beckyfisher.github.io/FSSgam_package/, https://beckyfisher.github.io/FSSgam/
 BugReports: https://github.com/beckyfisher/FSSgam_package/issues
 Suggests:
     covr,
     gamm4,
-    testthat (>= 3.1.5)
+    Matrix,
+    testthat (>= 3.2.0)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0

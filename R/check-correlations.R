@@ -17,7 +17,7 @@
 #' generates a correlation matrix among all columns of a data.frame
 #' @param dat the data.frame containing the columns for which a correlation
 #' matrix is sought.
-#' @param parallel a logical indicating if calaculation of the correlation matrix
+#' @param parallel a logical indicating if calculation of the correlation matrix
 #' should be done in parallel. Defaults to FALSE.
 #' @param n.cores a numeric value indicating the number of cores to utilise if
 #' parallel is TRUE.
@@ -74,8 +74,18 @@ build_continuous_correlation_matrix=function(dat,cont.vars){
 build_factor_continuous_skeleton=function(dat,fact.vars,cont.vars,cor.mat){
    if(length(cont.vars)>0){
     lm.grid=expand.grid(list(fact.var=fact.vars,cont.var=cont.vars))
+    # try(), as the multinom() fits in fill_factor_factor_correlations() have.
+    # A single-level factor makes lm() stop with "contrasts can be applied only
+    # to factors with 2 or more levels", and without the guard that error
+    # propagated out of check_correlations() rather than leaving the cell NA,
+    # which is how every other failed fit here is handled (FSSgam_package#33).
+    #
+    # generate_model_set() now rejects such a factor by name before reaching
+    # this, so the guard is for a direct call and for whatever else lm() may
+    # fail on.
     r.estimates=cbind(lm.grid,apply(lm.grid,MARGIN=1,FUN=function(x){
-        sqrt(summary(stats::lm(dat[,x[2]]~factor(dat[,x[1]])))$r.sq)}))
+        fit=try(summary(stats::lm(dat[,x[2]]~factor(dat[,x[1]])))$r.sq,silent=TRUE)
+        if(inherits(fit,"try-error")){NA_real_}else{sqrt(fit)}}))
 
     fact.cont.upper.right=matrix(NA,ncol=length(fact.vars),nrow=length(cont.vars))
     colnames(fact.cont.upper.right)=fact.vars;rownames(fact.cont.upper.right)=cont.vars
