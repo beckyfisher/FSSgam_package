@@ -82,27 +82,6 @@ default – see the comment below for why.</p></dd>
 This wrapper was required to allow full_subsets_gam and fit_model_set to be applied to dsm models</p>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">mgcv</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">case_study1</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">base.fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">Herbivore.abundance</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">depth</span>, k <span class="op">=</span> <span class="fl">3</span>, bs <span class="op">=</span> <span class="st">"cr"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>                 family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/Tweedie.html" class="external-link">tw</a></span><span class="op">(</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">case_study1</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu">FSSgam</span><span class="fu">:::</span><span class="fu">fit_mod_l</span><span class="op">(</span>formula.l <span class="op">=</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">complexity</span>, k <span class="op">=</span> <span class="fl">3</span>, bs <span class="op">=</span> <span class="st">"cr"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>                   test.fit. <span class="op">=</span> <span class="va">base.fit</span>, use.dat <span class="op">=</span> <span class="va">case_study1</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Family: Tweedie(p=1.284) </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Link function: log </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Formula:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Herbivore.abundance ~ s(complexity, k = 3, bs = "cr")</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Estimated degrees of freedom:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1.79  total = 2.79 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> REML score: 262.1906     </span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 
