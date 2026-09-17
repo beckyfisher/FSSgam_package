@@ -124,3 +124,15 @@ elapsed, read from `FSSgam-Ex.timings`. The check was repeated with
 and 20 skipped, which reproduces the figures already recorded for 1.2.0.
 
 ---
+**Claude:** Merged to `dev` (#53) and `master` (#54), nine checks passing on
+each, and built `FSSgam_1.2.0.tar.gz` from `master` into `/mnt/c/Rworking/`.
+Verified against that tarball, on this host: no `:::` in its `R/` or `man/`;
+`R CMD check --as-cran` with the incoming checks enabled reports 0 errors, 0
+warnings and 1 note, "New submission" alone, with 910 passing, 0 failing and 13
+skipped; `R CMD Rd2pdf` under `R_RD4PDF="hyper"` builds the manual with no LaTeX
+error; `urlchecker::url_check()` reports all 11 URLs correct. The slowest of the
+twelve examples takes 0.56 seconds elapsed in this run against 0.52 in the
+earlier one, so `cran-comments.md` records the figure from the check of the
+tarball that is submitted.
+
+---
