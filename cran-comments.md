@@ -64,9 +64,9 @@ needs it calls `skip_if_not_installed()`.
   documentation (`@references`, `URL`).
 * All `@examples` are runnable; none are wrapped in `\donttest{}`. The slowest
   of the twelve takes 0.56 seconds elapsed, read from the `FSSgam-Ex.timings`
-  of this tarball's own check. Three of them are the examples of the deprecated aliases
-  named above, and each emits one deprecation warning, that being the behaviour
-  the example documents.
+  of this tarball's own check. Three of them are the examples of the deprecated
+  aliases named above, and each emits one deprecation warning, that being the
+  behaviour the example documents.
 * No `Language` field is declared. The documentation uses Australian spelling,
   but `DESCRIPTION` names "Generalized Additive Models", the standard term.
   Measured with `hunspell` 3.0.5: `en_GB` flags six words in the `Title` and
