@@ -63,8 +63,8 @@ needs it calls `skip_if_not_installed()`.
   <https://github.com/beckyfisher/FSSgam>, which is cited in the package
   documentation (`@references`, `URL`).
 * All `@examples` are runnable; none are wrapped in `\donttest{}`. The slowest
-  of the twelve takes 0.52 seconds elapsed, read from this resubmission's own
-  `FSSgam-Ex.timings`. Three of them are the examples of the deprecated aliases
+  of the twelve takes 0.56 seconds elapsed, read from the `FSSgam-Ex.timings`
+  of this tarball's own check. Three of them are the examples of the deprecated aliases
   named above, and each emits one deprecation warning, that being the behaviour
   the example documents.
 * No `Language` field is declared. The documentation uses Australian spelling,
