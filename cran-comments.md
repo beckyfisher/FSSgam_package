@@ -1,3 +1,17 @@
+## Resubmission
+
+This is a resubmission of 1.2.0. The previous submission was returned with:
+
+> Used ::: in documentation:
+>       man/fit_mod_l.Rd
+
+`fit_mod_l()` is an unexported supporting function, documented with
+`@keywords internal`. Its example was the only `:::` call anywhere in the
+package, and it has been removed rather than the function exported, the
+function being internal by design. `grep` over `R/` and `man/` finds no
+remaining `:::`. Nothing else changed, and the version number stands at 1.2.0,
+the earlier submission not having been published.
+
 ## Test environments
 
 * Local: Debian GNU/Linux (WSL2), R 4.6.1, `R CMD check --as-cran` on the built
@@ -49,7 +63,7 @@ needs it calls `skip_if_not_installed()`.
   <https://github.com/beckyfisher/FSSgam>, which is cited in the package
   documentation (`@references`, `URL`).
 * All `@examples` are runnable; none are wrapped in `\donttest{}`. The slowest
-  of the thirteen takes 0.60 seconds elapsed, read from the 1.2.0 check's own
+  of the twelve takes 0.52 seconds elapsed, read from this resubmission's own
   `FSSgam-Ex.timings`. Three of them are the examples of the deprecated aliases
   named above, and each emits one deprecation warning, that being the behaviour
   the example documents.
