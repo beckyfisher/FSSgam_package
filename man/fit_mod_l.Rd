@@ -36,12 +36,4 @@ Supporting function for functions full_subsets_gam and fit_model_set. Not called
 Generates an updated model fit based on the supplied formula.
 This wrapper was required to allow full_subsets_gam and fit_model_set to be applied to dsm models
 }
-\examples{
-library(mgcv)
-data(case_study1)
-base.fit <- gam(Herbivore.abundance ~ s(depth, k = 3, bs = "cr"),
-                 family = tw(), data = case_study1)
-FSSgam:::fit_mod_l(formula.l = ~ s(complexity, k = 3, bs = "cr"),
-                   test.fit. = base.fit, use.dat = case_study1)
-}
 \keyword{internal}
