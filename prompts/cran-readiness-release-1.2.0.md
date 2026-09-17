@@ -86,3 +86,41 @@ release and Ubuntu release, devel and 4.4.0, plus the R floor consistency job,
 the opt-in parallel tests, coverage and pkgdown.
 
 ---
+
+## Session: CRAN review response, ::: in documentation
+Date: 2026-09-17
+Model: Claude Opus 5 (1M context)
+
+### Prompts and Responses
+
+**User:** Supplied the CRAN reviewer's reply to the 1.2.0 submission. It quotes
+the policy on `foo:::f`, reports one occurrence, `man/fit_mod_l.Rd` calling
+`FSSgam:::fit_mod_l(...)` in its example, and asks for a fix and resubmission.
+
+**Claude:** `fit_mod_l()` was unexported in 1.1.0 (Phase 14) and is documented
+with `@keywords internal`, so no example can call it without `:::`. The two ways
+out are to export it again or to drop the example; re-exporting reverses a
+deliberate decision to keep an internal helper out of the public API, so the
+example was removed. The `@examples` block was deleted from the roxygen block in
+`R/functions_supporting.R` and `man/fit_mod_l.Rd` regenerated with
+`roxygen2::roxygenise()`. That file uses CRLF endings, so the deletion was made
+with `sed` rather than an editor that would have rewritten the whole file
+(Phase 14 note). `grep` over `R/` and `man/` finds no remaining `:::`; the
+occurrences in `tests/` are not documentation and were left.
+
+The version number stays at 1.2.0, on the user's ruling, 1.2.0 never having been
+published. `NEWS.md` is therefore unchanged, and `cran-comments.md` gains a
+`## Resubmission` section quoting the reviewer's finding and stating what was
+changed.
+
+Two figures in `cran-comments.md` were re-measured rather than copied from the
+previous submission, the example count having changed from thirteen to twelve. Measured on this host
+(Debian WSL2, R 4.6.1) against the built `FSSgam_1.2.0.tar.gz`:
+`R CMD check --as-cran` with both incoming-check variables set reports 0 errors,
+0 warnings and 1 note, that note being "New submission" alone, with 910 passing,
+0 failing and 13 skipped; the slowest of the twelve examples takes 0.52 seconds
+elapsed, read from `FSSgam-Ex.timings`. The check was repeated with
+`_R_CHECK_DEPENDS_ONLY_=true`, giving `Status: OK` with 887 passing, 0 failing
+and 20 skipped, which reproduces the figures already recorded for 1.2.0.
+
+---
