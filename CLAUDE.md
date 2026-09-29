@@ -13,7 +13,14 @@ where they conflict.
 
 ## 1. Repo Type
 
-**R package** — standard usethis/devtools structure. CRAN-ready as of the
+**R package** — standard usethis/devtools structure. **On CRAN**: 1.2.0 was
+published on 2026-09-28 (<https://CRAN.R-project.org/package=FSSgam>), and
+`dev` carries the development version `1.2.0.9000` from then on. A later
+submission is an update, not a new package, so `cran-comments.md` needs its
+"New submission" note and "no reverse dependencies" section revised, and
+reverse dependencies checked, before it goes. The accepted 1.2.0 content is
+`master` at `47c8210`; the first submission, returned for a `:::` example,
+was `dc4d3fe`. Structure dates from the
 v1.0.0 modernisation (Section 6): roxygen2 docs, explicit `Imports`,
 testthat suite, GitHub Actions R CMD check, `NEWS.md`, `cran-comments.md`.
 Has a pkgdown reference site (function docs only, no Articles/vignettes —
@@ -331,8 +338,13 @@ tools/
   PR, not to merge each branch in turn — the intermediate branches carry
   older trees and merging them adds nothing.
 
-- **`master` and `dev` share the same `DESCRIPTION` `Version`.** This was
-  not always true. Originally `dev` ran `1.0.0.9000` so pkgdown's
+- **`master` and `dev` no longer need to share a `DESCRIPTION` `Version`,
+  and after the CRAN release they do not.** `master` holds the released
+  `1.2.0`; `dev` holds `1.2.0.9000`, so an installation from GitHub is
+  distinguishable from the CRAN one. Merge `dev` into `master` only at a
+  release, after the release version is set on `dev`; a merge in between
+  carries the `.9000` version onto `master`. The history below is why the
+  version no longer controls the pkgdown build. Originally `dev` ran `1.0.0.9000` so pkgdown's
   `development: mode: auto` could resolve `master` to `release` and `dev`
   to `devel` purely from the Version string (Phase 8) — but that meant
   every ordinary merge/PR between the branches worked against the
@@ -610,8 +622,8 @@ Phase 6/6b decompositions.
 ### Phase 10 — Suggested next priorities
 
 With Phases 1–9 and 6b complete, candidates for what comes next (none started):
-- Tag a release and actually submit to CRAN (or decide what's still
-  blocking that).
+- ~~Tag a release and submit to CRAN.~~ Done: 1.2.0 accepted, published
+  2026-09-28 (Section 1).
 - The companion docs repo (`beckyfisher/FSSgam`) still calls the deprecated
   dot-case names in its vignettes — see `FSSgam-docs-CLAUDE.md` drafted for
   that repo (a copy may already be in place there as `CLAUDE.md`). Now that
