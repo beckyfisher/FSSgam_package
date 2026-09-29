@@ -17,11 +17,25 @@ in Fisher et al. (2018), *Ecology and Evolution*,
 
 ## Installation
 
+The released version is on
+[CRAN](https://CRAN.R-project.org/package=FSSgam):
+
 ``` r
 
-# install.packages("devtools")
-devtools::install_github("beckyfisher/FSSgam_package")
+install.packages("FSSgam")
 ```
+
+The development version is on GitHub, on the `dev` branch:
+
+``` r
+
+# install.packages("remotes")
+remotes::install_github("beckyfisher/FSSgam_package")
+```
+
+Fitting through `gamm4`, for example with `MuMIn::uGamm(lme4 = TRUE)`,
+also needs `install.packages("gamm4")`, which is suggested rather than
+imported.
 
 ## Usage
 

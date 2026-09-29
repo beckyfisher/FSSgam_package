@@ -12,13 +12,13 @@ Source:
 [`DESCRIPTION`](https://github.com/beckyfisher/FSSgam_package/blob/HEAD/DESCRIPTION)
 
 Fisher R (2026). *FSSgam: Full Subsets Multiple Regression Using GAMs*.
-R package version 1.2.0,
+R package version 1.2.0.9000,
 <https://github.com/beckyfisher/FSSgam_package>.
 
     @Manual{,
       title = {FSSgam: Full Subsets Multiple Regression Using GAMs},
       author = {Rebecca Fisher},
       year = {2026},
-      note = {R package version 1.2.0},
+      note = {R package version 1.2.0.9000},
       url = {https://github.com/beckyfisher/FSSgam_package},
     }

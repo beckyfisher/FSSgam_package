@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">FSSgam</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">1.2.0</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">1.2.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,7 +32,10 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="1.2.0" id="fssgam-120">FSSgam 1.2.0<a class="anchor" aria-label="anchor" href="#fssgam-120"></a></h2>
+<h2 class="pkg-version" data-toc-text="development version" id="fssgam-development-version">FSSgam (development version)<a class="anchor" aria-label="anchor" href="#fssgam-development-version"></a></h2>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.2.0" id="fssgam-120">FSSgam 1.2.0<a class="anchor" aria-label="anchor" href="#fssgam-120"></a></h2><p class="text-muted">CRAN release: 2026-09-28</p>
 <ul><li>
 <p><code><a href="../reference/generate_model_set.html">generate_model_set()</a></code> gains <code>null.cov.cutoff</code>, defaulting to 0.8, and returns <code>null.term.correlations</code>. <strong>Behaviour change:</strong> a predictor correlated with a variable named in <code>null.terms</code> above that cutoff is now dropped from the model set, and a warning names it, what it correlates with, and how strongly (FSSgam_package#23).</p>
 <p><code>null.terms</code> forces a term into every candidate, and those terms were outside the <code>cov.cutoff</code> screen, which covers <code>pred.vars.cont</code>, <code>pred.vars.fact</code> and <code>linear.vars</code> only. So a candidate could be arbitrarily strongly correlated with a forced term and appear in every model in the set. That inflates the variance of the forced term’s estimate, which is frequently the term the analysis exists to estimate, and nothing in the output indicated it.</p>
