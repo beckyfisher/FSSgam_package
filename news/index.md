@@ -2,6 +2,8 @@
 
 ## FSSgam 1.2.0
 
+CRAN release: 2026-09-28
+
 - [`generate_model_set()`](https://beckyfisher.github.io/FSSgam_package/reference/generate_model_set.md)
   gains `null.cov.cutoff`, defaulting to 0.8, and returns
   `null.term.correlations`. **Behaviour change:** a predictor correlated
